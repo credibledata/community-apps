@@ -1,0 +1,4 @@
+chamber,total_seats,dem_seats_not_up,rep_seats_not_up,dem_seats_current,rep_seats_current,dem_needs,rep_needs
+Senate,100,34,31,47,53,51,50
+House,435,0,0,214,219,218,218
+Governor,50,6,8,24,26,26,26

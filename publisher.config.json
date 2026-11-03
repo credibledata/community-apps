@@ -1,0 +1,10 @@
+{
+  "frozenConfig": true,
+  "environments": [
+    {
+      "name": "elections",
+      "packages": [{ "name": "midterms2026", "location": "./package" }],
+      "connections": []
+    }
+  ]
+}

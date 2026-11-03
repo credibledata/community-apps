@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Data sources and methodology · 2026 Midterms Simulation Explorer · Credible</title>
+    <meta name="description" content="The public data behind the 2026 midterms simulation, and how the Monte Carlo model turns it into a range of outcomes.">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="page">
+        <div class="eyebrow"><a href="./index.html">← 2026 Midterms Simulation Explorer</a></div>
+        <h1>Data sources and methodology</h1>
+      </div>
+    </header>
+
+    <div class="page layout">
+      <main class="main standalone">
+        <section class="block notes" aria-labelledby="about-h">
+          <h2 class="headline" id="about-h">About this project</h2>
+          <p class="subhead">
+            This app is a worked example of a Malloy semantic model powering an HTML data app. It
+            combines several public data sources (polls, prediction-market prices, past results,
+            demographics and expert ratings) and runs them through a Monte Carlo simulation that
+            you can adjust. It does not endorse any candidate or party, and its results are not a
+            prediction: they show what follows from the data and the assumptions, and every
+            assumption can be changed.
+          </p>
+          <ul class="method">
+            <li><b>What a Monte Carlo simulation is.</b> Rather than computing one answer, the model plays out the election thousands of times, each time drawing random polling errors within realistic bounds. Counting how often each outcome occurs gives a distribution of possible results.</li>
+            <li><b>Reading a percentage.</b> “Democrats win in 70% of simulations” means 7 in 10 runs ended that way under these assumptions. The other 3 in 10 are also plausible outcomes, and different assumptions produce different shares.</li>
+            <li><b>Reading a range.</b> The 80% range is the span that contains the middle 80% of simulated outcomes; one run in ten falls on each side of it.</li>
+            <li><b>Tipping point.</b> The tipping-point race is the one that supplies the seat that decides control. Its share is how often that happens across simulations.</li>
+          </ul>
+        </section>
+
+        <section class="block" aria-labelledby="sources-h">
+          <h2 class="headline" id="sources-h">The data</h2>
+          <p class="subhead">
+            One Malloy model, <code>elections.malloy</code>, served by Credible Publisher, over a
+            dated snapshot of public sources. The app reads only these tables; the simulation runs
+            in your browser. The data is as of Monday, November 2, 2026.
+          </p>
+          <div class="sources" id="sources"></div>
+        </section>
+
+        <section class="block notes" aria-labelledby="method-h">
+          <h2 class="headline" id="method-h">How the model works</h2>
+          <ol class="method">
+            <li><b>Partisan lean.</b> Every state and district's presidential margin relative to the nation, weighted 50/30/20 across 2024, 2020 and 2016, over the years available (districts are on their 2026 lines, which start in 2020) (<code>historical_results.partisan_lean</code>).</li>
+            <li><b>National environment.</b> 70% the recency-weighted generic-ballot average, 20% a prior from presidential approval, 10% special-election swing.</li>
+            <li><b>Fundamentals.</b> Lean + environment + incumbency + fundraising + any demographic swing you add. Governors move about 70% as much with the national tide. Fundraising counts only where both nominees file with the FEC (not governors). Where a party has no nominee, the leading independent stands in for its side (Dan Osborn in Nebraska).</li>
+            <li><b>Polls.</b> General-election head-to-heads between the nominees, adjusted for each pollster's house effect (estimated from how its polls compare with others' polls of the same race) and the registered- vs. likely-voter gap, shifted for how the generic ballot has moved since, then averaged with weights for FiveThirtyEight grade, sample size and recency.</li>
+            <li><b>Blend.</b> Polls get more weight the more and fresher they are; Sabato's Crystal Ball rating gets 8% where there is one; Kalshi prices get 30% where a race has a market (adjustable from 0 to 60%). Races where both finalists are from one party are decided before the simulation.</li>
+            <li><b>Bitecofer–Lichtman layer.</b> An optional structural layer based on two published frameworks: Allan Lichtman's “keys” and Rachel Bitecofer's negative-partisanship theory of turnout. It is on by default and can be scaled down or turned off with the levers, so its effect can be compared directly. Eleven keys are scored against the party holding the White House. Some are read from the data (approval, special elections); the rest are judgment calls, listed in the model, such as how to read the 2025 off-year results and recent elections abroad. Each turned key moves a structural environment by 1.25 points from the 2024 baseline, and the national environment is pulled 15% toward it. Because partisan lean comes from three elections with Trump on the ballot, the layer adjusts it for a midterm without him, using the 2018 and 2025 results as the pattern: college-educated places move slightly toward Democrats and places with many voters of color return part of their 2024 shift toward Republicans, both centred on the national shares. It also applies a 0.75-point poll adjustment toward Democrats, on the premise that polls underestimated Republicans in years with Trump on the ballot but not in years without him. Finally, it models higher polarization by reducing incumbency by a quarter, fundraising by half and race-level error by 8%. Each race's waterfall shows the layer's contribution.</li>
+            <li><b>Simulation.</b> Each run draws one national error, one per region, one along education lines and one per race, so races move together the way they do on election night. Every run uses the same random draws, so changing a lever moves the results only through the model, not through random noise.</li>
+          </ol>
+        </section>
+      </main>
+    </div>
+
+    <footer class="page footer">
+      <p>
+        <a href="./index.html">Back to the simulation</a> ·
+        A demonstration of a Malloy semantic model and an HTML data app, built with Credible Publisher.
+        Sources, licences and how each table is built: <code>data/README.md</code> in the package.
+      </p>
+      <p class="credits">
+        This is an educational simulation, not a prediction or an endorsement of any candidate or party.
+        It is independent and is not affiliated with or endorsed by any of the sources,
+        raters, or markets above. Wikipedia text is <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>;
+        FiveThirtyEight pollster ratings are <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.
+      </p>
+    </footer>
+
+    <div class="scrim" id="tile-scrim" hidden></div>
+    <div class="tile-modal quiet" id="tile-modal" role="dialog" aria-modal="true" aria-labelledby="tm-title" hidden>
+      <button class="close" id="tile-modal-close" type="button" aria-label="Close">×</button>
+      <div class="tm-name" id="tm-name"></div>
+      <h2 id="tm-title"></h2>
+      <p class="tm-sub" id="tm-sub"></p>
+      <div id="tm-body"></div>
+    </div>
+
+    <script src="/sdk/publisher.js"></script>
+    <script type="module" src="./methodology.js"></script>
+  </body>
+</html>

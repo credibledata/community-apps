@@ -1,0 +1,12 @@
+node_modules/
+.pnpm-store/
+# Raw source downloads; `pnpm data:real` re-fetches them. The curated and built outputs are committed.
+data-raw/
+scripts/fixtures/stub-data/
+# Local Publisher state
+publisher.db
+publisher.db.wal
+publisher_data/
+server.log
+.mcp.json
+.DS_Store

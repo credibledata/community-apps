@@ -1,0 +1,21 @@
+{
+  "name": "credible-elections-2026",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "malloy-publisher --server_root . --port 4000 --watch-env elections",
+    "data": "node scripts/build-data.mjs",
+    "data:real": "node scripts/data/fetch.mjs && node scripts/data/curate.mjs && node scripts/data/fetch-kalshi.mjs && node scripts/build-data.mjs",
+    "data:validate": "node scripts/validate-data.mjs",
+    "data:stub": "node scripts/generate-stub-data.mjs",
+    "geo": "node scripts/build-geo.mjs",
+    "test": "node --test package/tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@duckdb/node-api": "1.5.5-r.4",
+    "@malloy-publisher/server": "0.9.1",
+    "d3-geo": "^3.1.1",
+    "topojson-client": "^3.1.0",
+    "us-atlas": "^3.0.1"
+  }
+}

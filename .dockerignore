@@ -1,0 +1,13 @@
+# Tests and generators are for development; the image serves the model and the app.
+node_modules/
+scripts/
+data-raw/
+package/tests/
+.screens/
+.git/
+# Local Publisher state, if a dev run leaves any behind.
+publisher.db
+publisher.db.wal
+publisher_data/
+server.log
+.mcp.json

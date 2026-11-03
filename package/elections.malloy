@@ -1,0 +1,263 @@
+// 2026 U.S. midterm forecast — the semantic model behind the forecast app.
+//
+// The data is a dated snapshot of public sources (data/README.md has each table's source,
+// licence and as-of date): Wikipedia for the race map, incumbents and Sabato ratings; VoteHub
+// polls; FiveThirtyEight pollster grades; The Downballot district results and specials; MIT
+// Election Lab state results; Census ACS demographics; FEC fundraising; Kalshi prices. House
+// effects and the approval average are derived from the polls (scripts/build-data.mjs).
+//
+// Margins are always Democratic minus Republican, in percentage points: +4 = D+4, -4 = R+4.
+// The model keeps the deterministic, reviewable inputs here (partisan lean, poll adjustments,
+// pollster weights). The browser runs the parts a reader can tune: poll averaging, the blend
+// with fundamentals, and the Monte Carlo simulation (public/model.js).
+
+#(doc) One row per state and per 2026 House district, with ACS 2024 demographics and the last three presidential margins. Demographics are percentages of population; pct_college is the share of adults 25+ with a bachelor's degree. Districts redrawn for 2026 (redrawn_for_2026) have no census tabulation yet, so their demographics are null; district presidential margins start in 2020.
+source: geographies is duckdb.table('data/geographies.parquet') extend {
+  primary_key: geo_id
+
+  dimension:
+    is_state is kind = 'state'
+    is_district is kind = 'district'
+    #(doc) Share of population that is not non-Hispanic white.
+    pct_nonwhite is 100 - pct_white
+    #(doc) 2024 presidential margin (D minus R, points).
+    pres_margin_2024 is pres_2024
+
+  measure:
+    geography_count is count()
+    total_population is sum(population)
+    #(doc) Population-weighted share with a bachelor's degree.
+    avg_pct_college is sum(population * pct_college) / nullif(sum(population), 0)
+    avg_pct_nonwhite is sum(population * pct_nonwhite) / nullif(sum(population), 0)
+}
+
+#(doc) National popular-vote results, one row per year and office. Used to express every local result relative to the nation.
+source: national_results is duckdb.table('data/historical_results.parquet') extend {
+  where: geo_id = 'US'
+  dimension: national_margin is dem_pct - rep_pct
+}
+
+#(doc) Historical results, one row per year, office and geography: President 2016-2024 for the nation and every state (MIT Election Lab), and 2020/2024 President on the 2026 district lines (The Downballot; 2020 is missing for some redrawn districts). District rows have no vote totals.
+source: historical_results is duckdb.table('data/historical_results.parquet') extend {
+  join_one: nation is national_results on election_year = nation.election_year and office = nation.office
+
+  dimension:
+    #(doc) Democratic margin in points (D minus R).
+    margin is dem_pct - rep_pct
+    #(doc) Margin relative to the national result that year: how much bluer (+) or redder (-) than the country.
+    relative_margin is margin - nation.national_margin
+    winner is pick 'D' when margin > 0 else 'R'
+    #(doc) Weight in the partisan-lean index: 50% 2024, 30% 2020, 20% 2016 presidential.
+    lean_weight is pick 0.5 when office = 'President' and election_year = 2024
+      pick 0.3 when office = 'President' and election_year = 2020
+      pick 0.2 when office = 'President' and election_year = 2016
+      else 0
+
+  measure:
+    results is count()
+    votes_cast is sum(total_votes)
+    avg_margin is avg(margin)
+    #(doc) Partisan lean: weighted average of presidential margins relative to the nation (50/30/20 for 2024/2020/2016), renormalised over the years a geography has. D+5 means five points bluer than the country in a neutral year.
+    partisan_lean is source.sum(relative_margin * lean_weight) / nullif(source.sum(lean_weight), 0)
+
+  #(doc) Partisan lean for every state and district.
+  view: lean_by_geo is {
+    where: office = 'President' and geo_id != 'US'
+    group_by: geo_id
+    aggregate: partisan_lean
+    limit: 5000
+  }
+
+  #(doc) Every result for whatever geography the caller filters to, oldest first.
+  view: timeline is {
+    group_by: election_year, office, geo_id, dem_pct, rep_pct, other_pct, margin, relative_margin, total_votes
+    order_by: election_year, office
+    limit: 5000
+  }
+
+  #(doc) The national environment by year and office.
+  view: national_by_year is {
+    where: geo_id = 'US'
+    group_by: election_year, office, margin, total_votes
+    order_by: election_year
+  }
+}
+
+#(doc) Seat arithmetic per chamber: seats not up this cycle, current holdings, and what each party needs for control. Senate: the Vice President is a Republican, so Democrats need 51 and Republicans 50.
+source: chambers is duckdb.table('data/chambers.parquet') extend {
+  primary_key: chamber
+}
+
+#(doc) Every 2026 race: 35 Senate (including two specials), 36 governor and 435 House, from Wikipedia. expert_rating is Sabato's Crystal Ball (null where Sabato has none); fundraising is FEC total receipts for the two nominees (null for governors and where either side has not filed). "D" and "R" are the two sides of the race: where a party has no nominee, an independent stands in (matchup_note says so). locked_party is set when both finalists are from one party.
+source: races is duckdb.table('data/races.parquet') extend {
+  primary_key: race_id
+  join_one: geo is geographies with geo_id
+  join_many: lean_history is historical_results on geo_id = lean_history.geo_id
+
+  dimension:
+    #(doc) 1 for a Democratic incumbent, -1 Republican, 0 for an open seat, a new seat or an independent (the app places independents by their side of the race).
+    incumbent_sign is pick 0 when is_open_seat pick 1 when incumbent_party = 'D' pick -1 when incumbent_party = 'R' else 0
+    #(doc) Expert rating as a number, D-positive: Solid D = 3 ... Toss-up = 0 ... Solid R = -3. Null when unrated.
+    rating_score is pick 3 when expert_rating = 'Solid D' pick 2 when expert_rating = 'Likely D'
+      pick 1 when expert_rating = 'Lean D' pick 0 when expert_rating = 'Toss-up'
+      pick -1 when expert_rating = 'Lean R' pick -2 when expert_rating = 'Likely R'
+      pick -3 when expert_rating = 'Solid R'
+      else null
+    #(doc) Democratic share of the two major candidates' combined fundraising.
+    dem_money_share is dem_raised_m / nullif(dem_raised_m + rep_raised_m, 0)
+    is_competitive_rating is rating_score >= -1 and rating_score <= 1
+
+  measure:
+    race_count is count()
+    competitive_races is count() { where: is_competitive_rating }
+    #(doc) Partisan lean of the race's geography (see historical_results.partisan_lean).
+    race_lean is lean_history.partisan_lean
+
+  #(doc) Everything the forecast model needs per race, in one row: identity, incumbency, matchup, rating, money, partisan lean and demographics.
+  view: race_inputs is {
+    group_by:
+      race_id, office, state, geo_id, district_number, race_name, is_special,
+      incumbent_party, is_open_seat, incumbent_status, locked_party, matchup_note,
+      dem_candidate, rep_candidate, expert_rating, rating_score, dem_raised_m, rep_raised_m,
+      geo.region, geo.population, geo.pct_white, geo.pct_black, geo.pct_hispanic,
+      geo.pct_asian, geo.pct_college, geo.median_age, geo.median_income_k,
+      geo.pres_2016, geo.pres_2020, geo.pres_2024
+    aggregate: race_lean
+    order_by: race_id
+    limit: 5000
+  }
+
+  #(doc) Rating counts per chamber.
+  view: rating_mix is {
+    group_by: office, expert_rating, rating_score
+    aggregate: race_count
+    order_by: office, rating_score desc
+  }
+}
+
+#(doc) Pollster ratings. grade is FiveThirtyEight's numeric pollster rating as a letter (rating_538 names the 538 entry matched; unrated pollsters get C). house_effect is derived here: the pollster's average lean in points against other pollsters' polls of the same race within three weeks, shrunk toward zero for pollsters with few polls. D-positive: +1.5 means its polls run 1.5 points bluer.
+source: pollsters is duckdb.table('data/pollsters.parquet') extend {
+  primary_key: pollster
+  dimension:
+    #(doc) Weight from the letter grade: A+ = 1.0 down to C = 0.35.
+    grade_weight is pick 1.0 when grade = 'A+' pick 0.92 when grade = 'A'
+      pick 0.85 when grade = 'A-' pick 0.75 when grade = 'B+' pick 0.65 when grade = 'B'
+      pick 0.55 when grade = 'B-' pick 0.45 when grade = 'C+' else 0.35
+}
+
+#(doc) Every 2026 poll from VoteHub: the generic congressional ballot (race_id 'US-GENERIC') and general-election head-to-heads between the nominees. Shares are percentages of respondents; url links to the release.
+source: polls is duckdb.table('data/polls.parquet') extend {
+  primary_key: poll_id
+  join_one: pollster_info is pollsters on pollster = pollster_info.pollster
+  join_one: race is races on race_id = race.race_id
+
+  dimension:
+    #(doc) Raw Democratic margin as published (D minus R).
+    raw_margin is dem_pct - rep_pct
+    #(doc) Registered-voter polls run about 0.8 points bluer than likely-voter polls in midterms; subtracted to put them on a likely-voter basis.
+    population_adjustment is pick 0.8 when population = 'RV' pick 1.2 when population = 'A' else 0
+    #(doc) Margin after removing the pollster's house effect and the RV/LV gap.
+    adjusted_margin is raw_margin - coalesce(pollster_info.house_effect, 0) - population_adjustment
+    days_before_election is days(end_date to @2026-11-03)
+    is_generic_ballot is race_id = 'US-GENERIC'
+    poll_week is end_date.week
+
+  measure:
+    poll_count is count()
+    avg_raw_margin is avg(raw_margin)
+    avg_adjusted_margin is avg(adjusted_margin)
+    #(doc) Sample-size and grade weighted average of adjusted margins, with no recency decay. The app adds recency weighting.
+    weighted_margin is sum(adjusted_margin * pollster_info.grade_weight * sqrt(sample_size)) / nullif(sum(pollster_info.grade_weight * sqrt(sample_size)), 0)
+    latest_poll is max(end_date)
+
+  #(doc) Poll rows with the adjustments applied, ready for the app's recency-weighted average.
+  view: poll_rows is {
+    group_by:
+      poll_id, race_id, pollster, pollster_info.grade, pollster_info.grade_weight,
+      pollster_info.house_effect, start_date, end_date, days_before_election, sample_size,
+      population, dem_pct, rep_pct, undecided_pct, raw_margin, population_adjustment,
+      adjusted_margin, url
+    order_by: end_date, poll_id
+    limit: 20000
+  }
+
+  #(doc) Per-race poll summary without recency weighting, for comparison.
+  view: by_race is {
+    group_by: race_id
+    aggregate: poll_count, avg_raw_margin, avg_adjusted_margin, weighted_margin, latest_poll
+    order_by: poll_count desc
+  }
+
+  #(doc) How each pollster's polls compare after adjustment.
+  view: by_pollster is {
+    group_by: pollster, pollster_info.grade, pollster_info.house_effect, pollster_info.methodology
+    aggregate: poll_count, avg_raw_margin, avg_adjusted_margin
+    order_by: poll_count desc
+  }
+}
+
+#(doc) Daily prices on Kalshi's election markets (public API). yes_price is the price of "Yes, the D side wins" in dollars (0-1), read as an implied probability: the day's last trade, or the bid/ask midpoint on days without one. Includes Senate/House control (race_id 'US-SENATE', 'US-HOUSE') and every Senate, governor and House race Kalshi lists. is_latest marks each market's most recent day.
+source: kalshi_prices is duckdb.table('data/kalshi_prices.parquet') extend {
+  dimension:
+    price_week is price_date.week
+  measure:
+    days_traded is count()
+    avg_price is avg(yes_price)
+    total_volume_usd is sum(volume_usd)
+    last_date is max(price_date)
+
+  #(doc) Weekly average price per market, for trend lines.
+  view: weekly is {
+    group_by: race_id, market_ticker, price_week
+    aggregate: avg_price, total_volume_usd
+    order_by: race_id, price_week
+    limit: 20000
+  }
+
+  #(doc) The daily series for whatever market the caller filters to.
+  view: daily is {
+    group_by: race_id, price_date, yes_price, volume_usd
+    order_by: price_date
+    limit: 20000
+  }
+
+  #(doc) Price on each market's most recent day.
+  view: latest is {
+    where: is_latest
+    group_by: race_id, market_ticker, market_title, yes_price
+    aggregate: total_volume_usd
+  }
+}
+
+#(doc) Daily presidential approval average, derived from VoteHub's approval polls: each poll weighted by sqrt(sample size), halved every 14 days of age over a 60-day window, and divided by sqrt(its pollster's poll count) so frequent trackers don't dominate.
+source: approval is duckdb.table('data/approval.parquet') extend {
+  dimension:
+    #(doc) Net approval: approve minus disapprove, in points.
+    net_approval is approve_pct - disapprove_pct
+  measure:
+    avg_net_approval is avg(net_approval)
+  view: trend is {
+    group_by: approval_date, approve_pct, disapprove_pct, net_approval
+    order_by: approval_date
+    limit: 5000
+  }
+}
+
+#(doc) State legislative and congressional special elections since January 2025 with a D-vs-R contest, compared with the 2024 presidential margin in the same seat (The Downballot's tracker).
+source: special_elections is duckdb.table('data/special_elections.parquet') extend {
+  dimension:
+    #(doc) How far the result moved toward Democrats relative to the 2024 presidential margin.
+    swing is result_margin - pres_2024_margin
+  measure:
+    special_count is count()
+    avg_swing is avg(swing)
+    #(doc) Turnout-weighted average swing where vote totals exist; the plain average otherwise (the tracker publishes margins, not totals).
+    weighted_swing is coalesce(sum(swing * total_votes) / nullif(sum(total_votes), 0), avg(swing))
+  view: list is {
+    group_by: election_date, state, district, chamber, pres_2024_margin, result_margin, swing, total_votes
+    order_by: election_date
+  }
+  view: summary is {
+    aggregate: special_count, avg_swing, weighted_swing
+  }
+}

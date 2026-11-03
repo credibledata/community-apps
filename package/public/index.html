@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>2026 Midterms Simulation Explorer · Credible</title>
+    <meta name="description" content="An interactive Monte Carlo simulation of every 2026 Senate, House and governor's race from public data, with adjustable assumptions. A demonstration of Malloy semantic models and HTML data apps.">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="page">
+        <div class="eyebrow">2026 Midterms Simulation Explorer · Data as of <span id="as-of">Nov 2, 2026</span></div>
+        <h1></h1>
+        <p class="dek">
+          A Monte Carlo simulation of all <b>506 races</b> on the 2026 ballot, run
+          <b id="sim-count">10,000</b> times from public polls, prediction-market prices,
+          past results, and demographics. Each run is one potential set of outcomes; the
+          charts show how often each result occurs in this model. Change the assumptions to see how the
+          results change.
+        </p>
+      </div>
+    </header>
+
+    <section class="page topline" aria-label="Simulation summary">
+      <button class="top-card" data-office="Senate" type="button">
+        <div class="top-kicker">Senate</div>
+        <div class="top-odds"><span class="who" id="t-sen-who">—</span> <span id="t-sen-odds">—</span></div>
+        <div class="top-sub" id="t-sen-sub">&nbsp;</div>
+        <div class="dots" id="t-sen-dots"></div>
+        <div class="delta" id="t-sen-delta"></div>
+      </button>
+      <button class="top-card" data-office="House" type="button">
+        <div class="top-kicker">House</div>
+        <div class="top-odds"><span class="who" id="t-hou-who">—</span> <span id="t-hou-odds">—</span></div>
+        <div class="top-sub" id="t-hou-sub">&nbsp;</div>
+        <div class="dots" id="t-hou-dots"></div>
+        <div class="delta" id="t-hou-delta"></div>
+      </button>
+      <button class="top-card" data-office="Governor" type="button">
+        <div class="top-kicker">Governors</div>
+        <div class="top-odds"><span class="who" id="t-gov-who">—</span> <span id="t-gov-odds">—</span></div>
+        <div class="top-sub" id="t-gov-sub">&nbsp;</div>
+        <div class="dots" id="t-gov-dots"></div>
+        <div class="delta" id="t-gov-delta"></div>
+      </button>
+    </section>
+
+    <div class="page layout">
+      <main class="main">
+        <nav class="tabs" role="tablist" aria-label="Office">
+          <button role="tab" data-office="Senate" type="button">Senate</button>
+          <button role="tab" data-office="House" type="button">House</button>
+          <button role="tab" data-office="Governor" type="button">Governors</button>
+        </nav>
+
+        <section class="block" aria-labelledby="office-headline">
+          <h2 class="headline" id="office-headline">&nbsp;</h2>
+          <p class="subhead" id="office-sub">&nbsp;</p>
+          <div class="panel flush">
+            <div class="panel-head">
+              <h3>Balance of power</h3>
+              <p id="balance-sub">Average seats across simulations. Hatched = not up this year.</p>
+            </div>
+            <div id="balance"></div>
+          </div>
+
+          <div class="grid map-row">
+            <article class="panel">
+              <div class="panel-head">
+                <h3 id="map-title">The map</h3>
+                <p id="map-sub">Shaded by the share of simulations each party wins. Click a state to see how its estimate is built.</p>
+              </div>
+              <div id="map" class="map-box"></div>
+              <div class="legend-ramp" id="map-legend"></div>
+              <div id="district-strip-wrap" hidden>
+                <div class="panel-head inner">
+                  <h4 id="district-title">Every district</h4>
+                  <p>Each square is one House seat. Click one for its details.</p>
+                </div>
+                <div id="district-strip"></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="grid two">
+            <article class="panel">
+              <div class="panel-head">
+                <h3>Distribution of simulated outcomes</h3>
+                <p id="hist-sub">Democratic seats after the election, across simulations.</p>
+              </div>
+              <div id="seat-hist"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h3>Results over time</h3>
+                <p>Share of simulations with Democratic control, re-run for each week using only the data available on that date, alongside Kalshi market prices.</p>
+              </div>
+              <div id="history" class="loading-box">Simulating the campaign…</div>
+              <div class="legend" id="history-legend"></div>
+            </article>
+          </div>
+
+          <article class="panel">
+            <div class="panel-head">
+              <h3>Races ordered by simulated margin</h3>
+              <p id="snake-sub">Every race ordered from most Democratic to most Republican. The line marks the seat that decides control.</p>
+            </div>
+            <div id="snake"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head row">
+              <div>
+                <h3>All races</h3>
+                <p>Sorted by closeness. Tipping point: the share of simulations in which this race supplies the seat that decides control.</p>
+              </div>
+              <div class="table-tools">
+                <input type="search" id="race-search" placeholder="Search a state or district" aria-label="Search races">
+                <label class="check"><input type="checkbox" id="race-competitive" checked> Competitive only</label>
+              </div>
+            </div>
+            <div class="table-wrap"><table class="races" id="race-table"></table></div>
+          </article>
+        </section>
+
+        <section class="block" aria-labelledby="drivers-h">
+          <h2 class="headline" id="drivers-h">Inside the simulation</h2>
+          <p class="subhead">The model is built from a few named inputs. Each panel shows one of them; expand a panel to see the Malloy query behind it and its results.</p>
+
+          <div class="grid two">
+            <article class="panel" data-tile="environment">
+              <div class="panel-head">
+                <h3>The national environment</h3>
+                <p>A single national shift applied to every race. Generic-ballot polls (dots, sized by weight) and the model's blended environment.</p>
+              </div>
+              <div class="env-formula" id="env-formula"></div>
+              <div id="env-chart"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h3>Sensitivity to each assumption</h3>
+                <p id="tornado-sub">Change in the share of simulations where Democrats win control when each lever moves one step down (faded) or up (solid).</p>
+              </div>
+              <div id="tornado" class="loading-box">Measuring sensitivity…</div>
+            </article>
+          </div>
+
+          <div class="grid two">
+            <article class="panel" data-tile="markets">
+              <div class="panel-head">
+                <h3>Model vs. market</h3>
+                <p>Each dot is a race with a Kalshi market: the model's simulated share (across) against the market price (up). Dots off the diagonal are where the two differ.</p>
+              </div>
+              <div id="market-scatter"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h3>Inputs behind each race</h3>
+                <p>How much of each competitive race's estimate comes from fundamentals, polls, expert ratings and markets.</p>
+              </div>
+              <div id="blend-mix"></div>
+            </article>
+          </div>
+
+          <div class="grid two">
+            <article class="panel" data-tile="pollsters">
+              <div class="panel-head">
+                <h3>Pollsters and their house effects</h3>
+                <p>The model subtracts each pollster's lean before averaging. Positive = runs bluer than average.</p>
+              </div>
+              <div class="table-wrap short"><table class="pollsters" id="pollster-table"></table></div>
+            </article>
+            <article class="panel" data-tile="specials">
+              <div class="panel-head">
+                <h3>Special elections</h3>
+                <p>Swing toward Democrats vs. the 2024 presidential margin in the same seat. Special elections have low turnout and are a noisy guide to general elections, so the model gives them a 10% weight.</p>
+              </div>
+              <div id="specials-chart"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="page footer">
+      <p>
+        <a href="./methodology.html">Data sources and methodology</a> ·
+        A demonstration of a Malloy semantic model and an HTML data app, built with Credible Publisher.
+      </p>
+      <p class="credits">
+        This is an educational simulation, not a prediction or an endorsement of any candidate or
+        party. Its results depend on the assumptions shown, all of which can be changed above.
+      </p>
+      <p class="credits">
+        Data as of the date above, from
+        <a href="https://en.wikipedia.org/wiki/2026_United_States_elections">Wikipedia</a> (races, incumbents and Sabato's Crystal Ball ratings; <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>),
+        <a href="https://votehub.com/">VoteHub</a> (polls),
+        <a href="https://github.com/fivethirtyeight/data/tree/master/pollster-ratings">FiveThirtyEight</a> (pollster ratings; <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>),
+        <a href="https://www.the-downballot.com/">The Downballot</a> (district results and special elections),
+        <a href="https://electionlab.mit.edu/data">MIT Election Data and Science Lab</a> (state results),
+        the <a href="https://www.census.gov/programs-surveys/acs">U.S. Census Bureau</a> (ACS demographics),
+        the <a href="https://www.fec.gov/data/browse-data/?tab=bulk-data">FEC</a> (fundraising) and
+        <a href="https://kalshi.com/">Kalshi</a> (market prices).
+        House effects and the approval average are calculated here. This project is independent
+        and is not affiliated with or endorsed by any of these sources, raters, or markets.
+      </p>
+    </footer>
+
+    <aside class="levers" id="levers" aria-labelledby="levers-title">
+      <div class="levers-inner">
+        <div class="levers-head">
+          <h2 id="levers-title">Scenarios</h2>
+          <span class="status" id="sim-status" aria-live="polite">Loading…</span>
+        </div>
+        <p class="levers-dek">
+          Change an assumption and the simulation re-runs in your browser.
+        </p>
+        <div class="presets" id="presets" role="group" aria-label="Scenarios"></div>
+        <button class="levers-toggle" id="levers-toggle" type="button"
+                aria-controls="levers-fine" aria-expanded="false">
+          <span>Fine-tune the assumptions</span>
+          <span class="levers-toggle-count" id="levers-toggle-count"></span>
+          <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 4.5 6 7.5 9 4.5"/>
+          </svg>
+        </button>
+        <div class="levers-fine" id="levers-fine" inert>
+          <div class="levers-fine-inner">
+            <div id="sliders"></div>
+            <div class="levers-foot">
+              <button class="linkbtn" id="reset" type="button">Reset</button>
+              <button class="linkbtn" id="copy-link" type="button">Copy link</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="scrim" id="scrim" hidden></div>
+    <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="d-title" hidden>
+      <button class="close" id="drawer-close" type="button" aria-label="Close">×</button>
+      <div class="eyebrow" id="d-eyebrow"></div>
+      <h2 id="d-title"></h2>
+      <div class="d-meta" id="d-meta"></div>
+
+      <div class="d-odds">
+        <div class="d-odds-bar" id="d-odds-bar"></div>
+        <div class="d-odds-labels" id="d-odds-labels"></div>
+      </div>
+      <p class="d-summary" id="d-summary"></p>
+
+      <h4>Range of outcomes</h4>
+      <div id="d-hist"></div>
+
+      <h4>How this estimate is built</h4>
+      <p class="d-note">Fundamentals, step by step. Hover any bar for its source.</p>
+      <div id="d-waterfall"></div>
+      <p class="d-note">Then the fundamentals are blended with the poll average, expert rating and market:</p>
+      <div id="d-blend"></div>
+      <div class="d-stakes" id="d-stakes"></div>
+
+      <h4>Polls</h4>
+      <div id="d-polls-chart"></div>
+      <div class="table-wrap short"><table class="polls" id="d-polls"></table></div>
+
+      <div id="d-market-wrap">
+        <h4>Prediction market</h4>
+        <div id="d-market"></div>
+      </div>
+
+      <h4>Past results</h4>
+      <p class="d-note">Bars: Democratic margin. Black tick: margin relative to the nation that year.</p>
+      <div id="d-history"></div>
+
+      <h4>Who lives here</h4>
+      <div id="d-demo"></div>
+
+      <button class="d-malloy" id="d-malloy" type="button">The Malloy queries behind this race</button>
+    </aside>
+
+    <div class="scrim" id="tile-scrim" hidden></div>
+    <div class="tile-modal quiet" id="tile-modal" role="dialog" aria-modal="true" aria-labelledby="tm-title" hidden>
+      <button class="close" id="tile-modal-close" type="button" aria-label="Close">×</button>
+      <h2 id="tm-title"></h2>
+      <p class="tm-sub" id="tm-sub"></p>
+      <div class="tm-chart" id="tm-chart"></div>
+      <div id="tm-queries"></div>
+    </div>
+
+    <script src="/sdk/publisher.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

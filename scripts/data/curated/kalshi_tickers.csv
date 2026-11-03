@@ -1,0 +1,144 @@
+race_id,series_ticker,market_ticker,market_title,yes_side
+US-SENATE,CONTROLS,CONTROLS-2026-D,Will Democrats win the U.S. Senate in 2026?,Democratic Party
+US-HOUSE,CONTROLH,CONTROLH-2026-D,Will Democrats win the House in 2026?,Democratic Party
+SEN-FL-S,SENATEFLS,SENATEFLS-26-D,Will Democratics win the Senate race in Florida?,Angie Nixon
+SEN-OH-S,SENATEOHS,SENATEOHS-26-D,Will Democratics win the Senate race in Ohio?,Sherrod Brown
+SEN-AL,SENATEAL,SENATEAL-26-D,Will Democratics win the Senate race in Alabama?,Everett Wess
+SEN-AK,SENATEAK,SENATEAK-26-D,Will Democratics win the Senate race in Alaska?,Democratic party
+SEN-AR,SENATEAR,SENATEAR-26-D,Will Democratics win the Senate race in Arkansas?,Hallie Shoffner
+SEN-CO,SENATECO,SENATECO-26-D,Will Democratics win the Senate race in Colorado?,John Hickenlooper
+SEN-DE,SENATEDE,SENATEDE-26-D,Will Democratics win the Senate race in Delaware?,Chris Coons
+SEN-GA,SENATEGA,SENATEGA-26-D,Will Democratics win the Senate race in Georgia?,Jon Ossoff
+SEN-ID,SENATEID,SENATEID-26-TACH,Will Todd Achilless win the Senate race in Idaho?,Todd Achilles
+SEN-IL,SENATEIL,SENATEIL-26-D,Will Democratics win the Senate race in Illinois?,Juliana Stratton
+SEN-IA,SENATEIA,SENATEIA-26-D,Will Democratics win the Senate race in Iowa?,Josh Turek
+SEN-KS,SENATEKS,SENATEKS-26-D,Will Democratics win the Senate race in Kansas?,Adam Hamilton
+SEN-ME,SENATEME,SENATEME-26-D,Will Democratics win the Senate race in Maine?,Troy Jackson
+SEN-MA,SENATEMA,SENATEMA-26-D,Will Democratics win the Senate race in Massachusetts?,Ed Markey
+SEN-MI,SENATEMI,SENATEMI-26-D,Will Democratics win the Senate race in Michigan?,Abdul El-Sayed
+SEN-MN,SENATEMN,SENATEMN-26-D,Will Democratic (DFL)s win the Senate race in Minnesota?,Peggy Flanagan
+SEN-MS,SENATEMS,SENATEMS-26-D,Will Democratics win the Senate race in Mississippi?,Scott Colom
+SEN-MT,SENATEMT,SENATEMT-26-D,Will Democratics win the Senate race in Montana?,Alani Bankhead
+SEN-NE,SENATENE,SENATENE-26-DOSB,Will Dan Osborn (as an independent)s win the Senate race in Nebraska?,Dan Osborn
+SEN-NH,SENATENH,SENATENH-26-D,Will Democratics win the Senate race in New Hampshire?,Chris Pappas
+SEN-NJ,SENATENJ,SENATENJ-26-D,Will Democratics win the Senate race in New Jersey?,Cory Booker
+SEN-NM,SENATENM,SENATENM-26-D,Will Democratics win the Senate race in New Mexico?,Ben Ray Luján
+SEN-NC,SENATENC,SENATENC-26-D,Will Democratics win the Senate race in North Carolina?,Roy Cooper
+SEN-OK,SENATEOK,SENATEOK-26-D,Will Democratics win the Senate race in Oklahoma?,N’Kiyla Thomas
+SEN-OR,SENATEOR,SENATEOR-26-D,Will Democratics win the Senate race in Oregon?,Jeff Merkley
+SEN-RI,SENATERI,SENATERI-26-D,Will Democratics win the Senate race in Rhode Island?,Jack Reed
+SEN-SC,SENATESC,SENATESC-26-D,Will Democratics win the Senate race in South Carolina?,Annie Andrews
+SEN-SD,SENATESD,SENATESD-26-BBEN,Will Brian Bengss win the Senate race in South Dakota?,Brian Bengs
+SEN-TN,SENATETN,SENATETN-26-D,Will Democratics win the Senate race in Tennessee?,Marquita Bradshaw
+SEN-TX,SENATETX,SENATETX-26-D,Will Democratics win the Senate race in Texas?,James Talarico
+SEN-VA,SENATEVA,SENATEVA-26-D,Will Democratics win the Senate race in Virginia?,Mark Warner
+SEN-WV,SENATEWV,SENATEWV-26-D,Will Democratics win the Senate race in West Virginia?,Rachel Fetty Anderson
+SEN-WY,SENATEWY,SENATEWY-26-D,Will Democratics win the Senate race in Wyoming?,James Byrd
+GOV-AL,GOVPARTYAL,GOVPARTYAL-26-D,Will the Democratic party win the governorship in Alabama,Doug Jones
+GOV-AK,KXGOVPARTYAK,KXGOVPARTYAK-26-D,Will the Democratic party win the governorship in Alaska,Democratic party
+GOV-AZ,GOVPARTYAZ,GOVPARTYAZ-26-D,Will the Democratic party win the governorship in Arizona,Katie Hobbs
+GOV-AR,GOVPARTYAR,GOVPARTYAR-26-D,Will the Democratic party win the governorship in Arkansas,Fred Love
+GOV-CA,GOVPARTYCA,GOVPARTYCA-26-D,Will the Democratic party win the governorship in California,Xavier Becerra
+GOV-CO,GOVPARTYCO,GOVPARTYCO-26-D,Will the Democratic party win the governorship in Colorado,Phil Weiser
+GOV-CT,GOVPARTYCT,GOVPARTYCT-26-D,Will the Democratic party win the governorship in Connecticut,Ned Lamont
+GOV-FL,GOVPARTYFL,GOVPARTYFL-26-D,Will the Democratic party win the governorship in Florida,David Jolly
+GOV-GA,GOVPARTYGA,GOVPARTYGA-26-D,Will the Democratic party win the governorship in Georgia,Keisha Lance Bottoms
+GOV-HI,GOVPARTYHI,GOVPARTYHI-26-D,Will the Democratic party win the governorship in Hawaii,Josh Green
+GOV-ID,GOVPARTYID,GOVPARTYID-26-D,Will the Democratic party win the governorship in Idaho,Terri Pickens
+GOV-IL,GOVPARTYIL,GOVPARTYIL-26-D,Will the Democratic party win the governorship in Illinois,JB Pritzker
+GOV-IA,GOVPARTYIA,GOVPARTYIA-26-D,Will the Democratic party win the governorship in Iowa,Rob Sand
+GOV-ME,GOVPARTYME,GOVPARTYME-26-D,Will the Democratic party win the governorship in Maine,Hannah Pingree
+GOV-MD,GOVPARTYMD,GOVPARTYMD-26-D,Will the Democratic party win the governorship in Maryland,Wes Moore
+GOV-MA,GOVPARTYMA,GOVPARTYMA-26-D,Will the Democratic party win the governorship in Massachusetts,Maura Healey
+GOV-MI,GOVPARTYMI,GOVPARTYMI-26-D,Will the Democratic party win the governorship in Michigan,Jocelyn Benson
+GOV-MN,GOVPARTYMN,GOVPARTYMN-26-D,Will the Democratic party win the governorship in Minnesota,Amy Klobuchar
+GOV-NE,GOVPARTYNE,GOVPARTYNE-26-D,Will the Democratic party win the governorship in Nebraska,Lynne Walz
+GOV-NV,GOVPARTYNV,GOVPARTYNV-26-D,Will the Democratic party win the governorship in Nevada,Aaron Ford
+GOV-NM,GOVPARTYNM,GOVPARTYNM-26-D,Will the Democratic party win the governorship in New Mexico,Deb Haaland
+GOV-NY,GOVPARTYNY,GOVPARTYNY-26-D,Will the Democratic party win the governorship in New York,Kathy Hochul
+GOV-OH,GOVPARTYOH,GOVPARTYOH-26-D,Will the Democratic party win the governorship in Ohio,Amy Acton
+GOV-OK,GOVPARTYOK,GOVPARTYOK-26-D,Will the Democratic party win the governorship in Oklahoma,Cyndi Munson
+GOV-OR,GOVPARTYOR,GOVPARTYOR-26-D,Will the Democratic party win the governorship in Oregon,Tina Kotek
+GOV-PA,GOVPARTYPA,GOVPARTYPA-26-D,Will the Democratic party win the governorship in Pennsylvania,Josh Shapiro
+GOV-RI,GOVPARTYRI,GOVPARTYRI-26-D,Will the Democratic party win the governorship in Rhode Island,Helena Foulkes
+GOV-SC,GOVPARTYSC,GOVPARTYSC-26-D,Will the Democratic party win the governorship in South Carolina,Jermaine Johnson
+GOV-SD,GOVPARTYSD,GOVPARTYSD-26-D,Will the Democratic party win the governorship in South Dakota,Dan Ahlers
+GOV-TN,GOVPARTYTN,GOVPARTYTN-26-D,Will the Democratic party win the governorship in Tennessee,Jerri Green
+GOV-TX,GOVPARTYTX,GOVPARTYTX-26-D,Will the Democratic party win the governorship in Texas,Gina Hinojosa
+GOV-VT,GOVPARTYVT,GOVPARTYVT-26-D,Will the Democratic party win the governorship in Vermont,Amanda Janoo
+GOV-WI,GOVPARTYWI,GOVPARTYWI-26-D,Will the Democratic party win the governorship in Wisconsin,David Crowley
+GOV-WY,GOVPARTYWY,GOVPARTYWY-26-D,Will the Democratic party win the governorship in Wyoming,Kenneth Casner
+HOU-AK-01,HOUSEAKAL,HOUSEAKAL-26-D,Will Democratic win the House race for AK-AL?,Eric Hafner
+HOU-AZ-01,HOUSEAZ1,HOUSEAZ1-26-D,Will Democratic win the House race for AZ-1?,Amish Shah
+HOU-AZ-02,HOUSEAZ2,HOUSEAZ2-26-D,Will Democratic win the House race for AZ-2?,Jonathan Nez
+HOU-AZ-06,HOUSEAZ6,HOUSEAZ6-26-D,Will Democratic win the House race for AZ-6?,JoAnna Mendoza
+HOU-CA-03,HOUSECA3,HOUSECA3-26-D,Will Democratic win the House race for CA-3?,Ami Bera
+HOU-CA-09,HOUSECA9,HOUSECA9-26-D,Will Democratic win the House race for CA-9?,Josh Harder
+HOU-CA-13,HOUSECA13,HOUSECA13-26-D,Will Democratic win the House race for CA-13?,Adam Gray
+HOU-CA-21,HOUSECA21,HOUSECA21-26-D,Will a Democrat win the House race for CA-21?,Jim Costa
+HOU-CA-22,HOUSECA22,HOUSECA22-26-D,Will Democratic win the House race for CA-22?,Randy Villegas
+HOU-CA-27,HOUSECA27,HOUSECA27-26-D,Will Democratic win the House race for CA-27?,George Whitesides
+HOU-CA-41,HOUSECA41,HOUSECA41-26-D,Will Democratic win the House race for CA-41?,Linda Sánchez
+HOU-CA-45,HOUSECA45,HOUSECA45-26-D,Will Democratic win the House race for CA-45?,Derek Tran
+HOU-CA-47,HOUSECA47,HOUSECA47-26-D,Will Democratic win the House race for CA-47?,Dave Min
+HOU-CA-49,HOUSECA49,HOUSECA49-26-D,Will a Democrat win the House race for CA-49?,Mike Levin
+HOU-CO-03,HOUSECO3,HOUSECO3-26-D,Will Democratic win the House race for CO-3?,Dwayne Romero
+HOU-CO-08,HOUSECO8,HOUSECO8-26-D,Will Democratic win the House race for CO-8?,Manny Rutinel
+HOU-CT-05,HOUSECT5,HOUSECT5-26-D,Will a Democrat win the House race for CT-5?,Jahana Hayes
+HOU-FL-13,HOUSEFL13,HOUSEFL13-26-D,Will Democratic win the House race for FL-13?,Leela Gray
+HOU-FL-23,HOUSEFL23,HOUSEFL23-26-D,Will Democratic win the House race for FL-23?,Lois Frankel
+HOU-IL-17,HOUSEIL17,HOUSEIL17-26-D,Will a Democrat win the House race for IL-17?,Eric Sorensen
+HOU-IN-01,HOUSEIN1,HOUSEIN1-26-D,Will a Democrat win the House race for IN-1?,Frank Mrvan
+HOU-IN-07,KXHOUSEIN7,KXHOUSEIN7-26-D,Will Democrats win the House race for IN-07?,André Carson
+HOU-IA-01,HOUSEIA1,HOUSEIA1-26-D,Will Democratic win the House race for IA-1?,Christina Bohannan
+HOU-IA-03,HOUSEIA3,HOUSEIA3-26-D,Will Democratic win the House race for IA-3?,Sarah Trone Garriott
+HOU-ME-02,HOUSEME2,HOUSEME2-26-D,Will Democratic win the House race for ME-2?,Matt Dunlap
+HOU-MI-03,HOUSEMI3,HOUSEMI3-26-D,Will a Democrat win the House race for MI-3?,Hillary Scholten
+HOU-MI-04,HOUSEMI4,HOUSEMI4-26-D,Will Democratic win the House race for MI-4?,Sean McCann
+HOU-MI-07,HOUSEMI7,HOUSEMI7-26-D,Will Democratic win the House race for MI-7?,William Lawrence
+HOU-MI-08,HOUSEMI8,HOUSEMI8-26-D,Will Democratic win the House race for MI-8?,Kristen McDonald Rivet
+HOU-MI-10,HOUSEMI10,HOUSEMI10-26-D,Will Democratic win the House race for MI-10?,Christina Hines
+HOU-MN-02,HOUSEMN2,HOUSEMN2-26-D,Will a Democrat win the House race for MN-2?,Matt Little
+HOU-MO-05,KXHOUSEMO5,KXHOUSEMO5-26-D,Will Democratic win the House race for MO-05?,Emanuel Cleaver
+HOU-MT-01,HOUSEMT1,HOUSEMT1-26-D,Will Democratic win the House race for MT-1?,Sam Forstag
+HOU-NE-02,HOUSENE2,HOUSENE2-26-D,Will Democratic win the House race for NE-2?,Denise Powell
+HOU-NV-01,HOUSENV1,HOUSENV1-26-D,Will a Democrat win the House race for NV-1?,Dina Titus
+HOU-NV-03,HOUSENV3,HOUSENV3-26-D,Will Democratic win the House race for NV-3?,Susie Lee
+HOU-NV-04,HOUSENV4,HOUSENV4-26-D,Will a Democrat win the House race for NV-4?,Steven Horsford
+HOU-NH-01,HOUSENH1,HOUSENH1-26-D,Will a Democrat win the House race for NH-1?,Stefany Shaheen
+HOU-NJ-05,HOUSENJ5,HOUSENJ5-26-D,Will a Democrat win the House race for NJ-5?,Josh Gottheimer
+HOU-NJ-07,HOUSENJ7,HOUSENJ7-26-D,Will Democratic win the House race for NJ-7?,Rebecca Bennett
+HOU-NJ-09,HOUSENJ9,HOUSENJ9-26-D,Will Democratic win the House race for NJ-9?,Nellie Pou
+HOU-NM-02,HOUSENM2,HOUSENM2-26-D,Will Democratic win the House race for NM-2?,Gabe Vasquez
+HOU-NY-03,HOUSENY3,HOUSENY3-26-D,Will a Democrat win the House race for NY-3?,Tom Suozzi
+HOU-NY-04,HOUSENY4,HOUSENY4-26-D,Will Democratic win the House race for NY-4?,Laura Gillen
+HOU-NY-17,HOUSENY17,HOUSENY17-26-D,Will Democratic win the House race for NY-17?,Cait Conley
+HOU-NY-18,HOUSENY18,HOUSENY18-26-D,Will a Democrat win the House race for NY-18?,Pat Ryan
+HOU-NY-19,HOUSENY19,HOUSENY19-26-D,Will Democratic win the House race for NY-19?,Josh Riley
+HOU-NY-22,HOUSENY22,HOUSENY22-26-D,Will a Democrat win the House race for NY-22?,John Mannion
+HOU-NC-01,HOUSENC1,HOUSENC1-26-D,Will Democratic win the House race for NC-1?,Don Davis
+HOU-NC-11,KXHOUSENC11,KXHOUSENC11-26-DEM,Will Democratic win the House race for NC-11?,Jamie Ager
+HOU-OH-01,HOUSEOH1,HOUSEOH1-26-D,Will a Democrat win the House race for OH-1?,Greg Landsman
+HOU-OH-09,HOUSEOH9,HOUSEOH9-26-D,Will Democratic win the House race for OH-9?,Marcy Kaptur
+HOU-OH-13,HOUSEOH13,HOUSEOH13-26-D,Will Democratic win the House race for OH-13?,Emilia Sykes
+HOU-OR-05,HOUSEOR5,HOUSEOR5-26-D,Will Democratic win the House race for OR-5?,Janelle Bynum
+HOU-PA-01,HOUSEPA1,HOUSEPA1-26-D,Will Democratic win the House race for PA-1?,Bob Harvie
+HOU-PA-07,HOUSEPA7,HOUSEPA7-26-D,Will Democratic win the House race for PA-7?,Bob Brooks
+HOU-PA-08,HOUSEPA8,HOUSEPA8-26-D,Will Democratic win the House race for PA-8?,Paige Cognetti
+HOU-PA-10,HOUSEPA10,HOUSEPA10-26-D,Will Democratic win the House race for PA-10?,Janelle Stelson
+HOU-PA-17,HOUSEPA17,HOUSEPA17-26-D,Will Democratic win the House race for PA-17?,Chris Deluzio
+HOU-TX-09,KXHOUSETX9,KXHOUSETX9-26-D,Will Democratic win the House race for TX-09?,Leticia Gutierrez
+HOU-TX-15,HOUSETX15,HOUSETX15-26-D,Will Democratic win the House race for TX-15?,Bobby Pulido
+HOU-TX-28,HOUSETX28,HOUSETX28-26-D,Will Democratic win the House race for TX-28?,Henry Cuellar
+HOU-TX-32,KXHOUSETX32,KXHOUSETX32-26-D,Will Democratic win the House race for TX-32?,Dan Barrios
+HOU-TX-34,HOUSETX34,HOUSETX34-26-D,Will Democratic win the House race for TX-34?,Vicente Gonzalez
+HOU-TX-35,KXHOUSETX35,KXHOUSETX35-26-D,Will Democratic win the House race for TX-35?,Johnny C. Garcia
+HOU-VA-01,HOUSEVA1,HOUSEVA1-26-D,Will Democratic win the House race for VA-1?,Shannon Taylor
+HOU-VA-02,HOUSEVA2,HOUSEVA2-26-D,Will Democratic win the House race for VA-2?,Elaine Luria
+HOU-VA-07,HOUSEVA7,HOUSEVA7-26-D,Will Democratic win the House race for VA-07?,Eugene Vindman
+HOU-VA-10,KXHOUSEVA10,KXHOUSEVA10-26-D,Will a Democrat win the House race for VA-10?,Suhas Subramanyam
+HOU-WA-03,HOUSEWA3,HOUSEWA3-26-D,Will Democratic win the House race for WA-3?,Marie Gluesenkamp Perez
+HOU-WA-08,KXHOUSEWA8,KXHOUSEWA8-26-D,Will a Democrat win the House race for WA-08?,Kim Schrier
+HOU-WI-01,HOUSEWI1,HOUSEWI1-26-D,Will Democratic win the House race for WI-1?,Mitchell Berman
+HOU-WI-03,HOUSEWI3,HOUSEWI3-26-D,Will a Democrat win the House race for WI-3?,Rebecca Cooke
+SEN-KY,SENATELA,SENATELA-26-D,Will Democratics win the Senate race in Kentucky?,Charles Booker
