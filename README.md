@@ -100,3 +100,10 @@ parts directly, so the explanation cannot drift from the arithmetic.
   primary/nominee layer are natural next steps.
 - To host on community.credibledata.com, follow `community/infra/README.md` ("Hosting an app
   under a path") — `serve.mjs` already serves from `/` behind a stripped prefix.
+
+## License
+
+The code is [MIT](LICENSE). The data in `package/data/` and `scripts/data/curated/` is derived
+from third-party sources and keeps their licences (Wikipedia-derived tables are CC BY-SA 4.0,
+FiveThirtyEight pollster ratings are CC BY 4.0); see
+[`package/data/README.md`](package/data/README.md).
