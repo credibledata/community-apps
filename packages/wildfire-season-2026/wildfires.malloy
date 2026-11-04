@@ -1,0 +1,381 @@
+// US wildfires, 2015 to the latest record, from NIFC's WFIGS Wildland Fire Incident Locations.
+// Data shaped by pipeline/shape_fires.py; see README.md for sources and reshaping.
+
+source: cause_lookup is duckdb.table('data/lookup_cause.csv')
+source: cause_detail_lookup is duckdb.table('data/lookup_cause_detail.csv')
+source: owner_lookup is duckdb.table('data/lookup_owner.csv')
+source: gacc_lookup is duckdb.table('data/lookup_gacc.csv')
+source: complexity_lookup is duckdb.table('data/lookup_complexity.csv')
+source: behavior_lookup is duckdb.table('data/lookup_behavior.csv')
+source: fuel_lookup is duckdb.table('data/lookup_fuel.csv')
+source: state_lookup is duckdb.table('data/lookup_state.csv')
+source: county_lookup is duckdb.sql("""
+  select * from read_csv('data/lookup_county.csv', header = true, types = {'fips': 'VARCHAR'})
+""")
+
+source: fire_rows is duckdb.sql("""
+  select * from read_parquet('data/fires_*.parquet', union_by_name = true)
+  where state not like 'CA-%' and state not like 'MX-%'
+""")
+
+#(doc) The latest discovery date in the data, one row. Every "this season" and "same date" comparison reads it, so the app's periods move with each refresh.
+source: data_span is fire_rows -> {
+  aggregate:
+    latest_discovered is max(discovered)
+}
+
+#(doc) US wildfires discovered from 1 January 2015 to the latest record, from NIFC's WFIGS Wildland Fire Incident Locations (IncidentTypeCategory = WF; prescribed burns excluded). Each wildfire of 1 acre or more is one row, with its name, place, cause and containment. Fires under 1 acre are summed per discovery date, state and cause into rows whose n_fires counts them, so counts and acres are exact by date, state and cause but those small fires have no name, county, point or detail fields. Points of origin in Canada and Mexico (US agencies assisted) are left out. WFIGS is the incident record agencies report to; it is not NIFC's official annual statistic, which comes from situation reports and differs, so totals here differ from the numbers in NIFC's National Fire News.
+source: fires is fire_rows extend {
+  join_cross: span is data_span
+  join_one: cause_l is cause_lookup on cause = cause_l.cause
+  join_one: detail_l is cause_detail_lookup on cause_detail_id = detail_l.cause_detail_id
+  join_one: owner_l is owner_lookup on owner_id = owner_l.owner_id
+  join_one: gacc_l is gacc_lookup on gacc = gacc_l.gacc
+  join_one: complexity_l is complexity_lookup on complexity = complexity_l.complexity
+  join_one: behavior_l is behavior_lookup on behavior = behavior_l.behavior
+  join_one: fuel_l is fuel_lookup on fuel_id = fuel_l.fuel_id
+  join_one: state_l is state_lookup on state = state_l.state
+  join_one: county_l is county_lookup on fips = county_l.fips
+
+  dimension:
+    #(doc) WFIGS record id (OBJECTID) of a wildfire of 1 acre or more; null on a row that sums small fires.
+    fire_id is id
+    #(doc) Incident name as reported, title-cased; null on a row that sums small fires.
+    #(index)
+    fire_name is name
+    #(doc) True on a row that is one wildfire of 1 acre or more; false on a row that sums fires under 1 acre.
+    is_incident is id is not null
+    #(doc) Date the fire was discovered (FireDiscoveryDateTime, as a UTC date, so a fire found late in the evening in the West can fall on the next day).
+    discovery_date is discovered
+    #(doc) Calendar year of discovery.
+    fire_year is year(discovered)
+    #(doc) Month of discovery, as the first of the month.
+    discovery_month is discovered.month
+    #(doc) Month number of discovery, 1 to 12, for comparing seasons across years.
+    month_of_year is month(discovered)
+    #(doc) Day of the year of discovery, 1 to 366.
+    day_of_year is day_of_year(discovered)
+    #(doc) ISO-style week of the year of discovery (day of year divided into 7-day blocks, 1 to 53), for calendar heatmaps.
+    week_of_year is floor((day_of_year(discovered) - 1) / 7) + 1
+    #(doc) The latest discovery date in the data, the "as of" date of every comparison.
+    latest_date is span.latest_discovered
+    #(doc) The year of the latest record: the season this app is about.
+    latest_year is year(span.latest_discovered)
+    #(doc) True when the fire was discovered on or before the latest record's month and day, in any year, so each year is cut at the same date as this season (like for like). Month and day are compared, so leap years do not shift the cut.
+    is_year_to_date is month(discovered) * 100 + day(discovered) <= month(span.latest_discovered) * 100 + day(span.latest_discovered)
+    #(doc) "This season" for the latest year, "Ten-year baseline" for the ten years before it, "Earlier" otherwise. The baseline matches NIFC's ten-year average in span (the ten full years before this one), though NIFC computes it from its own statistics.
+    season is pick 'This season' when year(discovered) = year(span.latest_discovered)
+      pick 'Ten-year baseline' when year(discovered) >= year(span.latest_discovered) - 10
+      else 'Earlier'
+    #(doc) Two-letter state of the point of origin (POOState).
+    state_code is state
+    #(doc) State name of the point of origin.
+    #(index)
+    state_name is state_l.state_name
+    #(doc) Five-digit county FIPS code of the point of origin; null on rows that sum small fires.
+    county_fips is fips
+    #(doc) County of the point of origin, as WFIGS names it; null on rows that sum small fires.
+    #(index)
+    county_name is county_l.county
+    #(doc) County and state, such as "Harney, OR", for labels.
+    county_label is concat(county_l.county, ', ', state)
+    #(doc) Geographic Area Coordination Center (the interagency fire region) that handled the fire. Old codes are merged into current ones: AKCC into Alaska, the Eastern and Western Great Basin centres into Great Basin.
+    region is gacc_l.gacc_name
+    #(doc) Broad cause as reported (FireCause): Human, Natural or Undetermined ("Unknown" is merged into Undetermined). "Not reported" when blank.
+    cause_name is cause_l.cause_name ?? 'Not reported'
+    #(doc) Specific cause group, from FireCauseGeneral with spelling variants merged (pipeline/shape_fires.py lists them). Filled for about one fire in five of 1 acre or more, mostly since 2020; "Not reported" otherwise.
+    cause_detail is detail_l.cause_detail ?? 'Not reported'
+    #(doc) Owner of the land at the point of origin (POOLandownerCategory), such as Private or US Forest Service. "Not reported" when blank.
+    land_owner is owner_l.owner_name ?? 'Not reported'
+    #(doc) Federal, Private, Tribal or State and local, grouped from land_owner.
+    owner_group is pick 'Federal' when owner_l.owner_code ? 'USFS' | 'BLM' | 'BIA' | 'NPS' | 'USFWS' | 'DOD' | 'BOR' | 'DOE' | 'OthFed'
+      pick 'Private' when owner_l.owner_code ? 'Private' | 'ANCSA'
+      pick 'Tribal' when owner_l.owner_code = 'Tribal'
+      pick 'State and local' when owner_l.owner_code ? 'State' | 'City' | 'County' | 'OthLoc'
+      else 'Not reported'
+    #(doc) Latitude of the point of origin, four decimals; null on rows that sum small fires.
+    latitude is lat
+    #(doc) Longitude of the point of origin, four decimals; null on rows that sum small fires.
+    longitude is lon
+    #(doc) Acres burned by this fire, or by the small fires the row sums: FinalAcres, else IncidentSize, else DiscoveryAcres. Acres of a fire still burning are its latest reported size.
+    fire_acres is acres
+    #(doc) Size class of the fire. This model's own classes, by factors of ten from 1 acre; "Under 1 acre" are the summed small fires.
+    size_class is pick 'Under 1 acre' when id is null
+      pick '1 to 10 acres' when acres < 10
+      pick '10 to 100 acres' when acres < 100
+      pick '100 to 1,000 acres' when acres < 1000
+      pick '1,000 to 10,000 acres' when acres < 10000
+      pick '10,000 to 100,000 acres' when acres < 100000
+      else '100,000 acres or more'
+    #(doc) Sort order of size_class, 0 (smallest) to 6.
+    size_class_order is pick 0 when id is null pick 1 when acres < 10 pick 2 when acres < 100 pick 3 when acres < 1000
+      pick 4 when acres < 10000 pick 5 when acres < 100000 else 6
+    #(doc) Whole days from discovery to containment (ContainmentDateTime); null when no containment time is recorded, which is common for small fires and fires still burning.
+    days_to_contain_fire is days_to_contain
+    #(doc) Days to containment in bands, for the containment curve; "No containment recorded" when blank.
+    containment_band is pick 'Same day' when days_to_contain = 0
+      pick '1 day' when days_to_contain = 1
+      pick '2 to 3 days' when days_to_contain <= 3
+      pick '4 to 7 days' when days_to_contain <= 7
+      pick '1 to 4 weeks' when days_to_contain <= 28
+      pick '1 to 3 months' when days_to_contain <= 91
+      pick 'Over 3 months' when days_to_contain > 91
+      else 'No containment recorded'
+    #(doc) Sort order of containment_band, 0 to 7.
+    containment_band_order is pick 0 when days_to_contain = 0 pick 1 when days_to_contain = 1 pick 2 when days_to_contain <= 3
+      pick 3 when days_to_contain <= 7 pick 4 when days_to_contain <= 28 pick 5 when days_to_contain <= 91
+      pick 6 when days_to_contain > 91 else 7
+    #(doc) Incident complexity (Type 1 is the most complex, managed by national teams), when reported.
+    complexity_type is complexity_l.complexity_name ?? 'Not reported'
+    #(doc) General fire behaviour reported (Minimal, Moderate, Active, Extreme), when reported.
+    fire_behavior is behavior_l.behavior_name ?? 'Not reported'
+    #(doc) Predominant fuel group (Grass, Brush, Timber...), when reported; filled for few fires.
+    fuel_group is fuel_l.fuel ?? 'Not reported'
+    #(doc) True when the fire was managed as part of a complex (IsCpxChild). The complex itself is not a separate record in this data, so no acres are counted twice.
+    is_complex_member is complex_child = 1
+
+  measure:
+    #(doc) Number of wildfires: the sum of n_fires, so the small fires summed on one row each count.
+    fire_count is n_fires.sum()
+    #(doc) Acres burned, summed over fires (see fire_acres).
+    acres_burned is acres.sum()
+    #(doc) Fires of 1 acre or more (one row each).
+    incident_count is count() { where: id is not null }
+    #(doc) Fires of 1,000 acres or more. The 1,000-acre cut is this model's choice; NIFC's "large fire" is 100 acres in timber or 300 in grass and brush.
+    large_fire_count is count() { where: acres >= 1000 }
+    #(doc) Fires of 100,000 acres or more.
+    megafire_count is count() { where: acres >= 100000 }
+    #(doc) Acres burned by fires of 100,000 acres or more.
+    megafire_acres is acres.sum() { where: acres >= 100000 }
+    #(doc) Share of acres burned by the largest fires (100,000 acres or more): megafire_acres / acres_burned.
+    megafire_acre_share is acres.sum() { where: acres >= 100000 } / nullif(acres.sum(), 0)
+    #(doc) Size of the largest single fire, in acres.
+    largest_fire_acres is max(acres) { where: id is not null }
+    #(doc) Fires with a human cause.
+    human_fire_count is n_fires.sum() { where: cause = 'H' }
+    #(doc) Fires with a natural cause (lightning, mostly).
+    natural_fire_count is n_fires.sum() { where: cause = 'N' }
+    #(doc) Share of fires caused by people: human fires / (human + natural fires). Undetermined and unreported causes are left out of the denominator.
+    human_fire_share is n_fires.sum() { where: cause = 'H' } / nullif(n_fires.sum() { where: cause = 'H' or cause = 'N' }, 0)
+    #(doc) Acres burned by human-caused fires.
+    human_acres is acres.sum() { where: cause = 'H' }
+    #(doc) Acres burned by naturally caused fires.
+    natural_acres is acres.sum() { where: cause = 'N' }
+    #(doc) Share of acres burned by human-caused fires: human acres / (human + natural acres). Undetermined and unreported causes are left out of the denominator.
+    human_acre_share is acres.sum() { where: cause = 'H' } / nullif(acres.sum() { where: cause = 'H' or cause = 'N' }, 0)
+    #(doc) Average acres per fire: acres_burned / fire_count.
+    acres_per_fire is acres.sum() / nullif(n_fires.sum(), 0)
+    #(doc) Average days from discovery to containment, over fires of 1 acre or more with a containment time recorded.
+    avg_days_to_contain is avg(days_to_contain)
+    #(doc) Fires of 1 acre or more with a containment time recorded: the denominator of avg_days_to_contain.
+    contained_count is count() { where: days_to_contain is not null }
+    #(doc) Acres burned this season (the latest year) up to the latest record.
+    acres_this_season is acres.sum() { where: year(discovered) = year(span.latest_discovered) }
+    #(doc) Fires this season (the latest year) up to the latest record.
+    fires_this_season is n_fires.sum() { where: year(discovered) = year(span.latest_discovered) }
+    #(doc) Average acres burned per year in the ten years before this season, each year cut at the same month and day as the latest record (like for like): acres in those ten years to date / 10.
+    acres_ten_year_avg is acres.sum() { where: year(discovered) >= year(span.latest_discovered) - 10 and year(discovered) < year(span.latest_discovered)
+      and month(discovered) * 100 + day(discovered) <= month(span.latest_discovered) * 100 + day(span.latest_discovered) } / 10
+    #(doc) Average fires per year in the ten years before this season, cut at the same month and day as the latest record: fires in those ten years to date / 10.
+    fires_ten_year_avg is n_fires.sum() { where: year(discovered) >= year(span.latest_discovered) - 10 and year(discovered) < year(span.latest_discovered)
+      and month(discovered) * 100 + day(discovered) <= month(span.latest_discovered) * 100 + day(span.latest_discovered) } / 10
+    #(doc) Acres this season as a share of the ten-year average to the same date: acres_this_season / acres_ten_year_avg (1.41 means 141%), the measure NIFC reports as "% of 10-year average".
+    acres_vs_ten_year_avg is acres.sum() { where: year(discovered) = year(span.latest_discovered) } / nullif(acres.sum() { where: year(discovered) >= year(span.latest_discovered) - 10 and year(discovered) < year(span.latest_discovered)
+      and month(discovered) * 100 + day(discovered) <= month(span.latest_discovered) * 100 + day(span.latest_discovered) } / 10, 0)
+    #(doc) Fires this season as a share of the ten-year average to the same date: fires_this_season / fires_ten_year_avg.
+    fires_vs_ten_year_avg is n_fires.sum() { where: year(discovered) = year(span.latest_discovered) } / nullif(n_fires.sum() { where: year(discovered) >= year(span.latest_discovered) - 10 and year(discovered) < year(span.latest_discovered)
+      and month(discovered) * 100 + day(discovered) <= month(span.latest_discovered) * 100 + day(span.latest_discovered) } / 10, 0)
+    #(doc) Change in acres this season against the ten-year average to the same date: acres_vs_ten_year_avg - 1 (0.41 means 41% above the average).
+    acres_change_vs_ten_year_avg is acres.sum() { where: year(discovered) = year(span.latest_discovered) } / nullif(acres.sum() { where: year(discovered) >= year(span.latest_discovered) - 10 and year(discovered) < year(span.latest_discovered)
+      and month(discovered) * 100 + day(discovered) <= month(span.latest_discovered) * 100 + day(span.latest_discovered) } / 10, 0) - 1
+    #(doc) Average acres per year burned in the ten years before this season (whole years, not cut at the latest date): those ten years' acres / 10. Used for the weekly season race.
+    acres_ten_year_avg_full is acres.sum() { where: year(discovered) >= year(span.latest_discovered) - 10 and year(discovered) < year(span.latest_discovered) } / 10
+    #(doc) Latest discovery date among the rows in scope.
+    latest_discovery is max(discovered)
+    #(doc) Earliest discovery date among the rows in scope.
+    earliest_discovery is min(discovered)
+
+  #(doc) The headline: this season's acres and fires against the ten-year average to the same date, the share caused by people, and the as-of date.
+  view: kpis is {
+    aggregate:
+      acres_this_season, acres_ten_year_avg, acres_vs_ten_year_avg,
+      fires_this_season, fires_ten_year_avg, fires_vs_ten_year_avg
+      latest_discovery
+  }
+
+  #(doc) Each year to the same month and day as the latest record (like for like): acres, fires, largest fire, human share. One row a year.
+  view: by_year_to_date is {
+    where: is_year_to_date
+    group_by: fire_year
+    aggregate: acres_burned, fire_count, large_fire_count, megafire_count, largest_fire_acres, human_fire_share, human_acre_share
+    order_by: fire_year
+  }
+
+  #(doc) Each full calendar year: acres and fires. The latest year is incomplete.
+  view: by_year is {
+    group_by: fire_year
+    aggregate: acres_burned, fire_count, large_fire_count, human_fire_share
+    order_by: fire_year
+  }
+
+  #(doc) Acres burned by week of the year, each year: the season calendar.
+  view: by_week_and_year is {
+    group_by: fire_year, week_of_year
+    aggregate: acres_burned, fire_count
+    order_by: fire_year, week_of_year
+  }
+
+  #(doc) Cumulative acres through each year by week, so each season's race can be drawn against the others.
+  view: cumulative_by_week is {
+    group_by: fire_year, week_of_year
+    aggregate: acres_burned
+    calculate: cumulative_acres is sum_cumulative(acres_burned) { partition_by: fire_year order_by: week_of_year }
+    order_by: fire_year, week_of_year
+  }
+
+  #(doc) The season race: by week of the year, cumulative acres this season and the cumulative ten-year average (2016 to 2025 when this season is 2026). Weeks after the latest record carry this season's total forward; the app stops its line at the latest week.
+  view: season_race is {
+    group_by: week_of_year
+    aggregate: acres_this_season, acres_ten_year_avg_full
+    calculate:
+      cumulative_this_season is sum_cumulative(acres_this_season) { order_by: week_of_year }
+      cumulative_ten_year_avg is sum_cumulative(acres_ten_year_avg_full) { order_by: week_of_year }
+    order_by: week_of_year
+  }
+
+  #(doc) States this season: acres, fires, the change against each state's own ten-year average to the same date, and each year's acres to the same date as a trend.
+  view: by_state_season is {
+    group_by: state_code, state_name
+    aggregate: acres_this_season, fires_this_season, acres_change_vs_ten_year_avg, acres_burned
+    nest: trend is {
+      where: is_year_to_date
+      group_by: fire_year
+      aggregate: acres_burned
+      order_by: fire_year
+    }
+    order_by: acres_this_season desc
+  }
+
+  #(doc) Acres and fires by state and year, to the same date each year; for comparing states.
+  view: by_state_year is {
+    where: is_year_to_date
+    group_by: state_code, fire_year
+    aggregate: acres_burned, fire_count
+    order_by: state_code, fire_year
+  }
+
+  #(doc) Acres and fires by month of discovery.
+  view: by_month is {
+    group_by: discovery_month
+    aggregate: acres_burned, fire_count
+    order_by: discovery_month
+  }
+
+  #(doc) Acres and fires by month of the year (all years in scope pooled), the shape of a season.
+  view: by_month_of_year is {
+    group_by: month_of_year
+    aggregate: acres_burned, fire_count, human_fire_share
+    order_by: month_of_year
+  }
+
+  #(doc) States ranked by acres burned, with fires, largest fire and human share.
+  view: by_state is {
+    group_by: state_code, state_name
+    aggregate: acres_burned, fire_count, large_fire_count, largest_fire_acres, human_fire_share
+    order_by: acres_burned desc
+  }
+
+  #(doc) Counties ranked by acres burned, fires of 1 acre or more only (small fires carry no county).
+  view: by_county is {
+    where: county_fips is not null
+    group_by: county_fips, county_label
+    aggregate: acres_burned, incident_count
+    order_by: acres_burned desc
+  }
+
+  #(doc) Interagency fire regions (GACCs) ranked by acres burned; fires of 1 acre or more with a region recorded.
+  view: by_region is {
+    where: is_incident and region is not null
+    group_by: region
+    aggregate: acres_burned, incident_count
+    order_by: acres_burned desc
+  }
+
+  #(doc) Broad cause: fires and acres, human, natural, undetermined, not reported.
+  view: by_cause is {
+    group_by: cause_name
+    aggregate: fire_count, acres_burned
+    order_by: fire_count desc
+  }
+
+  #(doc) Fires by year and broad cause, for the share of each cause year by year.
+  view: by_year_and_cause is {
+    group_by: fire_year, cause_name
+    aggregate: fire_count, acres_burned
+    order_by: fire_year, cause_name
+  }
+
+  #(doc) Specific cause group, where reported (fires of 1 acre or more with FireCauseGeneral filled).
+  view: by_cause_detail is {
+    where: cause_detail != 'Not reported' and cause_detail != 'Undetermined'
+    group_by: cause_detail
+    aggregate: incident_count, acres_burned
+    order_by: incident_count desc
+  }
+
+  #(doc) Land owner at the point of origin; fires of 1 acre or more only.
+  view: by_land_owner is {
+    where: is_incident
+    group_by: land_owner, owner_group
+    aggregate: acres_burned, incident_count
+    order_by: acres_burned desc
+  }
+
+  #(doc) Fires and acres by size class: how few fires burn most of the land.
+  view: by_size_class is {
+    group_by: size_class, size_class_order
+    aggregate: fire_count, acres_burned
+    order_by: size_class_order
+  }
+
+  #(doc) Fires of 1 acre or more by days to containment band, with acres: the containment curve.
+  view: by_containment is {
+    where: is_incident
+    group_by: containment_band, containment_band_order
+    aggregate: incident_count, acres_burned
+    order_by: containment_band_order
+  }
+
+  #(doc) Fires by reported fuel group, where reported.
+  view: by_fuel is {
+    where: fuel_group != 'Not reported'
+    group_by: fuel_group
+    aggregate: incident_count, acres_burned
+    order_by: acres_burned desc
+  }
+
+  #(doc) The largest fires in scope, by acres.
+  view: largest_fires is {
+    where: is_incident
+    group_by: fire_id, fire_name, discovery_date, state_code, state_name, county_label, cause_name, fire_acres, days_to_contain_fire
+    order_by: fire_acres desc
+    limit: 25
+  }
+
+  #(doc) Fire points for the map: each fire of 100 acres or more with a location in the lower 48 states, largest first. Alaska and Hawaii are left out so the map keeps the lower 48 readable; they are in every other view.
+  view: fire_points is {
+    where: is_incident and acres >= 100 and lat is not null and state != 'AK' and state != 'HI'
+    group_by: fire_id, fire_name, latitude, longitude, fire_acres, cause_name, fire_year
+    order_by: fire_acres desc
+    limit: 5000
+  }
+
+  #(doc) The records: fires of 1 acre or more, newest first, with the fields a reader would check.
+  view: records is {
+    where: is_incident
+    group_by: fire_id, fire_name, discovery_date, state_code, county_label, region, cause_name, cause_detail, land_owner,
+      fire_acres, size_class, days_to_contain_fire, complexity_type, fire_behavior
+    order_by: discovery_date desc, fire_acres desc
+    limit: 50
+  }
+}

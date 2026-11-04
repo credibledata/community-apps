@@ -1,0 +1,462 @@
+##! experimental.access_modifiers
+
+// New York State vehicles newly registered (ORIGINAL transactions), November 2024 to September 2026.
+// Source: New York State Department of Motor Vehicles, Registration Transactions: Two Year Window
+// (data.ny.gov/d/s2dd-yksa), shaped by pipeline/shape_ny.py.
+
+source: county_lookup is duckdb.table('data/lookup_county.csv') extend {
+  primary_key: id
+  dimension:
+    #(doc) County of the registrant's residence, as the DMV spells it in capitals; OUT-OF-STATE for registrants living outside New York.
+    county_code is county
+    #(doc) County name for display. The five New York City counties carry their borough name: Kings (Brooklyn), New York (Manhattan), Richmond (Staten Island).
+    #(index)
+    county_name is
+      pick 'Kings (Brooklyn)' when county = 'KINGS'
+      pick 'New York (Manhattan)' when county = 'NEW YORK'
+      pick 'Richmond (Staten Island)' when county = 'RICHMOND'
+      pick 'Bronx' when county = 'BRONX'
+      pick 'Queens' when county = 'QUEENS'
+      pick 'Out of state' when county = 'OUT-OF-STATE'
+      pick 'St. Lawrence' when county = 'ST. LAWRENCE'
+      else concat(upper(substr(county, 1, 1)), lower(substr(county, 2)))
+    #(doc) County name as the Census boundary file spells it (title case, "St. Lawrence"), used to colour the map. Out of state stays as "Out-of-state" and has no shape.
+    county_map_name is
+      pick 'St. Lawrence' when county = 'ST. LAWRENCE'
+      pick 'New York' when county = 'NEW YORK'
+      else concat(upper(substr(county, 1, 1)), lower(substr(county, 2)))
+    #(doc) Region of the state, grouped for this app: New York City (the five boroughs), Long Island (Nassau and Suffolk), the rest of the state, and registrants living out of state. This grouping is the app's, not the DMV's.
+    region is
+      pick 'New York City' when county = 'KINGS' or county = 'QUEENS' or county = 'NEW YORK' or county = 'BRONX' or county = 'RICHMOND'
+      pick 'Long Island' when county = 'NASSAU' or county = 'SUFFOLK'
+      pick 'Out of state' when county = 'OUT-OF-STATE'
+      else 'Rest of state'
+}
+
+source: class_lookup is duckdb.table('data/lookup_class.csv') extend {
+  primary_key: id
+  dimension:
+    #(doc) DMV registration class, such as PASSENGER, COMMERCIAL or OMNIBUS TAXI.
+    #(index)
+    registration_class is class
+    #(doc) Registration classes grouped for this app. "Passenger cars" is the PASSENGER class alone, the class the headline share uses. "In-transit permits" are temporary permits to drive a vehicle out of the state: 208,089 of the 209,382 issued in this window went to registrants living out of state, mostly buyers taking a car home, so they are not New York's fleet.
+    vehicle_group is
+      pick 'Passenger cars' when class = 'PASSENGER'
+      pick 'In-transit permits' when class = 'INTRANSIT PERMIT'
+      pick 'Commercial and government' when class = 'COMMERCIAL' or class = 'POLITICAL SUBDIVISION' or class = 'STATE OWNED VEHICLE' or class = 'SPECIAL PURPOSE COMM.' or class = 'FARM' or class = 'AGRICULTURAL' or class = 'INTERNATIONAL REGISTRATION PLAN' or class = 'TOW TRUCK' or class = 'AMBULANCE' or class = 'DEALER' or class = 'TRANSPORTER'
+      pick 'Taxis, livery and buses' when class ~ r'^OMNIBUS'
+      pick 'Motorcycles and limited-use' when class ~ r'MOTORCYCLE' or class ~ r'^LIMITED USE' or class ~ r'MCY'
+      pick 'Boats and off-road' when class = 'MOTORBOATS' or class = 'SNOWMOBILE' or class = 'ALL-TERRAIN VEHICLE' or class = 'ATV DEALER'
+      pick 'Trailers' when class ~ r'TRAILER'
+      else 'Other'
+}
+
+source: fuel_lookup is duckdb.table('data/lookup_fuel.csv') extend {
+  primary_key: id
+  dimension:
+    #(doc) Fuel the DMV records for the vehicle: GASOLINE, DIESEL, ELECTRIC, FLEX, NONE (trailers and boats without an engine) and others. ELECTRIC is battery-electric only: the DMV's data dictionary (column fuel) files a vehicle that is battery assisted and can use another fuel under that other fuel, so plug-in hybrids and hybrids appear as GASOLINE.
+    #(index)
+    fuel_type is
+      pick 'Gasoline' when fuel = 'GASOLINE'
+      pick 'Electric' when fuel = 'ELECTRIC'
+      pick 'Diesel' when fuel = 'DIESEL'
+      pick 'No engine' when fuel = 'NONE'
+      pick 'Not recorded' when fuel = 'UNKNOWN'
+      else 'Other fuels'
+}
+
+source: make_lookup is duckdb.table('data/lookup_make.csv') extend {
+  primary_key: id
+  dimension:
+    #(doc) Make as the DMV codes it, five letters at most (CHEVR, ME/BE).
+    make_code is make
+    #(doc) Make for display: the DMV's code spelled out for the common makes, the code itself for the rest.
+    #(index)
+    make_name is
+      pick 'Tesla' when make = 'TESLA'
+      pick 'Chevrolet' when make = 'CHEVR'
+      pick 'Honda' when make = 'HONDA'
+      pick 'Ford' when make = 'FORD'
+      pick 'Cadillac' when make = 'CADIL'
+      pick 'Rivian' when make = 'RIVIA'
+      pick 'Hyundai' when make = 'HYUND'
+      pick 'BMW' when make = 'BMW'
+      pick 'Toyota' when make = 'TOYOT'
+      pick 'Kia' when make = 'KIA'
+      pick 'Audi' when make = 'AUDI'
+      pick 'Mercedes-Benz' when make = 'ME/BE'
+      pick 'Nissan' when make = 'NISSA'
+      pick 'Porsche' when make = 'PORSC'
+      pick 'Acura' when make = 'ACURA'
+      pick 'Volkswagen' when make = 'VOLKS'
+      pick 'GMC' when make = 'GMC'
+      pick 'Lucid' when make = 'LUCID'
+      pick 'Subaru' when make = 'SUBAR'
+      pick 'Volvo' when make = 'VOLVO'
+      pick 'Jeep' when make = 'JEEP'
+      pick 'Lexus' when make = 'LEXUS'
+      pick 'Polestar' when make = 'POLES'
+      pick 'Dodge' when make = 'DODGE'
+      pick 'Genesis' when make = 'GENES'
+      pick 'Mini' when make = 'MINI'
+      pick 'Fisker' when make = 'FISKE'
+      pick 'Fiat' when make = 'FIAT'
+      pick 'Smart' when make = 'SMART'
+      pick 'Ram' when make = 'RAM'
+      pick 'VinFast' when make = 'VINFA'
+      pick 'Freightliner' when make = 'FREIG'
+      pick 'Jaguar' when make = 'JAGUA'
+      pick 'Land Rover' when make = 'LANDR'
+      pick 'Mazda' when make = 'MAZDA'
+      pick 'Mitsubishi' when make = 'MITSU'
+      pick 'Not recorded' when make = 'UNKNOWN'
+      else make
+}
+
+source: body_lookup is duckdb.table('data/lookup_body.csv') extend {
+  primary_key: id
+  dimension:
+    #(doc) Body type as the DMV records it: SUBURBAN (SUVs and wagons), FOUR-DOOR SEDAN, PICK-UP TRUCK, VAN TRUCK and so on.
+    #(index)
+    body_type is
+      pick 'SUV / wagon' when body = 'SUBURBAN'
+      pick 'Sedan' when body = 'FOUR-DOOR SEDAN' or body = 'SEDAN' or body = 'TWO-DOOR SEDAN'
+      pick 'Pickup' when body = 'PICK-UP TRUCK'
+      pick 'Van' when body = 'VAN TRUCK'
+      pick 'Not recorded' when body = 'UNKNOWN'
+      else concat(upper(substr(body, 1, 1)), lower(substr(body, 2)))
+}
+
+source: registrant_lookup is duckdb.table('data/lookup_registrant.csv') extend {
+  primary_key: id
+  dimension:
+    #(doc) Who registered the vehicle: an individual, or an organization or business (DBA).
+    registrant_type is
+      pick 'Individual' when registrant = 'INDIVIDUAL'
+      pick 'Organization' when registrant = 'ORGANIZATION/DBA'
+      else 'Not recorded'
+}
+
+#(doc) Every vehicle newly registered in New York (DMV ORIGINAL transactions), counted by month, county of residence, fuel and registration class, every class from passenger cars to trailers and boats. For the headline question, the battery-electric share of passenger cars before and after the federal credit ended, use `passenger_cars`, which is this source limited to the PASSENGER class. An ORIGINAL registration is a vehicle registered in New York for the first time by its owner, which includes used vehicles brought in from another state; the DMV publishes no new/used flag. Re-registrations and renewals are not counted.
+source: registrations is duckdb.table('data/originals_by_month.parquet')
+  include {
+    internal: county_id, fuel_id, class_id, `month`, registrations
+  }
+  extend {
+  join_one: county_lookup with county_id
+  join_one: class_lookup with class_id
+  join_one: fuel_lookup with fuel_id
+
+  dimension:
+    #(doc) Month the registration took effect (first day of the month). The data covers November 2024 to September 2026.
+    reg_month is `month`::date
+    #(doc) Whether the month falls before or after the federal clean vehicle tax credit (IRC 30D and 25E) ended for vehicles acquired after 30 September 2025: "With the credit" up to September 2025, "After the credit" from October 2025. The cutoff is written here once; every measure for a period reads this field.
+    credit_period is pick 'With the credit' when reg_month < @2025-10-01 else 'After the credit'
+    #(doc) Whether the month is one of the three before the credit ended (July to September 2025), when buyers pulled purchases forward: the passenger share was 3.1%, 3.8% and 5.0% in those months against 3.4% in June. Three months is this model's choice, read from those shares and the daily calendar; leave these months out to compare like for like.
+    in_deadline_quarter is reg_month >= @2025-07-01 and credit_period = 'With the credit'
+    #(doc) County name for display; see county_lookup.county_name.
+    county_name is county_lookup.county_name
+    #(doc) Region of the state; see county_lookup.region.
+    region is county_lookup.region
+    #(doc) County name as the map's boundary file spells it; see county_lookup.county_map_name.
+    county_map_name is county_lookup.county_map_name
+    #(doc) Registration class group; see class_lookup.vehicle_group.
+    vehicle_group is class_lookup.vehicle_group
+    #(doc) DMV registration class.
+    registration_class is class_lookup.registration_class
+    #(doc) Fuel recorded by the DMV; see fuel_lookup.fuel_type.
+    fuel_type is fuel_lookup.fuel_type
+
+  measure:
+    #(doc) Vehicles newly registered (ORIGINAL transactions), every fuel.
+    new_registrations is registrations.sum()
+    #(doc) Battery-electric vehicles newly registered (ORIGINAL transactions with fuel ELECTRIC; plug-in hybrids are filed as GASOLINE).
+    ev_registrations is registrations.sum() { where: fuel_lookup.fuel = 'ELECTRIC' }
+    #(doc) Battery-electric share of new registrations: ev_registrations divided by new_registrations, every fuel, in the same scope. Vehicles whose fuel is not recorded stay in the denominator. Read it for passenger cars (`passenger_cars`): other classes include trailers and boats with no engine.
+    # percent
+    ev_share is ev_registrations / nullif(new_registrations, 0)
+    #(doc) Battery-electric registrations in the months with the federal credit (credit_period "With the credit").
+    ev_with_credit is ev_registrations { where: credit_period = 'With the credit' }
+    #(doc) Battery-electric registrations in the months after the credit ended (credit_period "After the credit").
+    ev_after_credit is ev_registrations { where: credit_period = 'After the credit' }
+    #(doc) Battery-electric share of new registrations in the months with the credit.
+    # percent
+    ev_share_with_credit is ev_with_credit / nullif(new_registrations { where: credit_period = 'With the credit' }, 0)
+    #(doc) Battery-electric share of new registrations in the months after the credit ended.
+    # percent
+    ev_share_after_credit is ev_after_credit / nullif(new_registrations { where: credit_period = 'After the credit' }, 0)
+    #(doc) Change in battery-electric share, after the credit minus with it, in percentage points (as a fraction: -0.012 is 1.2 points lower). The two periods differ in length and season and the first ends in the deadline rush; for a like-for-like change use the view like_for_like.
+    # percent
+    ev_share_change is ev_share_after_credit - ev_share_with_credit
+    #(doc) Number of distinct months in scope, for monthly averages.
+    month_count is count(reg_month)
+    #(doc) Number of months with the credit in scope.
+    months_with_credit is count(reg_month) { where: credit_period = 'With the credit' }
+    #(doc) Number of months after the credit in scope.
+    months_after_credit is count(reg_month) { where: credit_period = 'After the credit' }
+    #(doc) Whether there are at least 30 battery-electric registrations in each period, so a change between them means something: with 30, chance alone moves a count by about a fifth (1 over the square root of 30), as much as the typical change after the credit. 30 is this model's assumption.
+    has_enough_evs is ev_with_credit >= 30 and ev_after_credit >= 30
+    #(doc) Electric registrations per month in scope: ev_registrations divided by month_count.
+    ev_per_month is ev_registrations / nullif(count(reg_month), 0)
+    #(doc) First month in scope.
+    first_month is min(reg_month)
+    #(doc) Latest month in scope.
+    latest_month is max(reg_month)
+
+  #(doc) Headline numbers in scope: battery-electric and all new registrations, the share, the share with and after the credit, and the months each period holds. On `passenger_cars` these are the app's headline.
+  view: kpis is {
+    aggregate: ev_registrations, new_registrations, ev_share, ev_with_credit, ev_after_credit,
+      ev_share_with_credit, ev_share_after_credit, ev_share_change, first_month, latest_month, month_count,
+      months_with_credit, months_after_credit
+  }
+
+  #(doc) Each month beside the same month a year earlier: the battery-electric share and counts now and then. A year earlier is twelve rows back, so every month must be in scope: do not filter this view by month or period.
+  view: vs_year_before is {
+    group_by: reg_month, credit_period, in_deadline_quarter
+    aggregate: ev_registrations, new_registrations, ev_share
+    calculate:
+      #(doc) Battery-electric registrations in the same month a year earlier.
+      ev_year_before is lag(ev_registrations, 12)
+      #(doc) New registrations in the same month a year earlier.
+      new_year_before is lag(new_registrations, 12)
+      #(doc) Battery-electric share in the same month a year earlier.
+      # percent
+      share_year_before is lag(ev_share, 12)
+      #(doc) Whether the month a year earlier was in the deadline quarter.
+      year_before_in_deadline_quarter is lag(in_deadline_quarter, 12)
+    order_by: reg_month
+  }
+
+  #(doc) The change after the credit, like for like: the months after it against the same months a year earlier, summed before dividing. "matched" compares every month that has a year-earlier match; "clean" also leaves out the deadline quarter on either side. Use this, not ev_share_change, for how much the share fell.
+  view: like_for_like is vs_year_before -> {
+    where: ev_year_before is not null
+    aggregate:
+      #(doc) Months compared.
+      matched_months is count()
+      # percent
+      matched_share_after is sum(ev_registrations) / nullif(sum(new_registrations), 0)
+      # percent
+      matched_share_year_before is sum(ev_year_before) / nullif(sum(new_year_before), 0)
+      #(doc) Months compared once the deadline quarter is left out.
+      clean_months is count() { where: not year_before_in_deadline_quarter }
+      # percent
+      clean_share_after is sum(ev_registrations) { where: not year_before_in_deadline_quarter } / nullif(sum(new_registrations) { where: not year_before_in_deadline_quarter }, 0)
+      # percent
+      clean_share_year_before is sum(ev_year_before) { where: not year_before_in_deadline_quarter } / nullif(sum(new_year_before) { where: not year_before_in_deadline_quarter }, 0)
+      first_matched is min(reg_month)
+      last_matched is max(reg_month)
+  } -> {
+    select: *
+    select:
+      #(doc) Change in share over every matched month, after minus a year earlier, in percentage points as a fraction.
+      # percent
+      matched_change is matched_share_after - matched_share_year_before
+      #(doc) Change in share with the deadline quarter left out: the fairest size of the change.
+      # percent
+      clean_change is clean_share_after - clean_share_year_before
+  }
+
+  #(doc) Electric and all new registrations and the electric share, month by month.
+  view: by_month is {
+    group_by: reg_month, credit_period
+    aggregate: ev_registrations, new_registrations, ev_share
+    order_by: reg_month
+  }
+
+  #(doc) The two periods side by side: with the credit and after it, with registrations per month and share.
+  view: by_credit_period is {
+    group_by: credit_period
+    aggregate: ev_registrations, new_registrations, ev_share, ev_per_month, month_count
+    order_by: credit_period desc
+  }
+
+  #(doc) Counties ranked by battery-electric registrations, with the share with and after the credit and whether each period has enough to compare. Includes registrants living out of state.
+  view: by_county is {
+    group_by: county_name, county_map_name, region
+    aggregate: ev_registrations, new_registrations, ev_share, ev_with_credit, ev_after_credit, ev_share_with_credit, ev_share_after_credit, ev_share_change, has_enough_evs
+    order_by: ev_registrations desc
+    limit: 100
+  }
+
+  #(doc) Regions of the state with their electric share with and after the credit.
+  view: by_region is {
+    group_by: region
+    aggregate: ev_registrations, new_registrations, ev_share, ev_share_with_credit, ev_share_after_credit, ev_share_change
+    order_by: ev_registrations desc
+  }
+
+  #(doc) Electric registrations and share by registration class group.
+  view: by_vehicle_group is {
+    group_by: vehicle_group
+    aggregate: ev_registrations, new_registrations, ev_share
+    order_by: ev_registrations desc
+  }
+
+  #(doc) New registrations by fuel, month by month: the parts of the whole.
+  view: fuel_by_month is {
+    group_by: reg_month, fuel_type
+    aggregate: new_registrations
+    order_by: reg_month, fuel_type
+  }
+
+  #(doc) Each county's electric share month by month, for small multiples and ranks over time.
+  view: county_by_month is {
+    group_by: county_name, reg_month
+    aggregate: ev_registrations, new_registrations, ev_share
+    order_by: county_name, reg_month
+    limit: 5000
+  }
+}
+
+#(doc) One row per battery-electric vehicle newly registered in New York (DMV ORIGINAL transaction, fuel ELECTRIC), with its make, body type, model year, registration class and county of residence; every class. VIN, city, ZIP code and owner are not kept. Use it for what was registered and by whom; for passenger cars, the headline's class, use `passenger_evs`; for the electric share use `passenger_cars` or `registrations`.
+source: ev_records is duckdb.table('data/ev_registrations_*.parquet')
+  include {
+    internal: county_id, class_id, make_id, body_id, registrant_id, reg_date
+    public:
+      #(doc) Model year the DMV records for the vehicle.
+      model_year
+  }
+  extend {
+  join_one: county_lookup with county_id
+  join_one: class_lookup with class_id
+  join_one: make_lookup with make_id
+  join_one: body_lookup with body_id
+  join_one: registrant_lookup with registrant_id
+
+  dimension:
+    #(doc) Date the registration took effect.
+    registration_date is reg_date::date
+    #(doc) Month the registration took effect.
+    reg_month is reg_date::date.month
+    #(doc) Before or after the federal clean vehicle tax credit ended for vehicles acquired after 30 September 2025; the same cutoff as registrations.credit_period, and the only place this source writes it.
+    credit_period is pick 'With the credit' when reg_date::date < @2025-10-01 else 'After the credit'
+    #(doc) County name for display; see county_lookup.county_name.
+    county_name is county_lookup.county_name
+    #(doc) Region of the state; see county_lookup.region.
+    region is county_lookup.region
+    #(doc) County name as the map's boundary file spells it; see county_lookup.county_map_name.
+    county_map_name is county_lookup.county_map_name
+    #(doc) Registration class group; see class_lookup.vehicle_group.
+    vehicle_group is class_lookup.vehicle_group
+    #(doc) DMV registration class.
+    registration_class is class_lookup.registration_class
+    #(doc) Make for display; see make_lookup.make_name.
+    make_name is make_lookup.make_name
+    #(doc) Body type; see body_lookup.body_type.
+    body_type is body_lookup.body_type
+    #(doc) Individual or organization; see registrant_lookup.registrant_type.
+    registrant_type is registrant_lookup.registrant_type
+    #(doc) Model year against the registration year: "Current model year" is equal to or later than the year of registration, "Earlier model year" is older. It is not a sign of a used car: new stock of last year's model year is still sold early in a year (about 60% of January's EVs carry an earlier model year), and a few records carry model years before 1990. The DMV has no new/used flag.
+    model_year_age is
+      pick 'Not recorded' when model_year is null
+      pick 'Current model year' when model_year >= year(registration_date)
+      else 'Earlier model year'
+
+  measure:
+    #(doc) Electric vehicles newly registered: one per row.
+    ev_count is count()
+    #(doc) Battery-electric registrations in the months with the federal credit.
+    ev_with_credit is count() { where: credit_period = 'With the credit' }
+    #(doc) Battery-electric registrations after the credit ended.
+    ev_after_credit is count() { where: credit_period = 'After the credit' }
+    #(doc) This row group's share of the battery-electric registrations in scope (a make's share of all EVs, say).
+    # percent
+    share_of_evs is ev_count / nullif(all(ev_count), 0)
+    #(doc) This row group's share of the battery-electric registrations in the months with the credit.
+    # percent
+    share_with_credit is ev_with_credit / nullif(all(ev_with_credit), 0)
+    #(doc) This row group's share of the battery-electric registrations in the months after the credit ended.
+    # percent
+    share_after_credit is ev_after_credit / nullif(all(ev_after_credit), 0)
+    #(doc) Share of the electric registrations in scope that are Teslas.
+    # percent
+    tesla_share is count() { where: make_lookup.make = 'TESLA' } / nullif(count(), 0)
+    #(doc) Share of the electric registrations in scope registered by an individual rather than an organization.
+    # percent
+    individual_share is count() { where: registrant_lookup.registrant = 'INDIVIDUAL' } / nullif(count(), 0)
+    #(doc) Number of distinct makes in scope.
+    make_count is count(make_lookup.make)
+    #(doc) Latest registration date in scope.
+    latest_date is max(reg_date::date)
+
+  #(doc) Headline numbers for the electric records: count, with and after the credit, Tesla's share, the number of makes and the latest date.
+  view: kpis is {
+    aggregate: ev_count, ev_with_credit, ev_after_credit, tesla_share, individual_share, make_count, latest_date
+  }
+
+  #(doc) Makes ranked by electric registrations, with counts with and after the credit.
+  view: by_make is {
+    group_by: make_name
+    aggregate: ev_count, ev_with_credit, ev_after_credit, share_of_evs, share_with_credit, share_after_credit
+    order_by: ev_count desc
+    limit: 200
+  }
+
+  #(doc) Each make's registrations by credit period, for a slope from one period to the other.
+  view: make_by_period is {
+    group_by: make_name, credit_period
+    aggregate: ev_count
+    order_by: make_name, credit_period
+  }
+
+  #(doc) Electric registrations by body type.
+  view: by_body is {
+    group_by: body_type
+    aggregate: ev_count, ev_with_credit, ev_after_credit
+    order_by: ev_count desc
+  }
+
+  #(doc) Electric registrations by registrant type.
+  view: by_registrant is {
+    group_by: registrant_type
+    aggregate: ev_count, ev_with_credit, ev_after_credit, share_of_evs
+    order_by: ev_count desc
+  }
+
+  #(doc) Electric registrations by model year against registration year.
+  view: by_model_year_age is {
+    group_by: model_year_age
+    aggregate: ev_count, ev_with_credit, ev_after_credit, share_of_evs
+    order_by: ev_count desc
+  }
+
+  #(doc) Electric registrations day by day, for a calendar of the rush before the credit ended.
+  view: by_day is {
+    group_by: registration_date
+    aggregate: ev_count
+    order_by: registration_date
+    limit: 1000
+  }
+
+  #(doc) Electric registrations by month.
+  view: by_month is {
+    group_by: reg_month
+    aggregate: ev_count
+    order_by: reg_month
+  }
+
+  #(doc) Electric registrations by county.
+  view: by_county is {
+    group_by: county_name, county_map_name, region
+    aggregate: ev_count, tesla_share
+    order_by: ev_count desc
+    limit: 100
+  }
+
+  #(doc) The registrations themselves, newest first.
+  view: records is {
+    select: registration_date, county_name, make_name, body_type, model_year, vehicle_group, registration_class, registrant_type
+    order_by: registration_date desc, county_name, make_name
+    limit: 50
+  }
+}
+
+#(doc) Passenger cars only (the PASSENGER class): the scope of the headline question, did New York's battery-electric share of new passenger cars fall when the federal credit ended. Its kpis view is the app's headline and its like_for_like view the fair size of the change; every other view of `registrations` works here too.
+source: passenger_cars is registrations extend {
+  where: vehicle_group = 'Passenger cars'
+}
+
+#(doc) Battery-electric passenger cars only (the PASSENGER class), one row per vehicle: the headline's class for makes, bodies and counties. Every view of `ev_records` works here too.
+source: passenger_evs is ev_records extend {
+  where: vehicle_group = 'Passenger cars'
+}

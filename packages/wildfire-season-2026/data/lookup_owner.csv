@@ -1,0 +1,17 @@
+owner_id,owner_code,owner_name
+1,Private,Private
+2,USFS,US Forest Service
+3,BIA,Bureau of Indian Affairs
+4,BLM,Bureau of Land Management
+5,State,State
+6,NPS,National Park Service
+7,Tribal,Tribal
+8,USFWS,US Fish and Wildlife Service
+9,DOD,Department of Defense
+10,City,City
+11,County,County
+12,ANCSA,Alaska Native corporation
+13,BOR,Bureau of Reclamation
+14,OthLoc,Other local
+15,DOE,Department of Energy
+16,OthFed,Other federal

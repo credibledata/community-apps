@@ -1,4 +1,40 @@
-# 2026 Midterms Simulation Explorer
+# Credible community apps
+
+Data apps built with Malloy and Credible from public data. Each one is a Malloy semantic model, the data it
+reads, and an HTML app in the package's `public/` directory, served by Publisher.
+
+| App | What it answers | Where |
+|---|---|---|
+| 2026 Midterms Simulation Explorer | A Monte Carlo simulation of the 2026 Senate, House and governor races with adjustable assumptions, and an election-night page comparing the count with the forecast | [repo root](#2026-midterms-simulation-explorer) |
+| The 2026 Wildfire Season | How 2026's US fire season compared with every season since 2015, and where, when and why the fires burned | [`packages/wildfire-season-2026`](packages/wildfire-season-2026) |
+| New York EV registrations | Whether New York's new EV registrations fell after the federal clean vehicle tax credit ended on 30 September 2025 | [`packages/ev-registrations-2026`](packages/ev-registrations-2026) |
+
+## Layout
+
+Each app is a folder under `packages/` holding exactly what publishes: `publisher.json`, the model, `data/`,
+`public/` (the app) and a README listing every source, its licence and how to rebuild the data.
+`packages/publisher.config.json` names them for a local Publisher. The midterms app predates this layout and
+lives at the repo root, with its own config and tooling; it is described below.
+
+## Run the apps in `packages/`
+
+```bash
+npx @malloy-publisher/server@0.11.2 --server_root packages --port 4100 --mcp_port 4140
+```
+
+- Wildfire: http://localhost:4100/environments/community-apps/packages/wildfire-season-2026/index.html
+- EV registrations: http://localhost:4100/environments/community-apps/packages/ev-registrations-2026/index.html
+
+The ports differ from the midterms app's, so both can run at once. Add `?check=1` to an app's URL and it
+checks that the numbers it leads with are the ones the model returns, and says so at the top of the page.
+
+## Adding an app
+
+Add a folder under `packages/` with a `publisher.json` whose `name` is the folder's name, add it to
+`packages/publisher.config.json`, and list it in the table above. Data files ship in the package, so its
+README has to name each source and its licence.
+
+## 2026 Midterms Simulation Explorer
 
 An educational, single-page Monte Carlo simulation of the 2026 U.S. midterms — Senate, House
 and governors — from public data, with interactive scenario controls. It is a Credible example
@@ -10,7 +46,7 @@ The data is a dated snapshot of public sources (as of 2026-11-02), committed as 
 per table. [`package/data/README.md`](package/data/README.md) lists every source, its licence
 and what is derived here.
 
-## Run it
+### Run it
 
 ```bash
 pnpm install
@@ -36,7 +72,7 @@ pnpm results                                      # fetch the latest count, add 
 MODEL=results.malloy node scripts/query.mjs "run: results -> tally"
 ```
 
-### Updating election-night results
+#### Updating election-night results
 
 `pnpm results` fetches the current AP count (via the New York Times' results feeds) for every
 Senate, House and governor race, saves the raw JSON to `data-raw/results/<time>/`, writes a
@@ -54,7 +90,7 @@ Publisher.
 - Don't run `pnpm data` on election night just to refresh results: it re-dates the forecast
   snapshot. The results pipeline is separate on purpose.
 
-## What's on the page
+### What's on the page
 
 - **Topline**: chance of control for each chamber, as "N in 100" with 100 dots, and the change
   from the default forecast whenever the levers move.
@@ -81,7 +117,7 @@ Publisher.
   scored against the count (pick one to compare with throughout), and one row per snapshot.
   Comparisons use only races at least 90% counted.
 
-## Layout
+### Layout
 
 ```
 publisher.config.json     environment "elections" -> package ./package (midterms2026)
@@ -109,7 +145,7 @@ package/
   tests/
 ```
 
-## Where the logic lives
+### Where the logic lives
 
 The split is deliberate. The **Malloy model** holds everything deterministic and reviewable:
 partisan lean (`historical_results.partisan_lean`), poll adjustments (`polls.adjusted_margin`),
@@ -118,7 +154,7 @@ holds only what a reader can tune: recency-weighted averaging, the blend, and th
 Both are small enough to read end to end; the drawer's waterfall reads the model's named
 parts directly, so the explanation cannot drift from the arithmetic.
 
-## Notes and known limits (v1)
+### Notes and known limits (v1)
 
 - Publisher returns at most 1,000 rows unless a query sets `limit`; row-level views set one.
 - `year` is reserved in Malloy, hence `election_year`.
@@ -138,7 +174,9 @@ parts directly, so the explanation cannot drift from the arithmetic.
 
 ## License
 
-The code is [MIT](LICENSE). The data in `package/data/` and `scripts/data/curated/` is derived
-from third-party sources and keeps their licences (Wikipedia-derived tables are CC BY-SA 4.0,
-FiveThirtyEight pollster ratings are CC BY 4.0); see
-[`package/data/README.md`](package/data/README.md).
+The code is [MIT](LICENSE). The data keeps its sources' licences:
+
+- Midterms: the data in `package/data/` and `scripts/data/curated/` is derived from third-party sources
+  (Wikipedia-derived tables are CC BY-SA 4.0, FiveThirtyEight pollster ratings are CC BY 4.0); see
+  [`package/data/README.md`](package/data/README.md).
+- Each app under `packages/`: the Sources section of its README.
