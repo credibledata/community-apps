@@ -11,8 +11,9 @@ reads, and an HTML app in the package's `public/` directory, served by Publisher
 
 ## Layout
 
-Each app is a folder under `packages/` holding exactly what publishes: `publisher.json`, the model, `data/`,
-`public/` (the app) and a README listing every source, its licence and how to rebuild the data.
+Each app is a folder under `packages/`, and everything in it publishes: `publisher.json`, the model, `data/`,
+`public/` (the app), `pipeline/` (the scripts that fetch and shape the data) and a README listing every
+source, its licence and how to rebuild the data.
 `packages/publisher.config.json` names them for a local Publisher. The midterms app predates this layout and
 lives at the repo root, with its own config and tooling; it is described below.
 
@@ -179,4 +180,6 @@ The code is [MIT](LICENSE). The data keeps its sources' licences:
 - Midterms: the data in `package/data/` and `scripts/data/curated/` is derived from third-party sources
   (Wikipedia-derived tables are CC BY-SA 4.0, FiveThirtyEight pollster ratings are CC BY 4.0); see
   [`package/data/README.md`](package/data/README.md).
-- Each app under `packages/`: the Sources section of its README.
+- Each app under `packages/`: the Sources section of its README. The libraries and fonts in its
+  `public/vendor/` keep theirs (d3 and topojson-client are ISC, the fonts SIL OFL 1.1), listed in
+  `public/vendor/README.md`.

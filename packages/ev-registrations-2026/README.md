@@ -31,13 +31,14 @@ County boundaries: New York's 62 counties cut from [us-atlas 3.0.1](https://gith
 
 ## Model
 
-`ny_ev.malloy` defines two sources, exported by `index.malloy`:
+`ny_ev.malloy` defines four sources, exported by `index.malloy`:
 
 - `registrations`: ORIGINAL registrations of every fuel by month, county, fuel and class. Measures: `ev_registrations`,
   `new_registrations`, `ev_share`, and the share with and after the credit (`ev_share_with_credit`,
   `ev_share_after_credit`, `ev_share_change`).
 - `ev_records`: one row per electric ORIGINAL registration, with make, body type, model year, class, registrant type
   and county.
+- `passenger_cars` and `passenger_evs`: the same two, PASSENGER class only. The headline reads these.
 
 ## Caveats
 

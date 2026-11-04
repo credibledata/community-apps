@@ -1,5 +1,7 @@
 # Tests and generators are for development; the image serves the model and the app.
 node_modules/
+# The other apps in this repo; the image serves only midterms.
+packages/
 scripts/
 data-raw/
 package/tests/
