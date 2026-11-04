@@ -1,0 +1,196 @@
+// Election night: the AP count against the pre-election forecast and past results.
+//
+// Imports the forecast model (elections.malloy) and adds the election-night tables, built by
+// scripts/results.mjs: the count in snapshots as the night goes on, the forecast frozen before
+// the first vote was counted, and the national House vote in past midterms. Rebuilding the
+// results never touches the forecast's inputs.
+//
+// Margins are Democratic minus Republican, in points, as in the forecast. A race's "D" and
+// "R" are the forecast's two sides (an independent stand-in counts for its side; Dan Osborn
+// in Nebraska is the D side); everyone else is "other". A partial count is not a result: early
+// counts lean toward whichever kind of ballot a place counts first, so the comparisons below
+// use races with at least 90% of the expected vote counted.
+
+import 'elections.malloy'
+
+#(doc) The pre-election forecast per scenario and chamber, frozen before polls closed: each scenario preset in the app, run with the app's seed and 10,000 simulations. national_environment is the model's national shift (D minus R) under that scenario.
+source: forecast_chambers is duckdb.table('data/forecast_chambers.parquet') extend {
+  #(doc) Every scenario and chamber, in the app's preset order.
+  view: by_scenario is {
+    group_by: scenario, scenario_label, scenario_order, chamber, national_environment, p_dem_control, expected_dem_seats, p10, p50, p90
+    order_by: scenario_order, chamber
+  }
+}
+
+#(doc) Share of simulations ending with each number of Democratic seats (governorships for Governor), per scenario and chamber.
+source: forecast_seats is duckdb.table('data/forecast_seats.parquet') extend {
+  #(doc) The distribution for whatever scenario and chamber the caller filters to.
+  view: distribution is {
+    group_by: scenario, chamber, dem_seats, share
+    order_by: dem_seats
+    limit: 5000
+  }
+}
+
+#(doc) The frozen forecast per scenario and race: the share of simulations the D side wins (p_dem), the average simulated margin and its 10th/50th/90th percentiles.
+source: forecasts is duckdb.table('data/forecasts.parquet') extend {
+  dimension:
+    favorite is pick 'D' when p_dem >= 0.5 else 'R'
+
+  #(doc) Every scenario's forecast for every race.
+  view: by_race is {
+    group_by: scenario, race_id, p_dem, mean_margin, p10, p90, favorite
+    order_by: scenario, race_id
+    limit: 10000
+  }
+}
+
+#(doc) The count, one row per race per snapshot (is_latest marks the newest), from the Associated Press as published in The New York Times' results feed. pct_expected_counted is AP's estimate of the share of the expected vote counted. dem_votes and rep_votes total each side of the race; other_votes is everyone else. winner_side is set once AP calls the race ('O' if the winner is on neither side). race_id 'US-HOUSE-VOTE' is the national House popular vote.
+source: results is duckdb.table('data/results.parquet') extend {
+  join_one: race is races on race_id = race.race_id
+  join_one: forecast is forecasts on race_id = forecast.race_id and forecast.scenario = 'forecast'
+
+  dimension:
+    is_national is race_id = 'US-HOUSE-VOTE'
+    is_called is call_status = 'called'
+    has_votes is total_votes > 0
+    #(doc) Margin so far: D side minus R side, as a share of all votes counted.
+    margin is (dem_votes - rep_votes) * 100.0 / nullif(total_votes, 0)
+    other_pct is other_votes * 100.0 / nullif(total_votes, 0)
+    #(doc) Who is ahead in the count: the D side, the R side, or someone on neither ('O').
+    leader_side is pick 'O' when other_votes > dem_votes and other_votes > rep_votes
+      pick 'D' when dem_votes > rep_votes
+      pick 'R' when rep_votes > dem_votes
+      else null
+    #(doc) At least 90% of the expected vote counted: close enough to final for the comparisons below.
+    is_mostly_counted is pct_expected_counted >= 90
+    #(doc) A contest between the forecast's two sides: not uncontested, not decided before the count (both finalists from one party), with votes counted.
+    is_two_sided is not is_national and not is_uncontested and race.locked_party is null and has_votes
+    #(doc) Included in the swing and forecast comparisons: two-sided and mostly counted.
+    is_comparable is is_two_sided and is_mostly_counted
+    pres_2024_margin is race.geo.pres_2024
+    #(doc) Movement since 2024: the margin so far minus the 2024 presidential margin in the same place (positive = toward the D side).
+    swing_from_2024 is margin - race.geo.pres_2024
+    forecast_margin is forecast.mean_margin
+    forecast_p_dem is forecast.p_dem
+    #(doc) The margin so far minus the forecast's average simulated margin (positive = bluer than forecast).
+    vs_forecast is margin - forecast.mean_margin
+    #(doc) The margin so far falls inside the forecast's 80% range (10th to 90th percentile of simulations).
+    in_forecast_range is margin >= forecast.p10 and margin <= forecast.p90
+    #(doc) Called for someone other than the side the forecast favoured.
+    is_upset is is_called and winner_side != forecast.favorite
+
+  measure:
+    race_count is count()
+    called is count() { where: is_called }
+    d_called is count() { where: is_called and winner_side = 'D' }
+    r_called is count() { where: is_called and winner_side = 'R' }
+    other_called is count() { where: is_called and winner_side = 'O' }
+    not_called is count() { where: not is_called }
+    reporting is count() { where: has_votes }
+    upsets is count() { where: is_upset }
+    #(doc) Called races where the forecast's favourite won.
+    called_as_forecast is count() { where: is_called and winner_side = forecast.favorite }
+    comparable_races is count() { where: is_comparable }
+    #(doc) Average swing from 2024 across comparable races.
+    avg_swing is avg(swing_from_2024) { where: is_comparable }
+    #(doc) Average of (margin so far minus forecast margin) across comparable races: positive means the count runs bluer than the forecast.
+    avg_vs_forecast is avg(vs_forecast) { where: is_comparable }
+    mean_abs_error is avg(abs(vs_forecast)) { where: is_comparable }
+    #(doc) Share of comparable races whose margin falls in the forecast's 80% range. A well-calibrated forecast lands near 80%, though a shared national miss moves every race at once.
+    share_in_range is count() { where: is_comparable and in_forecast_range } / nullif(count() { where: is_comparable }, 0)
+    votes_counted is sum(total_votes)
+    latest_snapshot is max(snapshot_at)
+
+  #(doc) The newest snapshot, one row per race, with everything the results page shows.
+  view: latest_races is {
+    where: is_latest and not is_national
+    group_by:
+      race_id, office, race.state, race.race_name, race.dem_candidate, race.rep_candidate,
+      race.locked_party, race.matchup_note, race.expert_rating,
+      dem_votes, rep_votes, other_votes, total_votes, pct_expected_counted, call_status,
+      winner_side, winner_name, called_at, is_uncontested, leader_side, margin, other_pct,
+      is_two_sided, is_comparable, pres_2024_margin, swing_from_2024,
+      forecast_p_dem, forecast_margin, forecast.p10, forecast.p90, vs_forecast,
+      in_forecast_range, is_upset, source_updated_at
+    order_by: race_id
+    limit: 1000
+  }
+
+  #(doc) Calls and comparisons per office in the newest snapshot.
+  view: tally is {
+    where: is_latest and not is_national
+    group_by: office
+    aggregate:
+      race_count, called, d_called, r_called, other_called, not_called, reporting, upsets,
+      called_as_forecast, comparable_races, avg_swing, avg_vs_forecast, mean_abs_error,
+      share_in_range
+    order_by: office desc
+  }
+
+  #(doc) The national House popular vote in each snapshot.
+  view: national_vote is {
+    where: is_national
+    group_by: snapshot_at, dem_votes, rep_votes, other_votes, total_votes, margin, pct_expected_counted, is_latest
+    order_by: snapshot_at
+  }
+
+  #(doc) How the night unfolded: calls and the average swing per office in each snapshot.
+  view: by_snapshot is {
+    where: not is_national
+    group_by: snapshot_at, office
+    aggregate: called, d_called, r_called, other_called, reporting, comparable_races, avg_swing, avg_vs_forecast
+    order_by: snapshot_at, office
+  }
+}
+
+#(doc) The frozen forecast for every scenario against the newest count: which set of assumptions the results so far look most like. Errors use comparable races only (two-sided, at least 90% counted).
+source: scenario_fit is forecasts extend {
+  join_one: result is results on race_id = result.race_id and result.is_latest
+  join_one: label is forecast_chambers on scenario = label.scenario and label.chamber = 'House'
+
+  dimension:
+    #(doc) The margin so far minus this scenario's forecast margin (positive = bluer than forecast).
+    error is result.margin - mean_margin
+
+  measure:
+    races_compared is count() { where: result.is_comparable }
+    #(doc) Average signed error: positive means the count runs bluer than this scenario.
+    avg_error is avg(error) { where: result.is_comparable }
+    mean_abs_error is avg(abs(error)) { where: result.is_comparable }
+    races_called is count() { where: result.is_called }
+    #(doc) Called races where this scenario's favourite won.
+    called_correctly is count() { where: result.is_called and result.winner_side = favorite }
+    share_in_range is count() { where: result.is_comparable and result.margin >= p10 and result.margin <= p90 } / nullif(count() { where: result.is_comparable }, 0)
+
+  #(doc) One row per scenario: its errors against the count, overall.
+  view: by_scenario is {
+    group_by: scenario, label.scenario_label, label.scenario_order, label.national_environment
+    aggregate: races_compared, avg_error, mean_abs_error, share_in_range, races_called, called_correctly
+    order_by: scenario_order
+  }
+
+  #(doc) The same, per scenario and office.
+  view: by_scenario_office is {
+    group_by: scenario, result.office
+    aggregate: races_compared, avg_error, mean_abs_error, races_called, called_correctly
+    order_by: scenario, office
+  }
+}
+
+#(doc) The national House popular vote in midterms since 2006 and in 2024 (Wikipedia, from the Clerk of the House), against the last presidential margin before it (MIT Election Lab). white_house_party is the president's party at the time.
+source: house_popular_vote is duckdb.table('data/house_popular_vote.parquet') extend {
+  dimension:
+    margin is dem_pct - rep_pct
+    is_midterm is election_year != prior_pres_year
+    #(doc) House margin minus the previous presidential margin (positive = toward Democrats).
+    swing_from_pres is margin - prior_pres_margin
+    out_party is pick 'D' when white_house_party = 'R' else 'R'
+    #(doc) The same swing, signed toward the party out of the White House: the usual midterm penalty.
+    swing_to_out_party is pick margin - prior_pres_margin when white_house_party = 'R' else prior_pres_margin - margin
+
+  view: midterms is {
+    group_by: election_year, dem_pct, rep_pct, margin, prior_pres_year, prior_pres_margin, white_house_party, out_party, is_midterm, swing_from_pres, swing_to_out_party, source_url
+    order_by: election_year
+  }
+}

@@ -1,0 +1,7 @@
+election_year,dem_pct,rep_pct,prior_pres_year,prior_pres_margin,white_house_party,source_url
+2006,52.3,44.3,2004,-2.4,R,https://en.wikipedia.org/wiki/2006_United_States_House_of_Representatives_elections
+2010,44.9,51.7,2008,7.4,D,https://en.wikipedia.org/wiki/2010_United_States_House_of_Representatives_elections
+2014,45.5,51.2,2012,3.9,D,https://en.wikipedia.org/wiki/2014_United_States_House_of_Representatives_elections
+2018,53.4,44.8,2016,2.2,R,https://en.wikipedia.org/wiki/2018_United_States_House_of_Representatives_elections
+2022,47.3,50,2020,4.4,D,https://en.wikipedia.org/wiki/2022_United_States_House_of_Representatives_elections
+2024,47.2,49.8,2024,-1.5,D,https://en.wikipedia.org/wiki/2024_United_States_House_of_Representatives_elections

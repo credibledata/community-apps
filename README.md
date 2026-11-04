@@ -18,6 +18,7 @@ pnpm dev          # Publisher on :4000, watching the package
 ```
 
 - App: http://localhost:4000/environments/elections/packages/midterms2026/index.html
+- Election night: http://localhost:4000/environments/elections/packages/midterms2026/results.html
 - Publisher console: http://localhost:4000 · MCP: http://localhost:4040/mcp
 
 Other scripts:
@@ -31,7 +32,27 @@ pnpm data                                         # rebuild the Parquet from cac
 pnpm data:validate                                # just the validation gate
 pnpm data:stub                                    # the old synthetic data, as an offline fixture
 pnpm geo                                          # re-project state shapes into public/geo/
+pnpm results                                      # fetch the latest count, add a snapshot, rebuild results Parquet
+MODEL=results.malloy node scripts/query.mjs "run: results -> tally"
 ```
+
+### Updating election-night results
+
+`pnpm results` fetches the current AP count (via the New York Times' results feeds) for every
+Senate, House and governor race, saves the raw JSON to `data-raw/results/<time>/`, writes a
+committed snapshot to `scripts/data/results/snapshots/<time>.csv`, rebuilds the results Parquet
+from every snapshot so far and validates it. Re-run it whenever you want a fresh count; each run
+adds a row to the page's "How the count came in" table. It needs network access but not
+Publisher.
+
+- `pnpm results --offline` rebuilds from the committed snapshots without fetching.
+- The pre-election forecast is frozen in `scripts/data/results/forecast*.csv` (every scenario
+  preset, 10,000 simulations, seed 538). It is only recomputed with `--refreeze`, which needs
+  `pnpm dev` running; don't, unless the model or its data changed on purpose.
+- The run fails loudly if a race in the feed can't be matched to ours or its 2024 presidential
+  margin disagrees with our data, rather than guessing.
+- Don't run `pnpm data` on election night just to refresh results: it re-dates the forecast
+  snapshot. The results pipeline is separate on purpose.
 
 ## What's on the page
 
@@ -52,6 +73,13 @@ pnpm geo                                          # re-project state shapes into
 - **What's driving the forecast**: the national-environment formula and its inputs, a
   sensitivity tornado, model vs. market, the blend mix by race, pollster house effects and
   special elections.
+- **Election night** (`results.html`, linked from the masthead): the count so far for each
+  office against the frozen pre-election forecast — seats called, a status map, the count vs.
+  the forecast and vs. the 2024 presidential margin per race, which simulated outcomes the
+  calls have ruled out, and a race table with upsets and races outside the 80% range. Below,
+  the national House vote's swing against past midterms (2006–2022), every scenario preset
+  scored against the count (pick one to compare with throughout), and one row per snapshot.
+  Comparisons use only races at least 90% counted.
 
 ## Layout
 
@@ -59,9 +87,12 @@ pnpm geo                                          # re-project state shapes into
 publisher.config.json     environment "elections" -> package ./package (midterms2026)
 serve.mjs, Dockerfile     production front door, same shape as community/apps/avalanche
 scripts/                  data build and validation, geo projection, headless forecast, query CLI
+  results.mjs             election-night count: fetch, snapshot, frozen forecast, Parquet
   data/                   fetchers, Wikipedia/Kalshi curation, schema; curated/ is committed
+    results/              committed count snapshots, frozen forecast, past House popular vote
 package/
   elections.malloy        the semantic model: sources, measures, views
+  results.malloy          the count against the forecast (imports elections.malloy)
   data/                   Parquet snapshot + provenance README + build-info.json (as-of date)
   public/                 the app (served by Publisher; no build step)
     index.html styles.css markup and the token contract (blue = D, red = R, nothing else)
@@ -72,6 +103,7 @@ package/
     format.js             formatting and colour helpers (pure; tested)
     app.js                boot, levers, rendering, the race drawer
     methodology.html/.js  the data inventory and how the model works, linked from the footer
+    results.html/.js      election night: the count against the forecast and past midterms
     publisher.js          POSTs Malloy to Publisher; shared by both pages
     geo/states.json       pre-projected Albers USA state paths (from us-atlas)
   tests/
@@ -96,6 +128,9 @@ parts directly, so the explanation cannot drift from the arithmetic.
 - Ratings are Sabato's Crystal Ball only; House and Senate history from MIT is optional (it
   sits behind a Dataverse guestbook, see `package/data/README.md`).
 - The forecast is as of the snapshot date, not today; it moves only when the data is rebuilt.
+- Election-night results are a partial, unofficial count until certified. Early margins move
+  with the order places count mail and election-day ballots, which is why comparisons wait for
+  90% of the expected vote.
 - The simulation uses normal errors; fat tails, candidate-quality effects and a
   primary/nominee layer are natural next steps.
 - To host on community.credibledata.com, follow `community/infra/README.md` ("Hosting an app

@@ -224,8 +224,11 @@ export function balanceBar(container, { segments, total, threshold, thresholdLab
 }
 
 // ---- Seat distribution ---------------------------------------------------------------------
-/** Histogram of Democratic seats across simulations, coloured by who controls. */
-export function seatHistogram(container, { hist, threshold, current, label = 'Democratic seats' }) {
+/**
+ * Histogram of Democratic seats across simulations, coloured by who controls. `possible`
+ * ([lo, hi]) greys out the outcomes already ruled out, e.g. by races called so far.
+ */
+export function seatHistogram(container, { hist, threshold, current, label = 'Democratic seats', possible = null }) {
   const h = 190
   const { svg, width } = frame(container, h)
   const total = hist.reduce((a, b) => a + b, 0) || 1
@@ -240,6 +243,14 @@ export function seatHistogram(container, { hist, threshold, current, label = 'De
   const bw = Math.max(1, x(1) - x(0) - (hi - lo > 80 ? 0 : 1))
   const blue = css('--dem') || '#2460ba'
   const red = css('--rep') || '#c8343a'
+  const ruledOut = (v) => possible && (v < possible[0] || v > possible[1])
+  if (possible) {
+    for (const [a, b] of [[lo - 0.5, possible[0] - 0.5], [possible[1] + 0.5, hi + 0.5]]) {
+      if (b > a) {
+        svg.append(s('rect', { x: x(Math.max(lo - 0.5, a)), y: m.t, width: Math.max(0, x(Math.min(hi + 0.5, b)) - x(Math.max(lo - 0.5, a))), height: h - m.b - m.t, class: 'ruled-out' }))
+      }
+    }
+  }
   for (let v = lo; v <= hi; v++) {
     const p = hist[v] / total
     if (p <= 0) {
@@ -251,9 +262,9 @@ export function seatHistogram(container, { hist, threshold, current, label = 'De
         y: y(p),
         width: bw,
         height: h - m.b - y(p),
-        fill: v >= threshold ? blue : red,
-        opacity: 0.88,
-        ...hover(`<b>${v} ${label}</b><br>${fmtPct(p, 1)} of simulations`),
+        fill: ruledOut(v) ? '#b9b2a6' : v >= threshold ? blue : red,
+        opacity: ruledOut(v) ? 0.5 : 0.88,
+        ...hover(`<b>${v} ${label}</b><br>${fmtPct(p, 1)} of simulations${ruledOut(v) ? '<br><span class="muted">Ruled out by the races called so far</span>' : ''}`),
       })
     )
   }
@@ -281,7 +292,8 @@ export function seatHistogram(container, { hist, threshold, current, label = 'De
 // ---- Snake: races ordered from safest D to safest R ----------------------------------------
 /**
  * Each race is a cell sized by seats, ordered by forecast margin, with the majority mark at
- * the seat that clinches control. Wraps into rows for the House.
+ * the seat that clinches control. Wraps into rows for the House. An item's `color` and `ink`
+ * override the probability shading.
  */
 export function snake(container, { items, startD, threshold, onClick, selected, rows = 1 }) {
   const total = items.length
@@ -302,7 +314,7 @@ export function snake(container, { items, startD, threshold, onClick, selected, 
         y: yy,
         width: Math.max(1, cw - (cw > 6 ? 1.5 : 0.5)),
         height: rowH,
-        fill: probColor(it.p),
+        fill: it.color ?? probColor(it.p),
         class: `cell${selected === it.id ? ' selected' : ''}`,
         ...hover(it.tip),
         onclick: onClick ? () => onClick(it.id) : null,
@@ -310,7 +322,7 @@ export function snake(container, { items, startD, threshold, onClick, selected, 
     )
     if (cw > 22 && rows === 1) {
       svg.append(
-        s('text', { x: xx + cw / 2, y: yy + rowH / 2 + 4, class: 'cell-label', fill: it.p > 0.8 || it.p < 0.2 ? '#fff' : '#1d1b18' }, it.short)
+        s('text', { x: xx + cw / 2, y: yy + rowH / 2 + 4, class: 'cell-label', fill: it.ink ?? (it.p > 0.8 || it.p < 0.2 ? '#fff' : '#1d1b18') }, it.short)
       )
     }
   })
@@ -646,6 +658,92 @@ export function scatter(container, { points, xLabel, yLabel, height = 300, diag 
       svg.append(s('text', { x: x(p.x) + 8, y: y(p.y) + 4, class: 'point-label' }, p.label))
     }
   }
+}
+
+// ---- Margin scatter ------------------------------------------------------------------------
+/**
+ * Two margins per race (points, D minus R): `x` across, `y` up, on one symmetric scale. The
+ * diagonal is y = x; `offset` adds a dashed y = x + offset (an average swing or miss).
+ */
+export function marginScatter(container, { points, xLabel, yLabel, height = 340, offset = null, offsetLabel = '' }) {
+  const { svg, width, height: h } = frame(container, height)
+  const m = { l: 46, r: 14, t: 12, b: 40 }
+  const ext = Math.min(60, Math.max(10, ...points.flatMap((p) => [Math.abs(p.x), Math.abs(p.y)])) * 1.05)
+  const x = linear([-ext, ext], [m.l, width - m.r])
+  const y = linear([-ext, ext], [h - m.b, m.t])
+  const clip = (v) => Math.max(-ext, Math.min(ext, v))
+  for (const t of niceTicks(-ext, ext, 6)) {
+    svg.append(
+      s('line', { x1: x(t), x2: x(t), y1: m.t, y2: h - m.b, class: t === 0 ? 'axis' : 'gridline' }),
+      s('line', { x1: m.l, x2: width - m.r, y1: y(t), y2: y(t), class: t === 0 ? 'axis' : 'gridline' }),
+      s('text', { x: x(t), y: h - m.b + 15, class: 'tick', 'text-anchor': 'middle' }, t === 0 ? 'EVEN' : fmtMargin(t, 0)),
+      s('text', { x: m.l - 6, y: y(t) + 4, class: 'tick', 'text-anchor': 'end' }, t === 0 ? 'EVEN' : fmtMargin(t, 0))
+    )
+  }
+  svg.append(s('line', { x1: x(-ext), y1: y(-ext), x2: x(ext), y2: y(ext), class: 'ref' }))
+  if (Number.isFinite(offset)) {
+    const a = Math.max(-ext, -ext - offset)
+    const b = Math.min(ext, ext - offset)
+    svg.append(
+      s('line', { x1: x(a), y1: y(a + offset), x2: x(b), y2: y(b + offset), class: 'offset-line' }),
+      offsetLabel ? s('text', { x: x(b) - 4, y: y(b + offset) + 14, class: 'tick strong', 'text-anchor': 'end' }, offsetLabel) : null
+    )
+  }
+  svg.append(
+    s('text', { x: (m.l + width - m.r) / 2, y: h - 4, class: 'axis-title', 'text-anchor': 'middle' }, xLabel),
+    s('text', { x: 12, y: (m.t + h - m.b) / 2, class: 'axis-title', 'text-anchor': 'middle', transform: `rotate(-90 12 ${(m.t + h - m.b) / 2})` }, yLabel)
+  )
+  for (const p of points) {
+    svg.append(
+      s('circle', {
+        cx: x(clip(p.x)),
+        cy: y(clip(p.y)),
+        r: p.r ?? 5,
+        fill: p.color,
+        opacity: p.opacity ?? 0.85,
+        stroke: '#fff',
+        'stroke-width': 1,
+        class: p.onClick ? 'clickable' : null,
+        ...hover(p.tip),
+        onclick: p.onClick,
+      })
+    )
+  }
+}
+
+// ---- Signed bars ---------------------------------------------------------------------------
+/** Labelled bars from zero for signed values in points: { label, value, color, highlight, tip }. */
+export function signedBars(container, rows, { fmt = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}` } = {}) {
+  const rowH = 26
+  const h = rows.length * rowH + 24
+  const { svg, width } = frame(container, h, { minWidth: 260 })
+  const m = { l: 150, r: 52, t: 4, b: 20 }
+  const ext = Math.max(4, ...rows.map((r) => Math.abs(r.value))) * 1.08
+  const lo = rows.some((r) => r.value < 0) ? -ext : 0
+  const x = linear([lo, ext], [m.l, width - m.r])
+  for (const t of niceTicks(lo, ext, 5)) {
+    svg.append(
+      s('line', { x1: x(t), x2: x(t), y1: m.t, y2: h - m.b, class: t === 0 ? 'axis' : 'gridline' }),
+      s('text', { x: x(t), y: h - 5, class: 'tick', 'text-anchor': 'middle' }, t)
+    )
+  }
+  rows.forEach((r, i) => {
+    const yy = m.t + i * rowH
+    svg.append(
+      s('text', { x: m.l - 8, y: yy + 16, class: `wf-label${r.highlight ? ' total' : ''}`, 'text-anchor': 'end' }, r.label),
+      s('rect', {
+        x: x(Math.min(0, r.value)),
+        y: yy + 5,
+        width: Math.max(1.5, Math.abs(x(r.value) - x(0))),
+        height: rowH - 10,
+        fill: r.color,
+        opacity: r.highlight ? 1 : 0.6,
+        rx: 2,
+        ...hover(r.tip ?? `<b>${r.label}</b><br>${fmt(r.value)}`),
+      }),
+      s('text', { x: width - m.r + 6, y: yy + 17, class: `wf-value${r.highlight ? ' total' : ''}` }, fmt(r.value))
+    )
+  })
 }
 
 // ---- Horizontal comparison bars ------------------------------------------------------------

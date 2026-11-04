@@ -13,6 +13,8 @@ import {
   marketQuery,
   modelUrl,
   queryUrl,
+  RESULTS_MODEL,
+  RESULTS_QUERIES,
   sampleQuery,
   sourceBlock,
   stateToHash,
@@ -31,6 +33,7 @@ test('queryUrl works under Publisher, at the root, and under a prefix', () => {
   assert.equal(queryUrl('/'), ENDPOINT)
   assert.equal(queryUrl('/elections/'), `/elections${ENDPOINT}`)
   assert.equal(modelUrl('/elections/methodology.html'), `/elections${ENDPOINT.replace(/\/query$/, '')}`)
+  assert.equal(queryUrl('/elections/results.html', RESULTS_MODEL), `/elections${ENDPOINT.replace('elections.malloy', 'results.malloy')}`)
 })
 
 test('ids are validated before they reach a query', () => {
@@ -90,15 +93,25 @@ test('sampleQuery selects every dimension and rejects odd names', () => {
   assert.throws(() => sampleQuery('races; drop'))
 })
 
-test('every view the app queries is defined in the model', () => {
-  const model = readFileSync(new URL('../elections.malloy', import.meta.url), 'utf8')
+function assertQueriesDefined(files, queries) {
+  const model = files.map((f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8')).join('\n')
   const sources = new Set([...model.matchAll(/^source: (\w+)/gm)].map((m) => m[1]))
   const views = new Set([...model.matchAll(/view: (\w+)/g)].map((m) => m[1]))
-  for (const q of [...Object.values(BOOT_QUERIES), ...Object.values(INVENTORY_QUERIES)]) {
+  for (const q of queries) {
     const [, source, view] = q.match(/^run: (\w+) -> (\w+|\{)/)
     assert.ok(sources.has(source), `unknown source in: ${q}`)
     if (view !== '{') {
       assert.ok(views.has(view), `unknown view in: ${q}`)
     }
   }
+}
+
+test('every view the app queries is defined in the model', () => {
+  assertQueriesDefined(['elections.malloy'], [...Object.values(BOOT_QUERIES), ...Object.values(INVENTORY_QUERIES)])
+})
+
+test('every view the results page queries is defined in results.malloy or what it imports', () => {
+  const results = readFileSync(new URL(`../${RESULTS_MODEL}`, import.meta.url), 'utf8')
+  assert.match(results, /^import 'elections\.malloy'/m)
+  assertQueriesDefined([RESULTS_MODEL, 'elections.malloy'], Object.values(RESULTS_QUERIES))
 })

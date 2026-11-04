@@ -8,6 +8,7 @@
     "data:real": "node scripts/data/fetch.mjs && node scripts/data/curate.mjs && node scripts/data/fetch-kalshi.mjs && node scripts/build-data.mjs",
     "data:validate": "node scripts/validate-data.mjs",
     "data:stub": "node scripts/generate-stub-data.mjs",
+    "results": "node scripts/results.mjs",
     "geo": "node scripts/build-geo.mjs",
     "test": "node --test package/tests/*.test.mjs"
   },

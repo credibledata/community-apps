@@ -1,17 +1,15 @@
 // Talking to Publisher, shared by every page: run a Malloy query and show one.
 
 import { fmtInt } from './format.js'
-import { modelUrl, queryUrl } from './query.js'
+import { MODEL, modelUrl, queryUrl } from './query.js'
 
-const QUERY_URL = queryUrl(location.pathname)
-const MODEL_URL = modelUrl(location.pathname)
 const RESULT_ROW_LIMIT = 100
 
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
-export async function run(malloy) {
-  const res = await fetch(QUERY_URL, {
+export async function run(malloy, model = MODEL) {
+  const res = await fetch(queryUrl(location.pathname, model), {
     method: 'POST',
     credentials: 'include',
     headers: { 'content-type': 'application/json' },
@@ -31,22 +29,23 @@ export async function run(malloy) {
   return JSON.parse(json.result)
 }
 
-let modelSource = null
+const modelSources = new Map()
 
 /** The model's source text, fetched once per page. */
-export function loadModelSource() {
-  modelSource ??= fetch(MODEL_URL, { credentials: 'include' })
-    .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Model request failed (${res.status})`))))
-    .then((json) => {
-      if (typeof json?.sourceText !== 'string') {
-        throw new Error('Publisher returned no model source')
-      }
-      return json.sourceText
-    })
-  modelSource.catch(() => {
-    modelSource = null
-  })
-  return modelSource
+export function loadModelSource(model = MODEL) {
+  if (!modelSources.has(model)) {
+    const p = fetch(modelUrl(location.pathname, model), { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Model request failed (${res.status})`))))
+      .then((json) => {
+        if (typeof json?.sourceText !== 'string') {
+          throw new Error('Publisher returned no model source')
+        }
+        return json.sourceText
+      })
+    p.catch(() => modelSources.delete(model))
+    modelSources.set(model, p)
+  }
+  return modelSources.get(model)
 }
 
 export const EXPAND_ICON = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none"

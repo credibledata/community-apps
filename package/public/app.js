@@ -1314,7 +1314,7 @@ async function boot() {
   try {
     const [g, ...rows] = await Promise.all([
       fetch('./geo/states.json').then((r) => r.json()),
-      ...Object.values(queries).map(run),
+      ...Object.values(queries).map((q) => run(q)),
     ])
     geo = g
     data = Object.fromEntries(Object.keys(queries).map((k, i) => [k, rows[i]]))

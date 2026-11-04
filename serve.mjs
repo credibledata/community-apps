@@ -6,10 +6,10 @@
 // without this the public URL would land on that console — which loads its
 // assets from absolute /assets/... and so breaks under the prefix anyway.
 //
-// This serves the app's own files at "/", proxies the one query endpoint it
-// needs and passes on the model's source text, so the public URL is just
+// This serves the app's own files at "/", proxies the query endpoints it
+// needs and passes on the models' source text, so the public URL is just
 // https://<host>/elections and the app needs no knowledge of how deep Publisher
-// files it. Everything else Publisher serves is refused here — see QUERY_PATH below.
+// files it. Everything else Publisher serves is refused here — see QUERY_PATHS below.
 
 import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -21,18 +21,21 @@ const ENVIRONMENT = process.env.PUBLISHER_ENV || 'elections'
 const PACKAGE = process.env.PACKAGE_NAME || 'midterms2026'
 const PUBLIC_DIR = new URL('./package/public/', import.meta.url).pathname
 
-// The one upstream path this app proxies. Everything else Publisher serves is
-// refused here rather than forwarded: its REST surface includes a connection
-// endpoint that runs arbitrary SQL and config routes that can unload the
-// package for every visitor. None of that should be reachable from the public
-// URL just because the app needs to run one query.
-const MODEL_PATH = `/api/v0/environments/${ENVIRONMENT}/packages/${PACKAGE}/models/elections.malloy`
-const QUERY_PATH = `${MODEL_PATH}/query`
+// The only upstream paths this app proxies: one query endpoint per model, the
+// forecast (elections.malloy) and election night (results.malloy, which imports
+// it). Everything else Publisher serves is refused here rather than forwarded:
+// its REST surface includes a connection endpoint that runs arbitrary SQL and
+// config routes that can unload the package for every visitor. None of that
+// should be reachable from the public URL just because the app runs queries.
+const MODEL_PATHS = ['elections.malloy', 'results.malloy'].map(
+  (m) => `/api/v0/environments/${ENVIRONMENT}/packages/${PACKAGE}/models/${m}`
+)
+const QUERY_PATHS = new Set(MODEL_PATHS.map((p) => `${p}/query`))
 
-// The methodology page also reads the model's source text, to show what each named query
-// expands to. Publisher's GET on MODEL_PATH returns that alongside ~1 MB of compiled model
+// The methodology and results pages also read a model's source text, to show what each named
+// query expands to. Publisher's GET on a model returns that alongside ~1 MB of compiled model
 // (with server file paths), so only { sourceText } is passed on, fetched once per process.
-let modelSource = null
+const modelSources = new Map()
 
 // Readiness. Cloud Run's startup probe asks for this path, and the container is
 // not "ready" until Publisher answers on it.
@@ -185,8 +188,8 @@ async function handle(req, res) {
     return res.end(ready ? 'ready\n' : 'publisher starting\n')
   }
 
-  if (req.method === 'GET' && path === MODEL_PATH) {
-    return serveModelSource(res)
+  if (req.method === 'GET' && MODEL_PATHS.includes(path)) {
+    return serveModelSource(res, path)
   }
 
   // Everything the app itself asks for, served from public/ at the root.
@@ -208,9 +211,9 @@ async function handle(req, res) {
     }
   }
 
-  // Only the query endpoint is proxied. Anything else is this app's own 404,
-  // not Publisher's — see QUERY_PATH above for why the rest stays unreachable.
-  if (req.method !== 'POST' || path !== QUERY_PATH) {
+  // Only the query endpoints are proxied. Anything else is this app's own 404,
+  // not Publisher's — see QUERY_PATHS above for why the rest stays unreachable.
+  if (req.method !== 'POST' || !QUERY_PATHS.has(path)) {
     res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' })
     return res.end(JSON.stringify({ message: 'Not found' }))
   }
@@ -243,12 +246,12 @@ async function handle(req, res) {
   req.pipe(proxied)
 }
 
-/** The model's source text only, from Publisher's model route. Cached once it succeeds. */
-async function serveModelSource(res) {
-  if (!modelSource) {
+/** A model's source text only, from Publisher's model route. Cached once it succeeds. */
+async function serveModelSource(res, modelPath) {
+  if (!modelSources.get(modelPath)) {
     const { request } = await import('node:http')
-    modelSource = await new Promise((resolve) => {
-      const up = request({ host: '127.0.0.1', port: PUBLISHER_PORT, path: MODEL_PATH, method: 'GET', timeout: 10_000 }, (r) => {
+    modelSources.set(modelPath, await new Promise((resolve) => {
+      const up = request({ host: '127.0.0.1', port: PUBLISHER_PORT, path: modelPath, method: 'GET', timeout: 10_000 }, (r) => {
         const chunks = []
         r.on('data', (c) => chunks.push(c))
         r.on('end', () => {
@@ -263,14 +266,15 @@ async function serveModelSource(res) {
       up.on('timeout', () => up.destroy())
       up.on('error', () => resolve(null))
       up.end()
-    })
+    }))
   }
-  if (!modelSource) {
+  const body = modelSources.get(modelPath)
+  if (!body) {
     res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' })
     return res.end(JSON.stringify({ message: 'Model unavailable' }))
   }
   res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-cache' })
-  res.end(modelSource)
+  res.end(body)
 }
 
 server.listen(PORT, '0.0.0.0', () => {

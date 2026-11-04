@@ -11,6 +11,8 @@
 //   simulation live; every data panel can show the Malloy that produced it.
 
 export const MODEL = 'elections.malloy'
+/** The election-night model (results.html): imports MODEL and adds the count. */
+export const RESULTS_MODEL = 'results.malloy'
 // Must match publisher.config.json's environment name and this package's name.
 export const ENVIRONMENT = 'elections'
 export const PACKAGE = 'midterms2026'
@@ -20,14 +22,14 @@ export const PACKAGE = 'midterms2026'
  * files work under Publisher's four-level path, at "/" behind serve.mjs, and under a
  * load-balancer prefix such as "/elections/". See community/apps/avalanche for the history.
  */
-export function queryUrl(pathname) {
-  return modelUrl(pathname) + '/query'
+export function queryUrl(pathname, model = MODEL) {
+  return modelUrl(pathname, model) + '/query'
 }
 
 /** The model itself (GET): its source text, which the methodology page shows each source from. */
-export function modelUrl(pathname) {
+export function modelUrl(pathname, model = MODEL) {
   const base = new URL(pathname, 'https://placeholder.invalid')
-  const path = `api/v0/environments/${ENVIRONMENT}/packages/${PACKAGE}/models/${encodeURIComponent(MODEL)}`
+  const path = `api/v0/environments/${ENVIRONMENT}/packages/${PACKAGE}/models/${encodeURIComponent(model)}`
   // Served by Publisher directly, the page lives at
   //   /api/v0/environments/<env>/packages/<pkg>/... or /environments/<env>/packages/<pkg>/...
   // and the endpoint is absolute; behind serve.mjs it is page-relative.
@@ -63,6 +65,21 @@ export const BOOT_QUERIES = Object.freeze({
   specialList: 'run: special_elections -> list',
   pollsters: 'run: polls -> by_pollster',
   nationalHistory: 'run: historical_results -> national_by_year',
+})
+
+/** Everything results.html loads, from RESULTS_MODEL. */
+export const RESULTS_QUERIES = Object.freeze({
+  races: 'run: results -> latest_races',
+  tally: 'run: results -> tally',
+  national: 'run: results -> national_vote',
+  snapshots: 'run: results -> by_snapshot',
+  forecasts: 'run: forecasts -> by_race',
+  scenarios: 'run: scenario_fit -> by_scenario',
+  scenarioOffices: 'run: scenario_fit -> by_scenario_office',
+  forecastChambers: 'run: forecast_chambers -> by_scenario',
+  seats: 'run: forecast_seats -> distribution',
+  chambers: 'run: chambers -> { select: * }',
+  midterms: 'run: house_popular_vote -> midterms',
 })
 
 /** Row counts for the "Data sources" section. */

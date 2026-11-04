@@ -1,0 +1,19 @@
+scenario,scenario_label,scenario_order,chamber,national_environment,p_dem_control,expected_dem_seats,p10,p50,p90
+forecast,Default assumptions,0,Senate,6.54,0.8,52.68,49,53,56
+forecast,Default assumptions,0,House,6.54,0.883,233.18,216,233,250
+forecast,Default assumptions,0,Governor,6.54,0.8979,28.74,25,29,32
+blueWave,Stronger D environment,1,Senate,10.54,0.9606,54.77,52,55,57
+blueWave,Stronger D environment,1,House,10.54,0.9883,251.3,232,250,272
+blueWave,Stronger D environment,1,Governor,10.54,0.9833,30.74,28,31,34
+redWave,Stronger R environment,2,Senate,2.54,0.4595,50.06,46,50,54
+redWave,Stronger R environment,2,House,2.54,0.5014,217.4,202,218,233
+redWave,Stronger R environment,2,Governor,2.54,0.6351,26.34,23,26,30
+pollMiss,2020-style polling miss,3,Senate,3.54,0.6002,51.14,46,51,55
+pollMiss,2020-style polling miss,3,House,3.54,0.6603,224.24,204,224,245
+pollMiss,2020-style polling miss,3,Governor,3.54,0.7535,27.5,24,28,31
+fundamentals,Fundamentals only,4,Senate,6.54,0.4038,50.03,47,50,53
+fundamentals,Fundamentals only,4,House,6.54,0.8426,230.43,214,230,247
+fundamentals,Fundamentals only,4,Governor,6.54,0.7312,27.03,24,27,30
+market,Heavier market weight,5,Senate,6.54,0.7808,52.73,49,53,56
+market,Heavier market weight,5,House,6.54,0.9146,235.23,219,235,252
+market,Heavier market weight,5,Governor,6.54,0.876,28.56,25,29,32

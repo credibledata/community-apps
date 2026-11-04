@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Election night: results vs. the simulation · 2026 Midterms Simulation Explorer · Credible</title>
+    <meta name="description" content="The 2026 midterm count as it comes in, against the simulation's pre-election forecast, its scenarios, and the swing in past midterms.">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body class="results-page">
+    <header class="masthead">
+      <div class="page">
+        <div class="eyebrow"><a href="./index.html">← 2026 Midterms Simulation Explorer</a> · Election night · Count as of <span id="as-of">…</span></div>
+        <h1>Results vs. the simulation</h1>
+        <p class="dek" id="dek">
+          The count as it comes in, against the forecast the simulation made before the polls
+          closed, its other scenarios, and the swing in past midterms.
+        </p>
+        <p class="caveat" id="caveat">
+          A partial count is not a result. Places count mail, early and election-day ballots in
+          different orders, so early margins can move by several points. Comparisons below use
+          only races with at least 90% of the expected vote counted.
+        </p>
+      </div>
+    </header>
+
+    <section class="page topline" aria-label="Seats called so far">
+      <button class="top-card" data-office="Senate" type="button">
+        <div class="top-kicker">Senate</div>
+        <div class="top-odds" id="t-Senate-seats">—</div>
+        <div class="top-sub" id="t-Senate-sub">&nbsp;</div>
+        <div class="mini-balance" id="t-Senate-bar"></div>
+        <div class="delta" id="t-Senate-fc"></div>
+      </button>
+      <button class="top-card" data-office="House" type="button">
+        <div class="top-kicker">House</div>
+        <div class="top-odds" id="t-House-seats">—</div>
+        <div class="top-sub" id="t-House-sub">&nbsp;</div>
+        <div class="mini-balance" id="t-House-bar"></div>
+        <div class="delta" id="t-House-fc"></div>
+      </button>
+      <button class="top-card" data-office="Governor" type="button">
+        <div class="top-kicker">Governors</div>
+        <div class="top-odds" id="t-Governor-seats">—</div>
+        <div class="top-sub" id="t-Governor-sub">&nbsp;</div>
+        <div class="mini-balance" id="t-Governor-bar"></div>
+        <div class="delta" id="t-Governor-fc"></div>
+      </button>
+    </section>
+
+    <div class="page layout">
+      <main class="main">
+        <nav class="tabs" role="tablist" aria-label="Office">
+          <button role="tab" data-office="Senate" type="button">Senate</button>
+          <button role="tab" data-office="House" type="button">House</button>
+          <button role="tab" data-office="Governor" type="button">Governors</button>
+        </nav>
+
+        <section class="block" aria-labelledby="office-headline">
+          <h2 class="headline" id="office-headline">&nbsp;</h2>
+          <p class="subhead" id="office-sub">&nbsp;</p>
+
+          <div class="panel flush">
+            <div class="panel-head">
+              <h3>Seats so far</h3>
+              <p id="balance-sub">Called races, plus seats not up this year (faded). Grey = not yet called.</p>
+            </div>
+            <div id="balance"></div>
+          </div>
+
+          <div class="grid map-row">
+            <article class="panel">
+              <div class="panel-head">
+                <h3 id="map-title">The map</h3>
+                <p id="map-sub">&nbsp;</p>
+              </div>
+              <div id="map" class="map-box"></div>
+              <div class="legend-ramp status-legend" id="map-legend"></div>
+            </article>
+          </div>
+
+          <div class="grid two">
+            <article class="panel">
+              <div class="panel-head">
+                <h3>The count against the forecast</h3>
+                <p id="vs-sub">Each dot is a race: the forecast’s average margin (across) against the margin so far (up). Above the diagonal = bluer than forecast. Faded = under 90% counted.</p>
+              </div>
+              <div id="vs-scatter"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h3>The swing from 2024</h3>
+                <p id="swing-sub">The 2024 presidential margin in the same state or district (across) against the margin so far (up). Above the diagonal = a swing toward Democrats.</p>
+              </div>
+              <div id="swing-scatter"></div>
+            </article>
+          </div>
+
+          <div class="grid two">
+            <article class="panel">
+              <div class="panel-head">
+                <h3>What the forecast expected</h3>
+                <p id="hist-sub">&nbsp;</p>
+              </div>
+              <div id="seat-hist"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h3 id="snake-title">Races in forecast order</h3>
+                <p id="snake-sub">&nbsp;</p>
+              </div>
+              <div id="snake"></div>
+              <div class="legend-ramp status-legend" id="snake-legend"></div>
+            </article>
+          </div>
+
+          <article class="panel">
+            <div class="panel-head row">
+              <div>
+                <h3>Every race</h3>
+                <p>Margin so far against the forecast and against 2024. Underlined = outside the forecast’s 80% range (hover a forecast for the range). Click a column to sort.</p>
+              </div>
+              <div class="table-tools">
+                <input type="search" id="race-search" placeholder="Search a state or district" aria-label="Search races">
+                <select id="race-filter" aria-label="Which races">
+                  <option value="all">All races</option>
+                  <option value="called">Called</option>
+                  <option value="uncalled">Not yet called</option>
+                  <option value="upsets">Called against the forecast</option>
+                  <option value="outside">Outside the forecast’s 80% range</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap"><table class="races results-table" id="race-table"></table></div>
+          </article>
+        </section>
+
+        <section class="block" aria-labelledby="swing-h">
+          <h2 class="headline" id="swing-h">How big is the swing?</h2>
+          <p class="subhead" id="swing-lede">&nbsp;</p>
+          <div class="grid two">
+            <article class="panel">
+              <div class="panel-head">
+                <h3>The midterm penalty</h3>
+                <p>National House vote against the previous presidential margin, toward the party out of the White House. 2026 is the count so far.</p>
+              </div>
+              <div id="midterm-bars"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h3>The count against the national environment</h3>
+                <p>The House vote so far next to each scenario’s national environment, the single shift the simulation applies to every race.</p>
+              </div>
+              <div id="env-bars"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="block" aria-labelledby="scen-h">
+          <h2 class="headline" id="scen-h">Which scenario looks most like the count?</h2>
+          <p class="subhead" id="scen-lede">&nbsp;</p>
+          <article class="panel">
+            <div class="panel-head">
+              <h3>Every scenario against the count</h3>
+              <p>Error = margin so far minus the scenario’s average margin, over races at least 90% counted (positive = the count is bluer). In range = share of those races inside the scenario’s 80% range; a calibrated forecast lands near 80%. Click a row to compare with it above.</p>
+            </div>
+            <div class="table-wrap"><table class="scenarios" id="scenario-table"></table></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h3>What each scenario forecast</h3>
+              <p>Expected Democratic seats, and the share of simulations with Democratic control, next to what has been called so far (seats not up this year included).</p>
+            </div>
+            <div class="table-wrap"><table class="scenarios" id="scenario-seats-table"></table></div>
+          </article>
+        </section>
+
+        <section class="block" aria-labelledby="night-h">
+          <h2 class="headline" id="night-h">How the count came in</h2>
+          <p class="subhead">One row per snapshot of the count. Each run of <code>pnpm results</code> adds one.</p>
+          <article class="panel">
+            <div class="table-wrap short"><table id="snapshot-table"></table></div>
+          </article>
+        </section>
+
+        <section class="block" aria-labelledby="malloy-h">
+          <h2 class="headline" id="malloy-h">The Malloy behind this page</h2>
+          <p class="subhead">Every number above comes from one of these queries against <code>results.malloy</code>, which imports the forecast model. Expand one to see the view it runs.</p>
+          <div id="queries"></div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="page footer">
+      <p>
+        <a href="./index.html">The simulation</a> ·
+        <a href="./methodology.html">Data sources and methodology</a> ·
+        A demonstration of a Malloy semantic model and an HTML data app, built with Credible Publisher.
+      </p>
+      <p class="credits">
+        Vote counts and race calls are from the <a href="https://www.ap.org/elections/">Associated Press</a>,
+        as published in <a href="https://www.nytimes.com/spotlight/elections">The New York Times’</a> results pages;
+        the count is unofficial until certified. Past House popular votes are from
+        <a href="https://en.wikipedia.org/wiki/2018_United_States_House_of_Representatives_elections">Wikipedia</a> (from the Clerk of the House; <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>)
+        and presidential margins from the <a href="https://electionlab.mit.edu/data">MIT Election Data and Science Lab</a>.
+        The forecast is the simulation’s own, frozen before polls closed. This project is independent
+        and is not affiliated with or endorsed by any of these sources.
+      </p>
+    </footer>
+
+    <aside class="levers" id="levers" aria-labelledby="levers-title">
+      <div class="levers-inner">
+        <div class="levers-head">
+          <h2 id="levers-title">Compare with</h2>
+          <span class="status" id="status" aria-live="polite">Loading…</span>
+        </div>
+        <p class="levers-dek">
+          The forecast under each scenario, frozen before polls closed. The number is its average
+          miss so far, in points.
+        </p>
+        <div class="presets" id="presets" role="group" aria-label="Scenario to compare with"></div>
+      </div>
+    </aside>
+
+    <script src="/sdk/publisher.js"></script>
+    <script type="module" src="./results.js"></script>
+  </body>
+</html>

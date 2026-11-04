@@ -22,6 +22,17 @@ race: where a party has no nominee, the leading independent stands in for that s
 | `approval.parquet` | 362 | A day of the presidential approval average | Derived from VoteHub approval polls |
 | `special_elections.parquet` | 110 | A special election since 2025 | The Downballot |
 
+Election night adds five tables, built by `scripts/results.mjs` (`pnpm results`) rather than
+`build-data.mjs`, so refreshing the count never touches the forecast's inputs:
+
+| File | Rows | One row is | Source |
+| --- | --- | --- | --- |
+| `results.parquet` | 507 per snapshot | A race's count at one snapshot (`race_id = 'US-HOUSE-VOTE'` is the national House vote); `is_latest` marks the newest | AP via the New York Times' results feeds |
+| `forecasts.parquet` | 3,036 | A scenario preset's frozen forecast for one race: P(D), mean margin, 10th/50th/90th percentiles | This model, run before polls closed |
+| `forecast_chambers.parquet` | 18 | A scenario's forecast for one chamber | This model |
+| `forecast_seats.parquet` | 878 | A scenario × chamber × Democratic seat count, with its share of simulations | This model |
+| `house_popular_vote.parquet` | 6 | A past House election's national popular vote (2006–2024) and the prior presidential margin | Wikipedia; MIT Election Lab |
+
 ## Sources
 
 | Source | Used for | Terms |
@@ -35,6 +46,7 @@ race: where a party has no nominee, the leading independent stands in for that s
 | [FEC bulk data](https://www.fec.gov/data/browse-data/?tab=bulk-data), `weball26` | Candidate total receipts | Public domain |
 | [Kalshi trade API](https://kalshi.com/) | Market prices | Public market data; confirm display terms before a commercial release |
 | [unitedstates/congress-legislators](https://github.com/unitedstates/congress-legislators) | Current Senate and House membership | CC0 |
+| [The New York Times' election results](https://www.nytimes.com/spotlight/elections) (Associated Press data), the JSON feeds behind its 2026 results pages | Election-night counts and race calls | Unofficial, undocumented feed; credit AP and the Times, and confirm terms (or license AP directly) before a commercial release |
 
 The forecast is independent and not affiliated with or endorsed by any source, rater or market.
 
@@ -67,6 +79,18 @@ The forecast is independent and not affiliated with or endorsed by any source, r
 - **Specials.** Contests with a Democrat and a Republican taking 90%+ of the vote between them.
   The tracker publishes margins, not vote totals, so `total_votes` is null and the "weighted"
   swing is the plain average.
+- **Election-night counts.** Each feed race is matched to ours by state, office and seat, and
+  each candidate to a side by name against the curated nominees, so independents standing in
+  for a side count for it; anyone else is "other". The run fails if a race doesn't match or
+  the feed's 2024 presidential margin differs from ours by more than 2.5 points (the
+  Downballot sheet is rounded to whole points). Margins are D minus R as a share of all votes
+  counted. Calls are AP's; a call can't be withdrawn between snapshots without failing
+  validation.
+- **Frozen forecast.** Every scenario preset run once with 10,000 simulations (seed 538)
+  against this snapshot, before polls closed, and committed as CSV in
+  `scripts/data/results/`. Validation pins the default topline to the published one.
+- **Past House popular vote.** The infobox of each election's Wikipedia article; 2010 and 2018
+  are checked against the Clerk of the House's certified totals.
 
 ## Rebuilding
 
@@ -74,6 +98,8 @@ The forecast is independent and not affiliated with or endorsed by any source, r
 pnpm data:real    # fetch every source into data-raw/ (gitignored), re-curate, fetch Kalshi, build, validate
 pnpm data         # rebuild the Parquet from the cached downloads and curated CSVs only
 pnpm test         # includes the validation gate
+pnpm results      # election night: fetch the latest count, add a snapshot, rebuild the results tables
+pnpm results --offline   # rebuild the results tables from committed snapshots only
 ```
 
 The build is deterministic given `data-raw/`. Two optional MIT files (House and Senate results)

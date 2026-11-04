@@ -107,3 +107,62 @@ export const SCHEMA = {
     ['total_votes', 'BIGINT'],
   ],
 }
+
+// Election-night tables, built by scripts/results.mjs and read by results.malloy. Kept apart
+// from SCHEMA: the forecast's inputs stay frozen at the snapshot while these grow each run.
+export const RESULTS_SCHEMA = {
+  results: [
+    ['snapshot_at', 'TIMESTAMP'],
+    ['race_id', 'VARCHAR'],
+    ['office', 'VARCHAR'],
+    ['source_race_id', 'VARCHAR'],
+    ['dem_votes', 'BIGINT'],
+    ['rep_votes', 'BIGINT'],
+    ['other_votes', 'BIGINT'],
+    ['total_votes', 'BIGINT'],
+    ['pct_expected_counted', 'DOUBLE'],
+    ['call_status', 'VARCHAR'],
+    ['winner_side', 'VARCHAR'],
+    ['winner_name', 'VARCHAR'],
+    ['called_at', 'TIMESTAMP'],
+    ['is_uncontested', 'BOOLEAN'],
+    ['source_updated_at', 'TIMESTAMP'],
+    ['is_latest', 'BOOLEAN'],
+  ],
+  forecasts: [
+    ['scenario', 'VARCHAR'],
+    ['race_id', 'VARCHAR'],
+    ['p_dem', 'DOUBLE'],
+    ['mean_margin', 'DOUBLE'],
+    ['p10', 'DOUBLE'],
+    ['p50', 'DOUBLE'],
+    ['p90', 'DOUBLE'],
+  ],
+  forecast_chambers: [
+    ['scenario', 'VARCHAR'],
+    ['scenario_label', 'VARCHAR'],
+    ['scenario_order', 'INTEGER'],
+    ['chamber', 'VARCHAR'],
+    ['national_environment', 'DOUBLE'],
+    ['p_dem_control', 'DOUBLE'],
+    ['expected_dem_seats', 'DOUBLE'],
+    ['p10', 'INTEGER'],
+    ['p50', 'INTEGER'],
+    ['p90', 'INTEGER'],
+  ],
+  forecast_seats: [
+    ['scenario', 'VARCHAR'],
+    ['chamber', 'VARCHAR'],
+    ['dem_seats', 'INTEGER'],
+    ['share', 'DOUBLE'],
+  ],
+  house_popular_vote: [
+    ['election_year', 'INTEGER'],
+    ['dem_pct', 'DOUBLE'],
+    ['rep_pct', 'DOUBLE'],
+    ['prior_pres_year', 'INTEGER'],
+    ['prior_pres_margin', 'DOUBLE'],
+    ['white_house_party', 'VARCHAR'],
+    ['source_url', 'VARCHAR'],
+  ],
+}

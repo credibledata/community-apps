@@ -6,7 +6,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { DuckDBInstance } from '@duckdb/node-api'
-import { SCHEMA } from './data/schema.mjs'
+import { RESULTS_SCHEMA, SCHEMA } from './data/schema.mjs'
 
 const DATA = new URL('../package/data/', import.meta.url)
 
@@ -140,16 +140,105 @@ export async function validate({ asOf } = {}) {
   return report(failures)
 }
 
-function report(failures) {
+// The forecast as published before election day (default assumptions, 10,000 simulations).
+// The frozen forecast must reproduce it: refreezing after a model change fails here.
+const PUBLISHED = [
+  ['Senate', 0.8, 52.7],
+  ['House', 0.883, 233.2],
+  ['Governor', 0.898, 28.7],
+]
+// Certified national House popular-vote margins (Clerk of the House), D minus R.
+const CERTIFIED_HOUSE = [
+  [2010, -6.8],
+  [2018, 8.6],
+]
+
+/** The election-night tables built by scripts/results.mjs. */
+export async function validateResults() {
+  const db = await (await DuckDBInstance.create(':memory:')).connect()
+  const failures = []
+  const rows = async (sql) => (await db.runAndReadAll(sql)).getRowObjectsJson()
+  const one = async (sql) => Object.values((await rows(sql))[0] ?? {})[0]
+  const check = async (label, sql) => {
+    const n = Number(await one(sql))
+    if (n !== 0) {
+      failures.push(`${label}: ${n}`)
+    }
+  }
+  for (const table of ['races', ...Object.keys(RESULTS_SCHEMA)]) {
+    const file = new URL(`${table}.parquet`, DATA).pathname
+    if (!existsSync(file)) {
+      failures.push(`missing ${table}.parquet`)
+      continue
+    }
+    await db.run(`CREATE VIEW ${table} AS SELECT * FROM '${file}'`)
+    if (table === 'races') {
+      continue
+    }
+    const got = (await rows(`DESCRIBE ${table}`)).map((r) => `${r.column_name} ${r.column_type}`)
+    const want = RESULTS_SCHEMA[table].map(([c, t]) => `${c} ${t}`)
+    if (got.join(',') !== want.join(',')) {
+      failures.push(`${table} schema: got [${got.join(', ')}], want [${want.join(', ')}]`)
+    }
+    if (Number(await one(`SELECT count(*) FROM ${table}`)) === 0) {
+      failures.push(`${table} is empty`)
+    }
+  }
   if (failures.length) {
-    console.error(`data validation FAILED (${failures.length}):\n  ${failures.join('\n  ')}`)
+    return report(failures)
+  }
+
+  // Results: every race in every snapshot, once, and the arithmetic adds up.
+  await check('duplicate results keys', 'SELECT count(*) - count(DISTINCT (snapshot_at, race_id)) FROM results')
+  await check('results for unknown races', "SELECT count(*) FROM results WHERE race_id <> 'US-HOUSE-VOTE' AND race_id NOT IN (SELECT race_id FROM races)")
+  await check('snapshots missing a race', `
+    SELECT count(*) FROM (SELECT snapshot_at, count(*) n FROM results GROUP BY 1)
+    WHERE n <> (SELECT count(*) + 1 FROM races)`)
+  await check('latest snapshots != 1', 'SELECT count(DISTINCT snapshot_at) - 1 FROM results WHERE is_latest')
+  await check('latest is not the newest snapshot', 'SELECT count(*) FROM results WHERE is_latest AND snapshot_at <> (SELECT max(snapshot_at) FROM results)')
+  await check('side votes do not sum to the total', 'SELECT count(*) FROM results WHERE dem_votes + rep_votes + other_votes <> total_votes')
+  await check('negative votes', 'SELECT count(*) FROM results WHERE least(dem_votes, rep_votes, other_votes) < 0')
+  await check('share counted outside 0-100', 'SELECT count(*) FROM results WHERE pct_expected_counted < 0 OR pct_expected_counted > 100')
+  await check('called races without a winner side', "SELECT count(*) FROM results WHERE call_status = 'called' AND winner_side IS NULL")
+  await check('winners in uncalled races', "SELECT count(*) FROM results WHERE call_status <> 'called' AND winner_side IS NOT NULL")
+  await check('calls withdrawn between snapshots', `
+    SELECT count(*) FROM results a JOIN results b USING (race_id)
+    WHERE b.snapshot_at > a.snapshot_at AND a.call_status = 'called' AND b.winner_side IS DISTINCT FROM a.winner_side`)
+
+  // The frozen forecast: complete, coherent, and the one that was published.
+  await check('forecast rows != scenarios x races', `
+    SELECT abs(count(*) - (SELECT count(DISTINCT scenario) FROM forecast_chambers) * (SELECT count(*) FROM races)) FROM forecasts`)
+  await check('forecasts for unknown races', 'SELECT count(*) FROM forecasts WHERE race_id NOT IN (SELECT race_id FROM races)')
+  await check('forecast probabilities outside 0-1', 'SELECT count(*) FROM forecasts WHERE p_dem < 0 OR p_dem > 1')
+  await check('forecast quantiles out of order', 'SELECT count(*) FROM forecasts WHERE p10 > p50 OR p50 > p90')
+  await check('seat distributions not summing to 1', `
+    SELECT count(*) FROM (SELECT scenario, chamber, sum(share) s FROM forecast_seats GROUP BY 1, 2) WHERE abs(s - 1) > 1e-6`)
+  for (const [chamber, p, seats] of PUBLISHED) {
+    const got = (await rows(`SELECT p_dem_control p, expected_dem_seats s FROM forecast_chambers WHERE scenario = 'forecast' AND chamber = '${chamber}'`))[0]
+    if (!got || Math.abs(got.p - p) > 0.0015 || Math.abs(got.s - seats) > 0.06) {
+      failures.push(`frozen ${chamber} forecast ${JSON.stringify(got)}, published D ${p} with ${seats} seats`)
+    }
+  }
+  for (const [year, want] of CERTIFIED_HOUSE) {
+    const got = Number(await one(`SELECT dem_pct - rep_pct FROM house_popular_vote WHERE election_year = ${year}`))
+    if (!(Math.abs(got - want) <= 0.3)) {
+      failures.push(`${year} House popular vote margin ${got.toFixed(1)}, certified ${want}`)
+    }
+  }
+  return report(failures, 'results validation')
+}
+
+function report(failures, what = 'data validation') {
+  if (failures.length) {
+    console.error(`${what} FAILED (${failures.length}):\n  ${failures.join('\n  ')}`)
     process.exitCode = 1
     return false
   }
-  console.log('data validation passed')
+  console.log(`${what} passed`)
   return true
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   await validate()
+  await validateResults()
 }
