@@ -356,7 +356,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .card.is-updating .card__finding { opacity: .55; }
 .chip.is-new { animation: chip-in .28s cubic-bezier(.2,.7,.3,1); }
 @keyframes chip-in { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
-.app-header { view-transition-name: app-header; }
+/* Naming the header for the view transition makes it a layer of its own, so the search list inside it would sit
+   under the sticky scope bar (z-index 10) that follows it. The header stacks above the bar. */
+.app-header { view-transition-name: app-header; position: relative; z-index: 11; }
 ::view-transition-old(root) { animation: view-out .16s ease both; }
 ::view-transition-new(root) { animation: view-in .3s cubic-bezier(.2,.7,.3,1) both; }
 @keyframes view-out { to { opacity: 0; } }
