@@ -12,6 +12,7 @@ import {
   lit,
   marketQuery,
   modelUrl,
+  pageVersion,
   queryUrl,
   RESULTS_MODEL,
   RESULTS_QUERIES,
@@ -34,6 +35,20 @@ test('queryUrl works under Publisher, at the root, and under a prefix', () => {
   assert.equal(queryUrl('/elections/'), `/elections${ENDPOINT}`)
   assert.equal(modelUrl('/elections/methodology.html'), `/elections${ENDPOINT.replace(/\/query$/, '')}`)
   assert.equal(queryUrl('/elections/results.html', RESULTS_MODEL), `/elections${ENDPOINT.replace('elections.malloy', 'results.malloy')}`)
+})
+
+test('queryUrl follows whichever environment and package the page is served from', () => {
+  assert.equal(
+    queryUrl('/environments/community-apps/packages/midterms2026/index.html'),
+    '/api/v0/environments/community-apps/packages/midterms2026/models/elections.malloy/query'
+  )
+  assert.equal(
+    modelUrl('/environments/my%20env/packages/m26/results.html', RESULTS_MODEL),
+    '/api/v0/environments/my%20env/packages/m26/models/results.malloy'
+  )
+  assert.equal(pageVersion('?versionId=1.0.7'), '1.0.7')
+  assert.equal(pageVersion(''), null)
+  assert.equal(pageVersion('?versionId=1.0.7%22%3E'), null)
 })
 
 test('ids are validated before they reach a query', () => {

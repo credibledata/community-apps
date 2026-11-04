@@ -1,7 +1,7 @@
 // Talking to Publisher, shared by every page: run a Malloy query and show one.
 
 import { fmtInt } from './format.js'
-import { MODEL, modelUrl, queryUrl } from './query.js'
+import { MODEL, modelUrl, pageVersion, queryUrl } from './query.js'
 
 const RESULT_ROW_LIMIT = 100
 
@@ -9,11 +9,12 @@ export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 export async function run(malloy, model = MODEL) {
+  const versionId = pageVersion(location.search)
   const res = await fetch(queryUrl(location.pathname, model), {
     method: 'POST',
     credentials: 'include',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ compactJson: true, query: malloy }),
+    body: JSON.stringify({ compactJson: true, query: malloy, ...(versionId && { versionId }) }),
   })
   let json
   try {
@@ -34,7 +35,9 @@ const modelSources = new Map()
 /** The model's source text, fetched once per page. */
 export function loadModelSource(model = MODEL) {
   if (!modelSources.has(model)) {
-    const p = fetch(modelUrl(location.pathname, model), { credentials: 'include' })
+    const version = pageVersion(location.search)
+    const url = modelUrl(location.pathname, model) + (version ? `?versionId=${encodeURIComponent(version)}` : '')
+    const p = fetch(url, { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Model request failed (${res.status})`))))
       .then((json) => {
         if (typeof json?.sourceText !== 'string') {

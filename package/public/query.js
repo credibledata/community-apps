@@ -13,9 +13,11 @@
 export const MODEL = 'elections.malloy'
 /** The election-night model (results.html): imports MODEL and adds the count. */
 export const RESULTS_MODEL = 'results.malloy'
-// Must match publisher.config.json's environment name and this package's name.
+// Used only where the page's own URL doesn't name them (served at "/" behind serve.mjs); must
+// match publisher.config.json's environment name and this package's name.
 export const ENVIRONMENT = 'elections'
 export const PACKAGE = 'midterms2026'
+const PACKAGE_PATH = /\/environments\/([^/]+)\/packages\/([^/]+)\//
 
 /**
  * Where the app POSTs its queries, resolved against the page it is served from, so the same
@@ -29,14 +31,20 @@ export function queryUrl(pathname, model = MODEL) {
 /** The model itself (GET): its source text, which the methodology page shows each source from. */
 export function modelUrl(pathname, model = MODEL) {
   const base = new URL(pathname, 'https://placeholder.invalid')
-  const path = `api/v0/environments/${ENVIRONMENT}/packages/${PACKAGE}/models/${encodeURIComponent(model)}`
-  // Served by Publisher directly, the page lives at
+  // Served by Publisher or Credible, the page lives at
   //   /api/v0/environments/<env>/packages/<pkg>/... or /environments/<env>/packages/<pkg>/...
-  // and the endpoint is absolute; behind serve.mjs it is page-relative.
-  if (/\/environments\/[^/]+\/packages\/[^/]+\//.test(base.pathname)) {
-    return `/${path}`
-  }
-  return new URL(`./${path}`, base).pathname
+  // and the endpoint is absolute, in whatever environment the package was published to;
+  // behind serve.mjs it is page-relative.
+  const served = base.pathname.match(PACKAGE_PATH)
+  const [env, pkg] = served ? [served[1], served[2]].map(decodeURIComponent) : [ENVIRONMENT, PACKAGE]
+  const path = `api/v0/environments/${encodeURIComponent(env)}/packages/${encodeURIComponent(pkg)}/models/${encodeURIComponent(model)}`
+  return served ? `/${path}` : new URL(`./${path}`, base).pathname
+}
+
+/** The package version the page was opened at (Credible pins embeds with ?versionId=), if any. */
+export function pageVersion(search) {
+  const v = new URLSearchParams(search).get('versionId')
+  return v && /^[\w.-]+$/.test(v) ? v : null
 }
 
 export const OFFICES = ['Senate', 'House', 'Governor']
