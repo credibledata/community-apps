@@ -39,40 +39,39 @@ given:
   BL_WEIGHT :: number is 1
 
 // ---- Poll weights -------------------------------------------------------------------------
-// A poll's weight: grade x sqrt(sample / 600) x 0.5^(age / half-life). The same formula is
-// written twice below (as of AS_OF, and as of each earlier day for the trend line) because
-// Malloy has no user-defined functions. Change both together.
+// A poll's weight as of day D is grade x sqrt(sample / 600) x 0.5^(days from its end to D /
+// HALF_LIFE). Two jobs need it at different days D: the race averages (D = AS_OF) and the
+// generic-ballot history (D = each earlier day). Malloy has no functions to pass D in, so the
+// formula is written once, at a fixed D: election day. Moving D earlier multiplies every
+// poll's weight by the same factor, 2^(days from D to election day / HALF_LIFE). That factor
+// cancels out of any weighted average, so averages use the election-day weight directly; it
+// is applied only where the size of a weight matters (poll strength, the drawer's weights).
 
-#(doc) Polls published by AS_OF, each with its weight in the recency-weighted average.
-source: weighted_polls is polls extend {
-  where: end_date <= $AS_OF
+#(doc) Every poll with its weight as read on election day.
+source: dated_polls is polls extend {
   dimension:
-    #(doc) Grade x sqrt(sample / 600) x 0.5^(age in days / HALF_LIFE). Unrated pollsters weigh as a C; a missing sample counts as 600.
-    w is coalesce(pollster_info.grade_weight, 0.35)
-       * sqrt(greatest(100, coalesce(sample_size, 600)) / 600.0)
-       * pow(0.5, days(end_date to $AS_OF) / $HALF_LIFE)
+    #(doc) Grade x sqrt(sample / 600) x 0.5^(days from the poll's end to election day / HALF_LIFE). Unrated pollsters weigh as a C; a missing sample counts as 600.
+    election_day_weight is coalesce(pollster_info.grade_weight, 0.35)
+      * sqrt(greatest(100, coalesce(sample_size, 600)) / 600.0)
+      * pow(0.5, days(end_date to @2026-11-03) / $HALF_LIFE)
 }
 
 #(doc) Every day a poll ended, joined to the generic-ballot polls published by then.
 source: poll_dates is polls -> { group_by: as_of_day is end_date } extend {
-  join_many: g is polls on g.race_id = 'US-GENERIC' and g.end_date <= as_of_day
-  dimension:
-    gw is coalesce(g.pollster_info.grade_weight, 0.35)
-        * sqrt(greatest(100, coalesce(g.sample_size, 600)) / 600.0)
-        * pow(0.5, days(g.end_date to as_of_day) / $HALF_LIFE)
+  join_many: g is dated_polls on g.race_id = 'US-GENERIC' and g.end_date <= as_of_day
 }
 
 #(doc) The generic-ballot average as it stood on each day a poll ended. Used to move an old race poll into today's environment.
 source: generic_at is poll_dates -> {
   group_by: as_of_day
-  aggregate: gb_at is g.sum(gw * g.adjusted_margin) / nullif(g.sum(gw), 0)
+  aggregate: gb_at is g.sum(g.election_day_weight * g.adjusted_margin) / nullif(g.sum(g.election_day_weight), 0)
 }
 
 // ---- National environment -----------------------------------------------------------------
-query: generic_now is weighted_polls -> {
-  where: race_id = 'US-GENERIC'
+query: generic_now is dated_polls -> {
+  where: race_id = 'US-GENERIC' and end_date <= $AS_OF
   aggregate:
-    gb is source.sum(w * adjusted_margin) / nullif(source.sum(w), 0)
+    gb is source.sum(election_day_weight * adjusted_margin) / nullif(source.sum(election_day_weight), 0)
     gb_polls is count()
 }
 
@@ -117,25 +116,31 @@ source: national is special_elections -> {
 // Poll rows are flattened before joining the generic-ballot history: an aggregate over a
 // source with several joins (pollster, generic history, national average) is rejected as
 // "multiple join paths", and plain rows avoid it.
-source: race_poll_rows is weighted_polls -> {
+
+#(doc) Every race poll with its weight as of AS_OF (0 for polls published later) and its trend adjustment. The race averages and the drawer's poll table both read these.
+source: race_poll_rows is dated_polls -> {
   where: race_id != 'US-GENERIC'
-  select: poll_id, race_id, end_date, w, adjusted_margin
+  select: poll_id, race_id, end_date, election_day_weight, adjusted_margin
 } extend {
   join_one: ga is generic_at on end_date = ga.as_of_day
   join_cross: gbq is generic_now
   dimension:
+    #(doc) The poll's weight as of AS_OF: its election-day weight x 2^(days from AS_OF to election day / HALF_LIFE). 0 if it ended after AS_OF.
+    weight is pick election_day_weight * pow(2, days($AS_OF to @2026-11-03) / $HALF_LIFE)
+      when end_date <= $AS_OF else 0
     #(doc) How far the generic ballot has moved since the poll ended. Added to the poll so an old poll reads in today's environment.
     trend_adjustment is coalesce(gbq.gb, 0) - coalesce(ga.gb_at, gbq.gb, 0)
 }
 
 #(doc) Each race's recency-weighted, trend-adjusted poll average (before the scenario levers) and its strength (the sum of weights; about 1 per fresh A-grade poll of 600).
 source: race_poll_average is race_poll_rows -> {
-  select: race_id, w, x is adjusted_margin + trend_adjustment
+  where: weight > 0
+  select: race_id, weight, x is adjusted_margin + trend_adjustment
 } -> {
   group_by: race_id
   aggregate:
-    poll_average is sum(w * x) / nullif(sum(w), 0)
-    poll_strength is sum(w)
+    poll_average is sum(weight * x) / nullif(sum(weight), 0)
+    poll_strength is sum(weight)
     poll_count is count()
 }
 
@@ -147,14 +152,12 @@ source: poll_contributions is polls -> {
     start_date, end_date, sample_size, population, dem_pct, rep_pct, raw_margin,
     population_adjustment, adjusted_margin, url
 } extend {
-  join_one: wp is race_poll_rows on poll_id = wp.poll_id
-  join_one: ga is generic_at on end_date = ga.as_of_day
+  join_one: rp is race_poll_rows on poll_id = rp.poll_id
   join_one: pa is race_poll_average on race_id = pa.race_id
-  join_cross: gbq is generic_now
 } -> {
   select: *,
-    weight is coalesce(wp.w, 0),
-    trend_adjustment is coalesce(gbq.gb, 0) - coalesce(ga.gb_at, gbq.gb, 0),
+    weight is rp.weight,
+    trend_adjustment is rp.trend_adjustment,
     race_weight is coalesce(pa.poll_strength, 0)
 } -> {
   select: *,
