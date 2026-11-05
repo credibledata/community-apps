@@ -92,6 +92,7 @@ scripts/                  data build and validation, geo projection, headless fo
     results/              committed count snapshots, frozen forecast, past House popular vote
 package/
   elections.malloy        the semantic model: sources, measures, views
+  forecast.malloy         the forecast's deterministic steps, levers as givens (imports elections.malloy)
   results.malloy          the count against the forecast (imports elections.malloy)
   data/                   Parquet snapshot + provenance README + build-info.json (as-of date)
   public/                 the app (served by Publisher; no build step)
@@ -111,12 +112,28 @@ package/
 
 ## Where the logic lives
 
-The split is deliberate. The **Malloy model** holds everything deterministic and reviewable:
+The **Malloy model** holds everything deterministic and reviewable:
 partisan lean (`historical_results.partisan_lean`), poll adjustments (`polls.adjusted_margin`),
-pollster weights, market and approval history. The **browser model** (`public/model.js`)
-holds only what a reader can tune: recency-weighted averaging, the blend, and the simulation.
-Both are small enough to read end to end; the drawer's waterfall reads the model's named
-parts directly, so the explanation cannot drift from the arithmetic.
+pollster weights, market and approval history.
+
+`forecast.malloy` adds the forecast's deterministic steps on top: the national environment
+(`national`), each race's recency-weighted, trend-adjusted poll average (`race_poll_average`,
+`poll_contributions`) and the blend into an expected margin, sigma and win probability
+(`race_breakdown`). The app's levers are Malloy givens, passed with each query:
+
+```json
+{ "query": "run: race_breakdown -> breakdown", "givens": { "ENV_SHIFT": 2, "HALF_LIFE": 14 } }
+```
+
+Every given defaults to the app's default lever, so a plain query gives the default forecast.
+
+The **browser model** (`public/model.js`) still runs the whole forecast today, including the
+simulation. Until the app reads `race_breakdown` instead, the two copies of steps 1-3 must
+agree: `tests/forecast.test.mjs` runs `forecast.malloy` on the committed Parquet with DuckDB
+and checks every named part of every race against `model.js` (to 1e-9), under several lever
+settings and an earlier as-of date. A change to one side fails the test until the other
+matches. The drawer's waterfall reads the model's named parts directly, so the explanation
+cannot drift from the arithmetic.
 
 ## Notes and known limits (v1)
 
