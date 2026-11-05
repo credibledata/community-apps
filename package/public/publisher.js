@@ -8,13 +8,14 @@ const RESULT_ROW_LIMIT = 100
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
-export async function run(malloy, model = MODEL) {
+/** Run `malloy` against `model`, with `givens` (a { NAME: value } map) when the model declares any. */
+export async function run(malloy, model = MODEL, givens = null) {
   const versionId = pageVersion(location.search)
   const res = await fetch(queryUrl(location.pathname, model), {
     method: 'POST',
     credentials: 'include',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ compactJson: true, query: malloy, ...(versionId && { versionId }) }),
+    body: JSON.stringify({ compactJson: true, query: malloy, ...(givens && { givens }), ...(versionId && { versionId }) }),
   })
   let json
   try {

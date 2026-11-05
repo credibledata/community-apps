@@ -1,6 +1,6 @@
 // Entry point: boot queries, the simulation workers, levers, rendering and the race drawer.
-// Queries come only from query.js, model arithmetic only from model.js, drawing only from
-// charts.js.
+// Queries come only from query.js, the forecast's inputs from forecast.malloy, the simulation
+// from model.js, drawing from charts.js.
 
 import * as charts from './charts.js'
 import {
@@ -17,27 +17,33 @@ import {
   STATE_NAMES,
 } from './format.js'
 import {
+  breakdownFromRow,
   CONTROL_RANGES,
   clampControls,
   DEFAULT_CONTROLS,
   dayOf,
+  environmentFromRow,
   HIST_MIN,
   historyDates,
-  incumbentSign,
   PRESETS,
-  pollAverage,
-  pollContributions,
   prepare,
+  sensitivityScenarios,
 } from './model.js'
 import { codeBlock } from './editor.js'
 import { esc, EXPAND_ICON, loadModelSource, resultsTable, run } from './publisher.js'
 import {
   BOOT_QUERIES,
   demographicsQuery,
+  FORECAST_MODEL,
+  FORECAST_QUERIES,
+  forecastGivens,
   hashToState,
   historyQuery,
+  lit,
   MODEL,
   marketQuery,
+  pollContributionsQuery,
+  pollTrendQuery,
   stateToHash,
   viewBlock,
 } from './query.js'
@@ -75,6 +81,63 @@ function makeWorker() {
 const live = makeWorker()
 const background = makeWorker()
 
+// ---- Forecast inputs, from forecast.malloy ----------------------------------------------------
+// Every race's mean and sigma, and the national environment, under a set of levers. Recent
+// answers are kept, so moving a lever back, or re-running sensitivity, asks Publisher nothing.
+const forecastCache = new Map()
+function cached(key, load) {
+  if (!forecastCache.has(key)) {
+    const p = load()
+    p.catch(() => forecastCache.delete(key))
+    forecastCache.set(key, p)
+    if (forecastCache.size > 80) {
+      forecastCache.delete(forecastCache.keys().next().value)
+    }
+  }
+  return forecastCache.get(key)
+}
+
+/**
+ * The snapshot day's forecast inputs under `c`: { env, breakdowns, national }. With `office`,
+ * only that office's races; with `env`, that environment is reused instead of asked for (the
+ * simulation reads only its error sizes, which no lever moves).
+ */
+function fetchForecast(c, { office = null, env = null } = {}) {
+  const givens = forecastGivens(c)
+  return cached(JSON.stringify({ givens, office, env: !!env }), async () => {
+    const query = office ? `${FORECAST_QUERIES.breakdown} + { where: office = ${lit(office)} }` : FORECAST_QUERIES.breakdown
+    const [rows, national] = await Promise.all([
+      run(query, FORECAST_MODEL, givens),
+      env ? null : run(FORECAST_QUERIES.national, FORECAST_MODEL, givens),
+    ])
+    return {
+      env: env ?? environmentFromRow(national[0]),
+      national: national?.[0] ?? null,
+      breakdowns: new Map(rows.map((r) => [r.race_id, breakdownFromRow(r)])),
+    }
+  })
+}
+
+/**
+ * Each history day's forecast inputs under `c`, in one query: [{ t, forecast }], plus the
+ * national rows (the generic-ballot line reads them). What no lever or day moves (locked,
+ * envK, eduLoading) comes from `constants`, a breakdowns map.
+ */
+function fetchHistory(c, days, constants) {
+  const givens = forecastGivens(c, days)
+  return cached(JSON.stringify(givens), async () => {
+    const [rows, national] = await Promise.all([
+      run(FORECAST_QUERIES.simInputs, FORECAST_MODEL, givens),
+      run(FORECAST_QUERIES.national, FORECAST_MODEL, givens),
+    ])
+    const byDay = new Map(national.map((n) => [dayOf(n.as_of_day), { env: environmentFromRow(n), breakdowns: new Map() }]))
+    for (const r of rows) {
+      byDay.get(dayOf(r.as_of_day))?.breakdowns.set(r.race_id, { ...constants.get(r.race_id), mean: r.mean, sigma: r.sigma })
+    }
+    return { days: days.map((t) => ({ t, forecast: byDay.get(t) })).filter((d) => d.forecast), national }
+  })
+}
+
 // ---- State ---------------------------------------------------------------------------------
 const view = { office: 'Senate', race: null, houseState: null }
 let controls = { ...DEFAULT_CONTROLS }
@@ -86,6 +149,11 @@ let baseline = null
 let history = null
 let baseHistory = null
 let sens = null
+// The levers and office the sensitivity chart last measured (JSON), and whether a run is going.
+let sensKey = null
+let sensRunning = false
+let historyNational = null
+let lastNational = null
 const table = { sort: 'close', dir: 1, search: '', competitive: true }
 const drawerCache = new Map()
 
@@ -113,8 +181,10 @@ async function pump() {
     const c = pending
     pending = null
     try {
-      const r = await live('run', { controls: c, sims: SIMS })
+      const forecast = await fetchForecast(c)
+      const r = await live('run', { controls: c, forecast, sims: SIMS })
       result = r.result
+      lastNational = forecast.national
       renderAll()
     } catch (err) {
       setStatus(`Simulation failed: ${err.message}`)
@@ -136,23 +206,67 @@ async function runBackground() {
   const token = ++bgToken
   const c = { ...controls }
   try {
-    const s = await background('sensitivity', { controls: c, office: view.office })
-    if (token !== bgToken) {
-      return
-    }
-    sens = s
-    renderTornado()
-    const h = await background('history', { controls: c })
+    const h = await historyFor(c)
     if (token !== bgToken) {
       return
     }
     history = h.points
+    historyNational = h.national
     if (isDefault()) {
       baseHistory = history
     }
     renderHistory()
     renderEnvironment()
+    maybeRunSensitivity()
   } catch (err) {
+    console.error(err)
+  }
+}
+
+/** The forecast over time under `c`: one Malloy query for every week, then the simulation. */
+async function historyFor(c) {
+  const { days, national } = await fetchHistory(c, historyDates(prep.historyStart, prep.asOf), baseline.forecast.breakdowns)
+  const h = await background('history', { controls: c, days })
+  return { points: h.points, national }
+}
+
+/** True when the sensitivity chart is on screen: it costs one query per lever setting. */
+function tornadoOnScreen() {
+  const box = $('tornado').getBoundingClientRect()
+  const band = visibleBand()
+  return box.height > 0 && box.bottom > band.top && box.top < band.top + band.height
+}
+
+/**
+ * Sensitivity, once the chart is on screen, for levers and an office it has not measured yet.
+ * One run at a time; a run that finishes after the levers moved starts the next.
+ */
+async function maybeRunSensitivity() {
+  const key = JSON.stringify({ c: controls, office: view.office })
+  if (sensRunning || key === sensKey || !baseline || !tornadoOnScreen()) {
+    return
+  }
+  sensRunning = true
+  sensKey = key
+  const c = { ...controls }
+  const office = view.office
+  try {
+    const env = baseline.forecast.env
+    const scenarios = sensitivityScenarios(c)
+    const forecasts = await Promise.all(scenarios.map((sc) => fetchForecast(sc.controls, { office, env })))
+    const runs = scenarios.map((sc, i) => ({ ...sc, forecast: forecasts[i] }))
+    const s = await background('sensitivity', { runs, office })
+    sensRunning = false
+    if (office === view.office) {
+      sens = s
+      renderTornado()
+    }
+    // The levers may have moved while this ran.
+    maybeRunSensitivity()
+  } catch (err) {
+    // Not retried at once: the next scroll or lever move tries again.
+    sensRunning = false
+    sensKey = null
     console.error(err)
   }
 }
@@ -259,6 +373,7 @@ function buildLevers() {
   $('levers-toggle').addEventListener('click', () => setLeversOpen(!leversOpen()))
   placeLevers()
   onVisibleBand(placeLevers)
+  onVisibleBand(maybeRunSensitivity)
   document.fonts?.ready.then(placeLevers)
   $('copy-link').addEventListener('click', async () => {
     try {
@@ -383,7 +498,7 @@ function incumbencyLabel(r) {
   if (r.is_open_seat) {
     return `Open seat (${r.incumbent_party} held)`
   }
-  const side = r.incumbent_party === 'I' ? ` (${incumbentSign(r) > 0 ? 'D' : 'R'} side)` : ''
+  const side = r.incumbent_party === 'I' ? ` (${r.incumbent_sign > 0 ? 'D' : 'R'} side)` : ''
   return `${party[r.incumbent_party] || r.incumbent_party} incumbent${side}`
 }
 
@@ -696,7 +811,7 @@ function renderEnvironmentFormula() {
     '<span class="op">+</span>',
     term('Special elections', env.specialsSignal, '0.1'),
     env.keysShare
-      ? `<span class="op">+</span>${term(`Keys (${env.keys.turned} of ${env.keys.keys.length} turned), ${Math.round(env.keysShare * 100)}% pull toward ${fmtMargin(env.keys.environment)}`, env.keysTerm)}`
+      ? `<span class="op">+</span>${term(`Keys (${env.keys.turned} of ${env.keys.total} turned), ${Math.round(env.keysShare * 100)}% pull toward ${fmtMargin(env.keys.environment)}`, env.keysTerm)}`
       : '',
     env.shift ? `<span class="op">+</span>${term('Scenario shift', env.shift)}` : '',
     '<span class="op">=</span>',
@@ -715,14 +830,13 @@ function renderEnvironment() {
     opacity: 0.32,
     tip: `<b>${esc(p.pollster)}</b> (${esc(p.grade)}) · ${fmtDate(p.end_date)}<br>Raw ${fmtMargin(p.raw_margin)} → adjusted ${fmtMargin(p.adjusted_margin)}<br><span class="muted">n=${p.sample_size} ${p.population}</span>`,
   }))
-  const avg = historyDates(prep.historyStart, prep.asOf).map((t) => ({
-    t,
-    v: pollAverage(prep.generic, t, controls.halfLife).avg,
-  }))
-  const series = [
-    { name: 'Generic-ballot polls', color: '#8a6fbf', dots: true, points: dots },
-    { name: 'Generic-ballot average', color: '#8a6fbf', points: avg },
-  ]
+  const series = [{ name: 'Generic-ballot polls', color: '#8a6fbf', dots: true, points: dots }]
+  if (historyNational) {
+    const avg = historyNational
+      .filter((n) => n.raw_generic_ballot !== null)
+      .map((n) => ({ t: dayOf(n.as_of_day), v: n.raw_generic_ballot }))
+    series.push({ name: 'Generic-ballot average', color: '#8a6fbf', points: avg })
+  }
   if (history) {
     series.push({ name: 'Model environment', color: '#1d1b18', points: history.map((h) => ({ t: h.t, v: h.env })) })
   }
@@ -894,22 +1008,28 @@ function renderSpecials() {
 // The tile's own body nodes move into the modal while it is open, so live re-renders, tooltips
 // and clicks keep working, and the chart redraws at the modal's width.
 const TILES = {
-  environment: { queries: ['polls', 'approval', 'specials'], render: () => renderEnvironment() },
+  environment: {
+    queries: ['polls', 'approval', 'specials'],
+    forecast: [FORECAST_QUERIES.national],
+    render: () => renderEnvironment(),
+  },
   markets: { queries: ['markets'], render: () => result && renderMarketScatter() },
   pollsters: { queries: ['pollsters'], render: () => data && renderPollsters() },
   specials: { queries: ['specialList'], render: () => data && renderSpecials() },
 }
 let expanded = null
-let modelText = null
+// Each model's source text, once loaded: the modal shows a query's view as its model defines it.
+const modelTexts = new Map()
 let drawerQueries = []
 
 /**
  * A query as the model defines its view. A refined view (`timeline + { where: ... }`) shows
  * the query first, then the view. Until the model loads, or for inline queries, the query itself.
  */
-function definition(query) {
+function definition(query, model = MODEL) {
   const [, source, view, refinement] = query.match(/^run: (\w+) -> (\w+)(\s*\+[\s\S]*)?$/) ?? []
-  const block = modelText && source && viewBlock(modelText, source, view)
+  const text = modelTexts.get(model)
+  const block = text && source && viewBlock(text, source, view)
   if (!block) {
     return query
   }
@@ -919,9 +1039,9 @@ function definition(query) {
 /** Each query's definition, then its rows when `rows` is given. */
 function renderQueries(list) {
   $('tm-queries').innerHTML = list
-    .map(({ query, rows }) => `<section class="tm-query">
-        <div class="tm-label">${esc(query.match(/^run: (\w+)/)?.[1] ?? '')} · defined in ${MODEL}</div>
-        ${codeBlock(definition(query))}
+    .map(({ query, model = MODEL, rows }) => `<section class="tm-query">
+        <div class="tm-label">${esc(query.match(/^run: (\w+)/)?.[1] ?? '')} · defined in ${model}</div>
+        ${codeBlock(definition(query, model))}
         ${rows === undefined ? '' : resultsTable(rows)}
       </section>`)
     .join('')
@@ -931,15 +1051,17 @@ function renderQueries(list) {
 function showModal(state) {
   expanded = { ...state, opener: document.activeElement }
   renderQueries(state.list)
-  if (modelText === null) {
-    loadModelSource()
-      .then((text) => {
-        modelText = text
-        if (expanded?.list === state.list) {
-          renderQueries(state.list)
-        }
-      })
-      .catch(() => {})
+  for (const model of new Set(state.list.map((q) => q.model ?? MODEL))) {
+    if (!modelTexts.has(model)) {
+      loadModelSource(model)
+        .then((text) => {
+          modelTexts.set(model, text)
+          if (expanded?.list === state.list) {
+            renderQueries(state.list)
+          }
+        })
+        .catch(() => {})
+    }
   }
   $('tile-modal').hidden = false
   $('tile-scrim').hidden = false
@@ -956,9 +1078,9 @@ function openRaceQueries() {
   }
   const r = prep.raceById.get(view.race)
   $('tm-title').textContent = `The Malloy behind ${r?.race_name ?? 'this race'}`
-  $('tm-sub').textContent = `Every query this race's estimate reads, as ${MODEL} defines it.`
+  $('tm-sub').textContent = `Every query this race's estimate reads, as the model defines it.`
   $('tm-chart').replaceChildren()
-  showModal({ list: drawerQueries.map((query) => ({ query })) })
+  showModal({ list: drawerQueries })
 }
 
 function addExpandButtons() {
@@ -986,7 +1108,16 @@ function openTile(tile) {
   $('tm-sub').innerHTML = head.querySelector('p')?.innerHTML ?? ''
   const nodes = [...tile.children].filter((n) => n !== head)
   $('tm-chart').replaceChildren(...nodes)
-  showModal({ tile, spec, nodes, list: spec.queries.map((k) => ({ query: BOOT_QUERIES[k], rows: data?.[k] })) })
+  const forecastRows = { [FORECAST_QUERIES.national]: lastNational ? [lastNational] : undefined }
+  showModal({
+    tile,
+    spec,
+    nodes,
+    list: [
+      ...(spec.forecast ?? []).map((query) => ({ query, model: FORECAST_MODEL, rows: forecastRows[query] })),
+      ...spec.queries.map((k) => ({ query: BOOT_QUERIES[k], rows: data?.[k] })),
+    ],
+  })
 }
 
 function closeTile() {
@@ -1071,7 +1202,7 @@ function renderDrawer() {
   const steps = [
     { label: 'Partisan lean', value: bd.leanTerm, note: `${fmtMargin(bd.lean)} vs. the nation (50/30/20 presidential)${r.office === 'Governor' ? ' × 0.72 for governors' : ''}` },
     { label: 'National environment', value: bd.envTerm, note: `${fmtMargin(result.env.value)} nationally${r.office === 'Governor' ? ' × 0.7 for governors' : ''}` },
-    { label: 'Incumbency', value: bd.incTerm, note: bd.incTerm ? `${controls.incumbency} pts for the ${incumbentSign(r) > 0 ? 'D' : 'R'}-side incumbent` : `${incumbencyLabel(r)}: none` },
+    { label: 'Incumbency', value: bd.incTerm, note: bd.incTerm ? `${controls.incumbency} pts for the ${r.incumbent_sign > 0 ? 'D' : 'R'}-side incumbent` : `${incumbencyLabel(r)}: none` },
     {
       label: 'Fundraising',
       value: bd.moneyTerm,
@@ -1084,10 +1215,10 @@ function renderDrawer() {
     },
   ]
   if (bd.collegeTerm) {
-    steps.push({ label: 'College-grad swing', value: bd.collegeTerm, note: `${controls.collegeSwing} pts × ${r.pct_college}% college grads` })
+    steps.push({ label: 'College-grad swing', value: bd.collegeTerm, note: `${controls.collegeSwing} pts × ${bd.collegePct.toFixed(0)}% college grads` })
   }
   if (bd.nonwhiteTerm) {
-    steps.push({ label: 'Voters-of-color swing', value: bd.nonwhiteTerm, note: `${controls.nonwhiteSwing} pts × ${r.pct_nonwhite.toFixed(0)}% nonwhite` })
+    steps.push({ label: 'Voters-of-color swing', value: bd.nonwhiteTerm, note: `${controls.nonwhiteSwing} pts × ${bd.nonwhitePct.toFixed(0)}% nonwhite` })
   }
   if (bd.blTerm) {
     steps.push({
@@ -1118,8 +1249,44 @@ function renderDrawer() {
   renderDrawerRemote(r, x)
 }
 
-function renderDrawerPolls(r, bd) {
-  const rows = pollContributions(prep, r, controls)
+/** One race's polls with their weight today, and its poll average week by week (forecast.malloy). */
+function racePolls(r, c) {
+  const own = prep.pollsByRace.get(r.race_id) || []
+  if (!own.length) {
+    return Promise.resolve({ rows: [], line: [] })
+  }
+  const t0 = Math.min(...own.map((p) => p._end))
+  const days = historyDates(Math.min(prep.asOf, Math.max(prep.historyStart, t0)), prep.asOf)
+  const givens = forecastGivens(c)
+  return cached(JSON.stringify({ polls: r.race_id, givens }), async () => {
+    const [contrib, trend] = await Promise.all([
+      run(pollContributionsQuery(r.race_id), FORECAST_MODEL, givens),
+      run(pollTrendQuery(r.race_id), FORECAST_MODEL, forecastGivens(c, days)),
+    ])
+    const rows = contrib
+      .map((row) => {
+        const p = prep.pollById.get(row.poll_id)
+        return { ...p, _end: dayOf(p.end_date), weight: row.weight, trendAdj: row.trend_adjustment, final: row.final_margin, share: row.share }
+      })
+      .sort((a, b) => b.share - a.share)
+    const line = trend.map((t) => ({ t: dayOf(t.as_of_day), v: t.poll_average })).sort((a, b) => a.t - b.t)
+    return { rows, line }
+  })
+}
+
+async function renderDrawerPolls(r, bd) {
+  const id = r.race_id
+  let got
+  try {
+    got = await racePolls(r, { ...controls })
+  } catch (err) {
+    $('d-polls-chart').textContent = `Could not load the polls: ${err.message}`
+    return
+  }
+  if (view.race !== id) {
+    return
+  }
+  const { rows, line } = got
   const chart = $('d-polls-chart')
   if (!rows.length) {
     chart.innerHTML = `<p class="d-note">No public polls. The estimate relies on fundamentals (${fmtPct(bd.weights.fundamentals)}) and the expert rating.</p>`
@@ -1132,11 +1299,6 @@ function renderDrawerPolls(r, bd) {
     r: 3 + 9 * Math.sqrt(p.share),
     opacity: 0.55,
     tip: `<b>${esc(p.pollster)}</b> · ${fmtDate(p.end_date)}<br>Raw ${fmtMargin(p.raw_margin)} → adjusted ${fmtMargin(p.adjusted_margin)}<br>With trend adjustment ${fmtMargin(p.final)} · ${fmtPct(p.share, 1)} of today's average`,
-  }))
-  const t0 = Math.min(...rows.map((p) => p._end))
-  const line = historyDates(Math.min(prep.asOf, Math.max(prep.historyStart, t0)), prep.asOf).map((t) => ({
-    t,
-    v: pollAverage(prep.pollsByRace.get(r.race_id) || [], t, controls.halfLife).avg,
   }))
   charts.lineChart(chart, {
     series: [
@@ -1170,7 +1332,14 @@ async function renderDrawerRemote(r, x) {
     demographics: demographicsQuery(r.geo_id),
     ...(x.breakdown.marketPrice !== null ? { market: marketQuery(id) } : {}),
   }
-  drawerQueries = [BOOT_QUERIES.races, BOOT_QUERIES.polls, ...Object.values(queries)]
+  drawerQueries = [
+    { query: BOOT_QUERIES.races },
+    { query: BOOT_QUERIES.polls },
+    { query: FORECAST_QUERIES.breakdown, model: FORECAST_MODEL },
+    { query: FORECAST_QUERIES.national, model: FORECAST_MODEL },
+    { query: pollContributionsQuery(id), model: FORECAST_MODEL },
+    ...Object.values(queries).map((query) => ({ query })),
+  ]
   $('d-market-wrap').hidden = !queries.market
   if (!drawerCache.has(id)) {
     drawerCache.set(
@@ -1311,12 +1480,15 @@ async function boot() {
     nationalDemo:
       'run: geographies -> { where: is_state; aggregate: pct_white is sum(population * pct_white) / sum(population), pct_black is sum(population * pct_black) / sum(population), pct_hispanic is sum(population * pct_hispanic) / sum(population), pct_asian is sum(population * pct_asian) / sum(population), pct_college is avg_pct_college }',
   }
+  let base
   try {
-    const [g, ...rows] = await Promise.all([
+    const [g, forecast, ...rows] = await Promise.all([
       fetch('./geo/states.json').then((r) => r.json()),
+      fetchForecast(DEFAULT_CONTROLS),
       ...Object.values(queries).map((q) => run(q)),
     ])
     geo = g
+    base = forecast
     data = Object.fromEntries(Object.keys(queries).map((k, i) => [k, rows[i]]))
   } catch (err) {
     setStatus('Could not load data')
@@ -1325,23 +1497,19 @@ async function boot() {
     return
   }
   data.specials = data.specials[0]
-  prep = prepare(data)
+  // The forecast day is the one forecast.malloy reports, so the app and the model agree on it.
+  prep = prepare(data, base.env.asOf)
   $('as-of').textContent = fmtDate(prep.asOf, { month: 'short', day: 'numeric', year: 'numeric' })
 
-  const modelData = {
-    races: data.races,
-    polls: data.polls,
-    chambers: data.chambers,
-    markets: data.markets,
-    approval: data.approval,
-    specials: data.specials,
-  }
-  await Promise.all([live('init', { data: modelData }), background('init', { data: modelData })])
+  // The workers simulate; they need the races and the seat arithmetic, not the polls.
+  const init = { data: { races: data.races, chambers: data.chambers, polls: [], markets: [] }, asOf: base.env.asOf }
+  await Promise.all([live('init', init), background('init', init)])
 
   setStatus('Simulating…', true)
-  const base = await live('run', { controls: DEFAULT_CONTROLS, sims: SIMS })
-  baseline = base.result
+  const first = await live('run', { controls: DEFAULT_CONTROLS, forecast: base, sims: SIMS })
+  baseline = { ...first.result, forecast: base }
   result = baseline
+  lastNational = base.national
   renderAll()
   renderPollsters()
   renderSpecials()
@@ -1356,10 +1524,12 @@ async function boot() {
   }
   // Default history first, so a shared link with custom levers still has a comparison line.
   if (!isDefault()) {
-    background('history', { controls: DEFAULT_CONTROLS }).then((h) => {
-      baseHistory = h.points
-      renderHistory()
-    })
+    historyFor(DEFAULT_CONTROLS)
+      .then((h) => {
+        baseHistory = h.points
+        renderHistory()
+      })
+      .catch((err) => console.error(err))
   }
   scheduleBackground()
 }

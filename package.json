@@ -15,8 +15,6 @@
   "devDependencies": {
     "@duckdb/node-api": "1.5.5-r.4",
     "@malloy-publisher/server": "0.9.1",
-    "@malloydata/db-duckdb": "0.0.434",
-    "@malloydata/malloy": "0.0.434",
     "d3-geo": "^3.1.1",
     "topojson-client": "^3.1.0",
     "us-atlas": "^3.0.1"

@@ -20,11 +20,11 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
-import { clampControls, DEFAULT_CONTROLS, PRESETS, prepare, simulate } from '../package/public/model.js'
-import { BOOT_QUERIES } from '../package/public/query.js'
+import { clampControls, DEFAULT_CONTROLS, PRESETS, simulate } from '../package/public/model.js'
 import { cached, num, OUT, parseCsv, parseCsvRows, r1, RAW, readCurated, readRaw, ROOT, toCsv } from './data/lib.mjs'
 import { RESULTS_SCHEMA } from './data/schema.mjs'
 import { validateResults } from './validate-data.mjs'
+import { loadForecast, loadPrep } from './forecast-inputs.mjs'
 
 const OFFLINE = process.argv.includes('--offline')
 const REFREEZE = process.argv.includes('--refreeze')
@@ -217,36 +217,15 @@ function readSnapshots() {
 }
 
 // ---- The frozen forecast -------------------------------------------------------------------
-const PUBLISHER = process.env.PUBLISHER_URL || 'http://localhost:4000'
-
-async function query(malloy) {
-  const url = `${PUBLISHER}/api/v0/environments/elections/packages/midterms2026/models/elections.malloy/query`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ compactJson: true, query: malloy }),
-  }).catch(() => {
-    throw new Error(`freezing the forecast needs Publisher at ${PUBLISHER}: start it with pnpm dev`)
-  })
-  const json = await res.json()
-  if (!res.ok) {
-    throw new Error(`${malloy}\n${json.message}`)
-  }
-  return JSON.parse(json.result)
-}
-
 async function freezeForecast() {
-  const data = {}
-  for (const [k, q] of Object.entries(BOOT_QUERIES)) {
-    data[k] = await query(q)
-  }
-  data.specials = data.specials[0]
-  const prep = prepare(data)
+  const prep = await loadPrep()
+  const presets = Object.entries(PRESETS).map(([scenario, preset]) => [scenario, preset, clampControls({ ...DEFAULT_CONTROLS, ...preset.patch })])
+  const forecasts = await Promise.all(presets.map(([, , controls]) => loadForecast(controls)))
   const races = []
   const chambers = []
   const seats = []
-  Object.entries(PRESETS).forEach(([scenario, preset], order) => {
-    const result = simulate(prep, clampControls({ ...DEFAULT_CONTROLS, ...preset.patch }), { sims: 10_000 })
+  presets.forEach(([scenario, preset, controls], order) => {
+    const result = simulate(prep, forecasts[order], controls, { sims: 10_000 })
     for (const [race_id, r] of Object.entries(result.races)) {
       races.push({ scenario, race_id, p_dem: r.pWin, mean_margin: r2(r.meanMargin), p10: r2(r.p10), p50: r2(r.p50), p90: r2(r.p90) })
     }

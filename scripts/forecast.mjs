@@ -4,29 +4,8 @@
 //   node scripts/forecast.mjs                 # default levers
 //   node scripts/forecast.mjs envShift=3      # any DEFAULT_CONTROLS key=value
 
-import {
-  clampControls,
-  DEFAULT_CONTROLS,
-  prepare,
-  simulate,
-} from '../package/public/model.js'
-import { BOOT_QUERIES } from '../package/public/query.js'
-
-const PUBLISHER = process.env.PUBLISHER_URL || 'http://localhost:4000'
-const url = `${PUBLISHER}/api/v0/environments/elections/packages/midterms2026/models/elections.malloy/query`
-
-async function run(query) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ compactJson: true, query }),
-  })
-  const json = await res.json()
-  if (!res.ok) {
-    throw new Error(`${query}\n${json.message}`)
-  }
-  return JSON.parse(json.result)
-}
+import { clampControls, DEFAULT_CONTROLS, simulate } from '../package/public/model.js'
+import { loadForecast, loadPrep } from './forecast-inputs.mjs'
 
 const controls = clampControls({
   ...DEFAULT_CONTROLS,
@@ -38,15 +17,10 @@ const controls = clampControls({
   ),
 })
 
-const data = {}
-for (const [k, q] of Object.entries(BOOT_QUERIES)) {
-  data[k] = await run(q)
-}
-data.specials = data.specials[0]
-const prep = prepare(data)
+const [prep, forecast] = await Promise.all([loadPrep(), loadForecast(controls)])
 
 const t0 = performance.now()
-const result = simulate(prep, controls, { sims: 10_000 })
+const result = simulate(prep, forecast, controls, { sims: 10_000 })
 const ms = Math.round(performance.now() - t0)
 
 const pct = (x) => `${(x * 100).toFixed(1)}%`

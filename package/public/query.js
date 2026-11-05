@@ -75,6 +75,64 @@ export const BOOT_QUERIES = Object.freeze({
   nationalHistory: 'run: historical_results -> national_by_year',
 })
 
+/**
+ * The forecast's deterministic steps (forecast.malloy): every race's breakdown and the national
+ * environment, under the levers passed as givens (forecastGivens). The browser simulates from
+ * these.
+ */
+export const FORECAST_MODEL = 'forecast.malloy'
+export const FORECAST_QUERIES = Object.freeze({
+  breakdown: 'run: race_breakdown -> breakdown',
+  national: 'run: national -> summary',
+  simInputs: 'run: race_breakdown -> sim_inputs',
+})
+
+/** model.js control name -> forecast.malloy given name. */
+const GIVEN_NAMES = Object.freeze({
+  envShift: 'ENV_SHIFT',
+  pollTrust: 'POLL_TRUST',
+  halfLife: 'HALF_LIFE',
+  nationalError: 'NATIONAL_ERROR',
+  incumbency: 'INCUMBENCY',
+  collegeSwing: 'COLLEGE_SWING',
+  nonwhiteSwing: 'NONWHITE_SWING',
+  marketWeight: 'MARKET_WEIGHT',
+  blWeight: 'BL_WEIGHT',
+})
+
+/**
+ * The givens for a forecast.malloy query: every lever, and the forecast days when not the
+ * snapshot day (`days` as UTC milliseconds, sent as a Malloy date filter "a or b or c").
+ */
+export function forecastGivens(controls, days = null) {
+  const givens = {}
+  for (const [k, name] of Object.entries(GIVEN_NAMES)) {
+    if (Number.isFinite(controls?.[k])) {
+      givens[name] = controls[k]
+    }
+  }
+  if (days?.length) {
+    givens.AS_OF_DAYS = days.map((t) => new Date(t).toISOString().slice(0, 10)).join(' or ')
+  }
+  return givens
+}
+
+/** Drawer: each of one race's polls, with its weight, trend adjustment and share today. */
+export function pollContributionsQuery(raceId) {
+  if (!isRaceId(raceId)) {
+    throw new Error(`Bad race: ${raceId}`)
+  }
+  return `run: poll_contributions -> { where: race_id = ${lit(raceId)} select: * }`
+}
+
+/** Drawer: one race's poll average on each forecast day, for the line through its polls. */
+export function pollTrendQuery(raceId) {
+  if (!isRaceId(raceId)) {
+    throw new Error(`Bad race: ${raceId}`)
+  }
+  return `run: race_poll_trend -> { where: race_id = ${lit(raceId)} select: * }`
+}
+
 /** Everything results.html loads, from RESULTS_MODEL. */
 export const RESULTS_QUERIES = Object.freeze({
   races: 'run: results -> latest_races',

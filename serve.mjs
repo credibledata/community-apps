@@ -27,7 +27,7 @@ const PUBLIC_DIR = new URL('./package/public/', import.meta.url).pathname
 // its REST surface includes a connection endpoint that runs arbitrary SQL and
 // config routes that can unload the package for every visitor. None of that
 // should be reachable from the public URL just because the app runs queries.
-const MODEL_PATHS = ['elections.malloy', 'results.malloy'].map(
+const MODEL_PATHS = ['elections.malloy', 'forecast.malloy', 'results.malloy'].map(
   (m) => `/api/v0/environments/${ENVIRONMENT}/packages/${PACKAGE}/models/${m}`
 )
 const QUERY_PATHS = new Set(MODEL_PATHS.map((p) => `${p}/query`))

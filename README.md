@@ -87,6 +87,7 @@ Publisher.
 publisher.config.json     environment "elections" -> package ./package (midterms2026)
 serve.mjs, Dockerfile     production front door, same shape as community/apps/avalanche
 scripts/                  data build and validation, geo projection, headless forecast, query CLI
+  forecast-inputs.mjs     loads the simulation's inputs from Publisher (forecast.mjs, results.mjs)
   results.mjs             election-night count: fetch, snapshot, frozen forecast, Parquet
   data/                   fetchers, Wikipedia/Kalshi curation, schema; curated/ is committed
     results/              committed count snapshots, frozen forecast, past House popular vote
@@ -98,7 +99,7 @@ package/
   public/                 the app (served by Publisher; no build step)
     index.html styles.css markup and the token contract (blue = D, red = R, nothing else)
     query.js              every query the app runs, id validation, URL-hash codec
-    model.js              the forecast model and simulation (pure; tested)
+    model.js              the simulation, levers and presets (pure; tested)
     sim-worker.js         runs model.js off the main thread
     charts.js             SVG drawing, no chart library
     format.js             formatting and colour helpers (pure; tested)
@@ -112,28 +113,27 @@ package/
 
 ## Where the logic lives
 
-The **Malloy model** holds everything deterministic and reviewable:
-partisan lean (`historical_results.partisan_lean`), poll adjustments (`polls.adjusted_margin`),
-pollster weights, market and approval history.
+The **Malloy model** holds everything deterministic. `elections.malloy` has the inputs: partisan
+lean (`historical_results.partisan_lean`), poll adjustments (`polls.adjusted_margin`), pollster
+weights, market and approval history. `forecast.malloy` builds the forecast from them: the
+national environment (`national`), each race's recency-weighted, trend-adjusted poll average
+(`race_poll_average`, `poll_contributions`), and the blend of fundamentals, polls, experts and
+market into an expected margin, sigma and win probability (`race_breakdown`).
 
-`forecast.malloy` adds the forecast's deterministic steps on top: the national environment
-(`national`), each race's recency-weighted, trend-adjusted poll average (`race_poll_average`,
-`poll_contributions`) and the blend into an expected margin, sigma and win probability
-(`race_breakdown`). The app's levers are Malloy givens, passed with each query:
+The app's levers are Malloy givens, sent with each query, and `AS_OF_DAYS` picks the forecast
+days (a Malloy date filter; the snapshot day by default):
 
 ```json
-{ "query": "run: race_breakdown -> breakdown", "givens": { "ENV_SHIFT": 2, "HALF_LIFE": 14 } }
+{ "query": "run: race_breakdown -> sim_inputs",
+  "givens": { "ENV_SHIFT": 2, "AS_OF_DAYS": "2026-10-26 or 2026-11-02" } }
 ```
 
-Every given defaults to the app's default lever, so a plain query gives the default forecast.
-
-The **browser model** (`public/model.js`) still runs the whole forecast today, including the
-simulation. Until the app reads `race_breakdown` instead, the two copies of steps 1-3 must
-agree: `tests/forecast.test.mjs` runs `forecast.malloy` on the committed Parquet with DuckDB
-and checks every named part of every race against `model.js` (to 1e-9), under several lever
-settings and an earlier as-of date. A change to one side fails the test until the other
-matches. The drawer's waterfall reads the model's named parts directly, so the explanation
-cannot drift from the arithmetic.
+The **browser** (`public/model.js`) holds only the simulation: it takes each race's mean and
+sigma and plays the election out 10,000 times with shared national, regional and education
+errors. A lever move asks `forecast.malloy` for the new inputs (two queries), the history chart
+asks for every week in one query, and the sensitivity chart asks for one breakdown per lever
+setting once it is on screen. The drawer's waterfall reads the model's named parts directly, so
+the explanation cannot drift from the arithmetic.
 
 ## Notes and known limits (v1)
 

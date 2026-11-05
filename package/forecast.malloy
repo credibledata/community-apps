@@ -1,24 +1,24 @@
 ##! experimental.givens
-// The forecast's deterministic steps, in Malloy: the national environment, each race's poll
-// average and the blend into an expected margin, sigma and win probability. This is the same
-// arithmetic as public/model.js (nationalEnvironment, pollAverage, raceBreakdown, raceSigma,
-// pollContributions), checked race by race against it in tests/forecast.test.mjs.
+// The forecast's deterministic steps: the national environment, each race's poll average,
+// and the blend of fundamentals, polls, experts and market into an expected margin (mean),
+// a race-level error (sigma) and a win probability. The browser's Monte Carlo
+// (public/model.js simulate) starts from each race's mean and sigma.
 //
-// The Monte Carlo is not here: it stays in the browser (public/model.js simulate).
+// Everything is computed per forecast day (as_of_day): a poll, approval reading or market
+// price counts only from the day it was published. AS_OF_DAYS picks the days. By default it
+// is the snapshot day; the app's history chart asks for every week at once:
 //
-// The app's levers are givens, passed with each query:
-//   POST .../models/forecast.malloy/query
-//   { "query": "run: race_breakdown -> breakdown", "givens": { "ENV_SHIFT": 2 } }
-// Every given has a default equal to model.js DEFAULT_CONTROLS, and AS_OF defaults to the
-// snapshot date in data/build-info.json.
+//   { "query": "run: race_breakdown -> sim_inputs",
+//     "givens": { "AS_OF_DAYS": "2026-10-26 or 2026-11-02", "ENV_SHIFT": 2 } }
 //
+// The other givens are the app's levers, with the app's defaults.
 // Margins are D minus R in points, as everywhere in this package.
 
 import 'elections.malloy'
 
 given:
-  #(doc) The forecast date. Polls, approval and market prices after it are ignored.
-  AS_OF :: date is @2026-11-02
+  #(doc) The forecast days to compute, as a Malloy date filter, e.g. "2026-10-26 or 2026-11-02". Defaults to the data's snapshot day.
+  AS_OF_DAYS :: filter<date> is f'2026-11-02'
   #(doc) Poll recency half-life in days.
   HALF_LIFE :: number is 21
   #(doc) Points added to the national environment (positive = toward Democrats).
@@ -38,14 +38,26 @@ given:
   #(doc) Strength of the Bitecofer-Lichtman layer, 0 (off) to 1 (full).
   BL_WEIGHT :: number is 1
 
+// ---- Days ---------------------------------------------------------------------------------
+// Malloy has no built-in date range, so the calendar is a line of SQL.
+
+#(doc) Every day of the 2026 cycle, from New Year's Day to Election Day.
+source: calendar is duckdb.sql("""
+  select d::date as as_of_day from range(date '2026-01-01', date '2026-11-04', interval 1 day) t(d)
+""")
+
+#(doc) The forecast days AS_OF_DAYS asks for.
+source: forecast_days is calendar -> {
+  where: as_of_day ~ $AS_OF_DAYS
+  select: as_of_day
+}
+
 // ---- Poll weights -------------------------------------------------------------------------
 // A poll's weight as of day D is grade x sqrt(sample / 600) x 0.5^(days from its end to D /
-// HALF_LIFE). Two jobs need it at different days D: the race averages (D = AS_OF) and the
-// generic-ballot history (D = each earlier day). Malloy has no functions to pass D in, so the
-// formula is written once, at a fixed D: election day. Moving D earlier multiplies every
-// poll's weight by the same factor, 2^(days from D to election day / HALF_LIFE). That factor
-// cancels out of any weighted average, so averages use the election-day weight directly; it
-// is applied only where the size of a weight matters (poll strength, the drawer's weights).
+// HALF_LIFE). It is written once, at a fixed D: election day. Moving D earlier multiplies
+// every poll's weight by the same factor, 2^(days from D to election day / HALF_LIFE), which
+// cancels out of a weighted average. So averages use the election-day weight directly, and
+// the factor is applied only where a weight's size matters (poll strength, the drawer).
 
 #(doc) Every poll with its weight as read on election day.
 source: dated_polls is polls extend {
@@ -56,259 +68,275 @@ source: dated_polls is polls extend {
       * pow(0.5, days(end_date to @2026-11-03) / $HALF_LIFE)
 }
 
-#(doc) Every day a poll ended, joined to the generic-ballot polls published by then.
-source: poll_dates is polls -> { group_by: as_of_day is end_date } extend {
+#(doc) The recency-weighted generic-ballot average on every day of the cycle. Each race poll is moved by how much this has changed since it was taken.
+source: generic_by_day is calendar extend {
   join_many: g is dated_polls on g.race_id = 'US-GENERIC' and g.end_date <= as_of_day
-}
-
-#(doc) The generic-ballot average as it stood on each day a poll ended. Used to move an old race poll into today's environment.
-source: generic_at is poll_dates -> {
+} -> {
   group_by: as_of_day
-  aggregate: gb_at is g.sum(g.election_day_weight * g.adjusted_margin) / nullif(g.sum(g.election_day_weight), 0)
+  aggregate:
+    generic_ballot is g.sum(g.election_day_weight * g.adjusted_margin) / nullif(g.sum(g.election_day_weight), 0)
+    generic_polls is g.count()
 }
 
 // ---- National environment -----------------------------------------------------------------
-query: generic_now is dated_polls -> {
-  where: race_id = 'US-GENERIC' and end_date <= $AS_OF
-  aggregate:
-    gb is source.sum(election_day_weight * adjusted_margin) / nullif(source.sum(election_day_weight), 0)
-    gb_polls is count()
+
+#(doc) Net presidential approval on every day of the cycle: the mean of the 14 daily readings up to that day.
+source: approval_by_day is calendar extend {
+  join_many: a is approval on a.approval_date <= as_of_day and a.approval_date > as_of_day - 14 days
+} -> {
+  group_by: as_of_day
+  aggregate: net_approval is coalesce(a.net_approval.avg(), 0)
 }
 
-query: approval_now is approval -> {
-  where: approval_date <= $AS_OF and approval_date > $AS_OF - 14 days
-  aggregate: net is coalesce(avg(net_approval), 0)
-}
-
-#(doc) The national environment and its parts: 70% generic ballot + 20% approval prior + 10% special elections, pulled toward the Bitecofer-Lichtman keys environment, plus ENV_SHIFT. One row.
-source: national is special_elections -> {
-  aggregate: specials_swing is coalesce(weighted_swing, 0)
-} extend {
-  join_cross: gbq is generic_now
-  join_cross: apq is approval_now
-  dimension:
-    #(doc) 14-day trailing mean of net presidential approval.
-    net_approval is apq.net
+#(doc) The national environment and its parts on each forecast day: 70% generic ballot + 20% approval prior + 10% special elections, pulled toward the Bitecofer-Lichtman keys environment, plus ENV_SHIFT.
+source: national is forecast_days extend {
+  join_one: gb is generic_by_day on as_of_day = gb.as_of_day
+  join_one: ap is approval_by_day on as_of_day = ap.as_of_day
+  join_cross: sp is special_elections -> { aggregate: swing is coalesce(weighted_swing, 0) }
+} -> {
+  select:
+    as_of_day,
+    net_approval is ap.net_approval,
+    generic_polls is coalesce(gb.generic_polls, 0),
     #(doc) -0.3 x net approval: the president is a Republican, so unpopularity helps Democrats.
-    approval_prior is -0.3 * apq.net
+    approval_prior is -0.3 * ap.net_approval,
     #(doc) 2024 national margin (R+1.5) + 35% of the average special-election swing.
-    specials_signal is -1.5 + 0.35 * specials_swing
-    #(doc) Recency-weighted generic-ballot average; the approval prior when there are no generic polls.
-    generic_ballot is coalesce(gbq.gb, approval_prior)
-    generic_polls is gbq.gb_polls
+    specials_signal is -1.5 + 0.35 * sp.swing,
+    specials_swing is sp.swing,
+    #(doc) The approval prior stands in when there are no generic-ballot polls yet.
+    generic_ballot is coalesce(gb.generic_ballot, -0.3 * ap.net_approval),
+    raw_generic_ballot is gb.generic_ballot
+} extend {
+  dimension:
     base_environment is 0.7 * generic_ballot + 0.2 * approval_prior + 0.1 * specials_signal
-    #(doc) Lichtman keys turned against the White House party. Three are fixed judgment calls (midterm, 2025 off-year results, international results); two come from the data. Mirrors KEYS_2026 in public/model.js.
-    keys_turned is 3 + (pick 1 when apq.net < -5 else 0) + (pick 1 when specials_swing > 3 else 0)
+    #(doc) Lichtman keys turned against the White House party, of 11. Three are fixed judgment calls (midterm, 2025 off-year results, international results); two come from the data. The app lists every key (public/app.js KEYS).
+    approval_key is net_approval < -5
+    specials_key is specials_swing > 3
+    keys_turned is 3 + (pick 1 when approval_key else 0) + (pick 1 when specials_key else 0)
+    #(doc) The environment the keys imply: 2024's R+1.5, plus 1.25 points per turned key.
     keys_environment is -1.5 + 1.25 * keys_turned
-    #(doc) What the keys environment adds: 15% x BL_WEIGHT of the gap between it and the base.
-    keys_term is 0.15 * $BL_WEIGHT * (keys_environment - base_environment)
+    #(doc) How much of the gap to the keys environment the layer takes: 15% at full strength.
+    keys_share is 0.15 * $BL_WEIGHT
+    keys_term is keys_share * (keys_environment - base_environment)
+    keys_total is 11
+    env_shift is $ENV_SHIFT
     #(doc) The national environment every race starts from, D minus R in points.
     environment is base_environment + keys_term + $ENV_SHIFT
-
+    // The errors races share in the simulation, besides the national one (NATIONAL_ERROR):
+    #(doc) Standard deviation of the error each region shares, points.
+    region_sd is 1.6
+    #(doc) Standard deviation of the education error, points per 12 points of college share above the nation.
+    edu_sd is 2.2
+} -> { select: * } extend {
+  primary_key: as_of_day
+  #(doc) The environment and each of its parts, per forecast day.
   view: summary is {
-    group_by:
-      generic_ballot, generic_polls, net_approval, approval_prior, specials_signal,
-      keys_turned, keys_environment, keys_term, environment
+    select:
+      as_of_day, generic_ballot, generic_polls, net_approval, approval_prior, specials_signal,
+      approval_key, specials_key, keys_turned, keys_total, keys_environment, keys_share, keys_term,
+      env_shift, environment, raw_generic_ballot, region_sd, edu_sd
+    order_by: as_of_day
+    limit: 1000
   }
 }
 
 // ---- Race polls ---------------------------------------------------------------------------
-// Poll rows are flattened before joining the generic-ballot history: an aggregate over a
-// source with several joins (pollster, generic history, national average) is rejected as
-// "multiple join paths", and plain rows avoid it.
 
-#(doc) Every race poll with its weight as of AS_OF (0 for polls published later) and its trend adjustment. The race averages and the drawer's poll table both read these.
-source: race_poll_rows is dated_polls -> {
-  where: race_id != 'US-GENERIC'
-  select: poll_id, race_id, end_date, election_day_weight, adjusted_margin
+#(doc) Every race poll on each forecast day, with its weight that day (0 if it was published later) and its trend adjustment: how far the generic ballot has moved since it was taken.
+source: race_poll_rows is forecast_days extend {
+  join_many: p is dated_polls on p.race_id != 'US-GENERIC'
+} -> {
+  select:
+    as_of_day, p.poll_id, p.race_id, p.end_date, p.adjusted_margin,
+    weight is pick p.election_day_weight * pow(2, days(as_of_day to @2026-11-03) / $HALF_LIFE)
+      when p.end_date <= as_of_day else 0
 } extend {
-  join_one: ga is generic_at on end_date = ga.as_of_day
-  join_cross: gbq is generic_now
+  join_one: then_gb is generic_by_day on end_date = then_gb.as_of_day
+  join_one: now_gb is generic_by_day on as_of_day = now_gb.as_of_day
   dimension:
-    #(doc) The poll's weight as of AS_OF: its election-day weight x 2^(days from AS_OF to election day / HALF_LIFE). 0 if it ended after AS_OF.
-    weight is pick election_day_weight * pow(2, days($AS_OF to @2026-11-03) / $HALF_LIFE)
-      when end_date <= $AS_OF else 0
-    #(doc) How far the generic ballot has moved since the poll ended. Added to the poll so an old poll reads in today's environment.
-    trend_adjustment is coalesce(gbq.gb, 0) - coalesce(ga.gb_at, gbq.gb, 0)
+    trend_adjustment is coalesce(now_gb.generic_ballot, 0)
+      - coalesce(then_gb.generic_ballot, now_gb.generic_ballot, 0)
 }
 
-#(doc) Each race's recency-weighted, trend-adjusted poll average (before the scenario levers) and its strength (the sum of weights; about 1 per fresh A-grade poll of 600).
+#(doc) Each race's recency-weighted, trend-adjusted poll average on each forecast day (before the scenario levers), and its strength: the sum of weights, about 1 per fresh A-grade poll of 600.
 source: race_poll_average is race_poll_rows -> {
   where: weight > 0
-  select: race_id, weight, x is adjusted_margin + trend_adjustment
+  select: as_of_day, race_id, weight, x is adjusted_margin + trend_adjustment
 } -> {
-  group_by: race_id
+  group_by: as_of_day, race_id
   aggregate:
     poll_average is sum(weight * x) / nullif(sum(weight), 0)
     poll_strength is sum(weight)
     poll_count is count()
 }
 
-#(doc) Each race's polls with their weight, trend adjustment and share of the race's average, largest share first. The drawer's poll table.
-source: poll_contributions is polls -> {
-  where: race_id != 'US-GENERIC'
-  group_by:
-    poll_id, race_id, pollster, pollster_info.grade, pollster_info.house_effect,
-    start_date, end_date, sample_size, population, dem_pct, rep_pct, raw_margin,
-    population_adjustment, adjusted_margin, url
+#(doc) Each race's polls on each forecast day, with their weight, trend adjustment and share of the race's average, largest share first. The drawer's poll table.
+source: poll_contributions is race_poll_rows -> {
+  select: as_of_day, poll_id, race_id, weight, trend_adjustment, final_margin is adjusted_margin + trend_adjustment
 } extend {
-  join_one: rp is race_poll_rows on poll_id = rp.poll_id
-  join_one: pa is race_poll_average on race_id = pa.race_id
+  join_one: pa is race_poll_average on race_id = pa.race_id and as_of_day = pa.as_of_day
 } -> {
-  select: *,
-    weight is rp.weight,
-    trend_adjustment is rp.trend_adjustment,
-    race_weight is coalesce(pa.poll_strength, 0)
-} -> {
-  select: *,
-    final_margin is adjusted_margin + trend_adjustment,
-    share is pick weight / race_weight when race_weight > 0 else 0
+  select: *, share is pick weight / pa.poll_strength when pa.poll_strength > 0 else 0
   order_by: race_id, share desc
-  limit: 20000
+  limit: 50000
 }
 
-#(doc) The latest weekly average Kalshi price at or before AS_OF, per race.
-source: market_now is kalshi_prices -> {
-  where: price_week <= $AS_OF
-  group_by: race_id, price_week
-  aggregate: avg_price
+#(doc) Each race's average of its adjusted polls on each forecast day, with no trend adjustment: the line through the drawer's poll chart.
+source: race_poll_trend is race_poll_rows -> {
+  where: weight > 0
+  group_by: as_of_day, race_id
+  aggregate: poll_average is sum(weight * adjusted_margin) / sum(weight)
+  order_by: race_id, as_of_day
+  limit: 50000
+}
+
+#(doc) The latest weekly average Kalshi price each race had on each forecast day.
+source: market_by_day is forecast_days extend {
+  join_many: k is kalshi_prices -> {
+    group_by: race_id, price_week
+    aggregate: avg_price
+  } on k.price_week <= as_of_day
 } -> {
-  group_by: race_id, price_week, avg_price
-  calculate: recency is row_number() { partition_by: race_id order_by: price_week desc }
+  select: as_of_day, k.race_id, k.price_week, k.avg_price
+  calculate: recency is row_number() { partition_by: as_of_day, race_id order_by: price_week desc }
 } -> {
   where: recency = 1
-  select: race_id, price is avg_price
+  select: as_of_day, race_id, price is avg_price
 }
 
 // ---- Race breakdown -----------------------------------------------------------------------
-// Written as a pipeline on purpose. Malloy pastes a dimension's whole formula into every
-// dimension that uses it, so in one stage `mean` compiled to 423,000 characters of SQL and
-// the win probability never finished compiling. Each `select:` stage turns the previous
-// stage's formulas into plain columns. A new term goes in the first stage whose columns
-// it needs.
+// Four steps, one idea each: the terms, the four estimates, the blend, the win probability.
+// Inside a step, fields are ordinary dimensions that read each other. Each step ends with
+// `-> { select: * }`, which turns its dimensions into plain columns for the next step. That
+// boundary matters: Malloy pastes a dimension's whole formula wherever it is used, so in one
+// step the blend's formulas pasted into each other until `mean` was 423,000 characters of
+// SQL. A new term goes in the step that matches its idea.
 
-#(doc) Everything about each race's expected margin, as named parts: fundamentals and their terms, the scenario-adjusted poll average, the expert and market estimates, the blend weights, the expected margin (mean), the race-level error (sigma) and the win probability. The drawer's waterfall reads these columns.
-source: race_breakdown is races -> race_inputs extend {
-  join_one: pa is race_poll_average on race_id = pa.race_id
-  join_one: mk is market_now on race_id = mk.race_id
-  join_cross: env is national
+#(doc) Step 1: each race on each forecast day, with every term of its fundamentals and its error.
+source: race_terms is races -> race_inputs extend {
+  join_cross: nat is national
+} -> {
+  select: *, nat.as_of_day, environment is nat.environment, nat.region_sd, nat.edu_sd
+} extend {
+  join_one: pa is race_poll_average on race_id = pa.race_id and as_of_day = pa.as_of_day
+  join_one: mk is market_by_day on race_id = mk.race_id and as_of_day = mk.as_of_day
   dimension:
-    // Per-office settings (model.js OFFICE). Governors run further from the national tide
-    // and get a bigger personal vote.
+    // Per-office settings. Governors run further from the national tide and get a bigger
+    // personal vote.
     lean_k is pick 0.72 when office = 'Governor' else 1
     env_k is pick 0.7 when office = 'Governor' else 1
     inc_k is pick 1.6 when office = 'Governor' else 1
     money_k is pick 1.4 when office = 'Senate' pick 1.2 when office = 'Governor' else 0.9
     base_sigma is pick 4.5 when office = 'Senate' pick 6.2 when office = 'Governor' else 4.8
+
     // Districts redrawn for 2026 have no census tabulation yet; they read as the nation.
     college_pct is pick 33 when pct_college is null or pct_college = 0 else pct_college
     nonwhite_pct is pick 41 when pct_white is null else 100 - pct_white
+    locked is pick 1 when locked_party = 'D' pick -1 when locked_party = 'R' else 0
+    lean is coalesce(race_lean, 0)
+
+    // Fundamentals
+    lean_term is lean_k * lean
+    environment_term is env_k * environment
+    incumbency_term is incumbent_sign * $INCUMBENCY * inc_k
     // Fundraising only counts when both sides have filed.
-    has_money is dem_raised_m is not null and rep_raised_m is not null and dem_raised_m >= 0 and rep_raised_m >= 0
-} -> {
-  select:
-    race_id, office, region, rating_score, lean_k, env_k, base_sigma, college_pct, nonwhite_pct,
-    locked is pick 1 when locked_party = 'D' pick -1 when locked_party = 'R' else 0,
-    lean is coalesce(race_lean, 0),
-    lean_term is lean_k * coalesce(race_lean, 0),
-    environment_term is env_k * env.environment,
-    incumbency_term is incumbent_sign * $INCUMBENCY * inc_k,
-    money_term is pick greatest(-3, least(3, money_k * ln(greatest(0.1, dem_raised_m) / greatest(0.1, rep_raised_m)))) when has_money else 0,
-    raw_poll_average is pa.poll_average,
-    poll_strength is coalesce(pa.poll_strength, 0),
-    poll_count is coalesce(pa.poll_count, 0),
+    money_term is pick greatest(-3, least(3, money_k * ln(greatest(0.1, dem_raised_m) / greatest(0.1, rep_raised_m))))
+      when dem_raised_m >= 0 and rep_raised_m >= 0 else 0
+    college_term is $COLLEGE_SWING * college_pct / 100
+    nonwhite_term is $NONWHITE_SWING * nonwhite_pct / 100
+    // The Bitecofer-Lichtman layer: a Trump-off-ballot electorate, and polarization shrinking
+    // what candidates can do (see methodology.html).
+    bl_college is $BL_WEIGHT * lean_k * 0.06 * (college_pct - 33)
+    bl_off_ballot is $BL_WEIGHT * lean_k * 0.05 * (nonwhite_pct - 41)
+    bl_incumbency is -$BL_WEIGHT * 0.25 * incumbency_term
+    bl_money is -$BL_WEIGHT * 0.5 * money_term
+    bl_polls is $BL_WEIGHT * 0.75 * env_k
+    bl_term is bl_college + bl_off_ballot + bl_incumbency + bl_money
+    fundamentals is lean_term + environment_term + incumbency_term + money_term + college_term + nonwhite_term + bl_term
+
+    // Polls and market, as read from the data
+    raw_poll_average is pa.poll_average
+    poll_strength is coalesce(pa.poll_strength, 0)
+    poll_count is coalesce(pa.poll_count, 0)
     market_price is mk.price
-} -> {
-  select: *,
-    college_term is $COLLEGE_SWING * college_pct / 100,
-    nonwhite_term is $NONWHITE_SWING * nonwhite_pct / 100,
-    // The Bitecofer-Lichtman layer (model.js BL)
-    bl_college is $BL_WEIGHT * lean_k * 0.06 * (college_pct - 33),
-    bl_off_ballot is $BL_WEIGHT * lean_k * 0.05 * (nonwhite_pct - 41),
-    bl_incumbency is -$BL_WEIGHT * 0.25 * incumbency_term,
-    bl_money is -$BL_WEIGHT * 0.5 * money_term,
-    bl_polls is $BL_WEIGHT * 0.75 * env_k,
-    // Race-specific error: wider with fewer polls and more time left (model.js raceSigma)
-    sigma is sqrt(base_sigma * base_sigma + pow(greatest(0, days($AS_OF to @2026-11-03)) / 30.0, 2) * 1.8)
+
+    // Race-specific error: wider with fewer polls and more time left.
+    sigma is sqrt(base_sigma * base_sigma + pow(greatest(0, days(as_of_day to @2026-11-03)) / 30.0, 2) * 1.8)
       * (1 + 0.35 / (1 + poll_strength))
       * (pick 1.1 when $POLL_TRUST = 0 else 1)
-      * (1 - 0.08 * $BL_WEIGHT),
-    // Shared error variance: national + regional + education (model.js totalSharedVar)
-    shared_variance is pow(env_k * $NATIONAL_ERROR, 2) + 1.6 * 1.6 + pow(2.2 * (college_pct - 33) / 12.0, 2),
-    clamped_price is greatest(1e-9, least(1 - 1e-9, market_price))
-} -> {
-  select: *,
-    bl_term is bl_college + bl_off_ballot + bl_incumbency + bl_money,
-    // The user's levers apply to polls too: they are "what if the polls are wrong" levers.
-    poll_average is raw_poll_average + $ENV_SHIFT * env_k + college_term + nonwhite_term + bl_polls,
-    // Inputs to the inverse normal (Acklam), below
-    q_tail is pick sqrt(-2 * ln(clamped_price)) when clamped_price < 0.02425
-      pick sqrt(-2 * ln(1 - clamped_price)) when clamped_price > 1 - 0.02425 else null,
-    q_r is clamped_price - 0.5,
-    q_s is (clamped_price - 0.5) * (clamped_price - 0.5)
-} -> {
-  select: *,
-    fundamentals is lean_term + environment_term + incumbency_term + money_term + college_term + nonwhite_term + bl_term,
-    // Inverse standard normal CDF (Acklam). Written out: Malloy has no functions and DuckDB
-    // core has no normal quantile. Same coefficients as model.js normInv.
-    z_tail is (((((-0.007784894002430293 * q_tail + -0.3223964580411365) * q_tail + -2.400758277161838) * q_tail + -2.549732539343734) * q_tail + 4.374664141464968) * q_tail + 2.938163982698783)
-      / ((((0.007784695709041462 * q_tail + 0.3224671290700398) * q_tail + 2.445134137142996) * q_tail + 3.754408661907416) * q_tail + 1),
-    z_middle is (((((-39.69683028665376 * q_s + 220.9460984245205) * q_s + -275.9285104469687) * q_s + 138.357751867269) * q_s + -30.66479806614716) * q_s + 2.506628277459239) * q_r
-      / (((((-54.47609879822406 * q_s + 161.5858368580409) * q_s + -155.6989798598866) * q_s + 66.80131188771972) * q_s + -13.28068155288572) * q_s + 1),
-    // Poll weight grows with poll strength and saturates; POLL_TRUST scales it.
-    w_poll_raw is pick 0 when raw_poll_average is null
-      else least(0.92, (poll_strength / (poll_strength + 1.2)) * 0.8 * $POLL_TRUST),
-    // Unrated races give the expert term no weight rather than a guess.
-    w_expert is pick 0.08 when rating_score is not null else 0
-} -> {
-  select: *,
+      * (1 - 0.08 * $BL_WEIGHT)
+    // How much each district moves with the education error: its college share against the
+    // nation's, in steps of 12 points.
+    edu_loading is (college_pct - 33) / 12.0
+    // Variance of the errors races share: national, regional and education.
+    shared_variance is pow(env_k * $NATIONAL_ERROR, 2) + region_sd * region_sd + pow(edu_sd * edu_loading, 2)
+} -> { select: * }
+
+#(doc) Step 2: the four estimates of each race's margin: fundamentals, polls, experts and market.
+source: race_estimates is race_terms extend {
+  dimension:
+    // The levers apply to polls too: they are "what if the polls are wrong" levers.
+    poll_average is raw_poll_average + $ENV_SHIFT * env_k + college_term + nonwhite_term + bl_polls
+
+    // The expert rating as a margin. A Solid rating that agrees with the fundamentals
+    // keeps the larger of the two.
     expert is
       pick sign(rating_score) * greatest(14, abs(fundamentals))
         when abs(rating_score) = 3 and sign(fundamentals) = sign(rating_score)
       pick 14 when rating_score = 3 pick 8 when rating_score = 2 pick 4 when rating_score = 1
       pick 0 when rating_score = 0 pick -4 when rating_score = -1 pick -8 when rating_score = -2
       pick -14 when rating_score = -3
-      else null,
-    market is pick (pick z_tail when clamped_price < 0.02425 pick -z_tail when clamped_price > 1 - 0.02425 else z_middle) * sigma
-      when market_price is not null else null
-} -> {
-  select: *,
+      else null
+
+    // The market price as a margin: the normal quantile of the price, times sigma. Acklam's
+    // approximation, written out: Malloy has no functions and DuckDB core has no normal
+    // quantile.
+    p is pick 1e-9 when market_price < 1e-9 pick 1 - 1e-9 when market_price > 1 - 1e-9 else market_price
+    q_tail is pick sqrt(-2 * ln(p)) when p < 0.5 else sqrt(-2 * ln(1 - p))
+    z_tail is (((((-0.007784894002430293 * q_tail + -0.3223964580411365) * q_tail + -2.400758277161838) * q_tail + -2.549732539343734) * q_tail + 4.374664141464968) * q_tail + 2.938163982698783)
+      / ((((0.007784695709041462 * q_tail + 0.3224671290700398) * q_tail + 2.445134137142996) * q_tail + 3.754408661907416) * q_tail + 1)
+    q_r is p - 0.5
+    z_middle is (((((-39.69683028665376 * q_r * q_r + 220.9460984245205) * q_r * q_r + -275.9285104469687) * q_r * q_r + 138.357751867269) * q_r * q_r + -30.66479806614716) * q_r * q_r + 2.506628277459239) * q_r
+      / (((((-54.47609879822406 * q_r * q_r + 161.5858368580409) * q_r * q_r + -155.6989798598866) * q_r * q_r + 66.80131188771972) * q_r * q_r + -13.28068155288572) * q_r * q_r + 1)
+    z is pick z_tail when p < 0.02425 pick -z_tail when p > 1 - 0.02425 else z_middle
+    market is pick z * sigma when market_price is not null else null
+} -> { select: * }
+
+#(doc) Step 3: the blend. Each estimate's weight, and the expected margin (mean).
+source: race_blend is race_estimates extend {
+  dimension:
+    // The poll weight grows with poll strength and saturates; POLL_TRUST scales it.
+    w_poll_raw is pick 0 when raw_poll_average is null
+      else least(0.92, (poll_strength / (poll_strength + 1.2)) * 0.8 * $POLL_TRUST)
+    // Unrated races give the expert term no weight rather than a guess.
+    w_expert is pick 0.08 when rating_score is not null else 0
     w_market is pick $MARKET_WEIGHT when market is not null else 0
-} -> {
-  select: *,
-    w_fund_raw is 1 - w_poll_raw - w_expert - w_market
-} -> {
-  select: *,
     // Fundamentals keep at least 5%: the poll weight gives way.
-    w_poll is pick w_poll_raw * 0.95 / (w_poll_raw + w_expert + w_market) when w_fund_raw < 0.05 else w_poll_raw,
-    w_fund is greatest(0.05, w_fund_raw)
-} -> {
-  select: *,
+    w_others is w_poll_raw + w_expert + w_market
+    w_poll is pick w_poll_raw * 0.95 / w_others when w_others > 0.95 else w_poll_raw
+    w_fund is pick 0.05 when w_others > 0.95 else 1 - w_others
     w_total is w_fund + w_poll + w_expert + w_market
-} -> {
-  select: *,
-    mean is (w_fund * fundamentals + w_poll * coalesce(poll_average, 0) + w_expert * coalesce(expert, 0) + w_market * coalesce(market, 0)) / w_total
-} -> {
-  select: *,
+    mean is (w_fund * fundamentals + w_poll * coalesce(poll_average, 0)
+      + w_expert * coalesce(expert, 0) + w_market * coalesce(market, 0)) / w_total
+} -> { select: * }
+
+#(doc) Step 4: the win probability from the mean and the total error (race plus shared), without simulating. Every named part of each race's forecast.
+source: race_breakdown is race_blend extend {
+  dimension:
+    // Normal CDF (Abramowitz-Stegun 7.1.26)
     cdf_z is mean / sqrt(sigma * sigma + shared_variance) / sqrt(2)
-} -> {
-  select: *,
     cdf_t is 1 / (1 + 0.3275911 * abs(cdf_z))
-} -> {
-  select: *,
-    // Normal CDF (Abramowitz-Stegun 7.1.26), as model.js normCdf
     p_win is pick 1 when locked = 1 pick 0 when locked = -1
       else 0.5 * (1 + sign(cdf_z) * (1 - ((((1.061405429 * cdf_t - 1.453152027) * cdf_t + 1.421413741) * cdf_t - 0.284496736) * cdf_t + 0.254829592) * cdf_t * exp(-cdf_z * cdf_z)))
-} extend {
-  primary_key: race_id
-
-  #(doc) One row per race with every named part of its expected margin.
+} -> { select: * } extend {
+  #(doc) Every named part of each race's forecast on each forecast day. The drawer's waterfall and blend read these.
   view: breakdown is {
     select:
-      race_id, office, locked, lean, lean_term, environment_term, incumbency_term, money_term,
-      college_term, nonwhite_term, bl_college, bl_off_ballot, bl_incumbency, bl_money, bl_polls,
-      bl_term, fundamentals, poll_average, raw_poll_average, poll_count, poll_strength, expert,
-      market, market_price, mean, sigma, shared_variance, p_win,
+      as_of_day, race_id, office, locked, lean, lean_term, environment_term, incumbency_term,
+      money_term, college_term, nonwhite_term, bl_college, bl_off_ballot, bl_incumbency,
+      bl_money, bl_polls, bl_term, fundamentals, poll_average, raw_poll_average, poll_count,
+      poll_strength, expert, market, market_price, mean, sigma, env_k, edu_loading,
+      college_pct, nonwhite_pct, shared_variance, p_win,
       // Blend weights as shares of the total (they sum to 1)
       weight_fundamentals is w_fund / w_total,
       weight_polls is w_poll / w_total,
@@ -316,5 +344,12 @@ source: race_breakdown is races -> race_inputs extend {
       weight_market is w_market / w_total
     order_by: race_id
     limit: 5000
+  }
+
+  #(doc) What the simulation needs from each race on each forecast day, for the forecast-over-time chart.
+  view: sim_inputs is {
+    select: as_of_day, race_id, mean, sigma
+    order_by: as_of_day, race_id
+    limit: 50000
   }
 }
