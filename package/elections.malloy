@@ -95,8 +95,16 @@ source: races is duckdb.table('data/races.parquet') extend {
   join_many: lean_history is historical_results on geo_id = lean_history.geo_id
 
   dimension:
-    #(doc) 1 for a Democratic incumbent, -1 Republican, 0 for an open seat, a new seat or an independent (the app places independents by their side of the race).
-    incumbent_sign is pick 0 when is_open_seat pick 1 when incumbent_party = 'D' pick -1 when incumbent_party = 'R' else 0
+    #(doc) Name of the member running again, from incumbent_status ("Kevin Kiley: Incumbent ...").
+    incumbent_name is trim(substr(incumbent_status, 1, greatest(strpos(concat(incumbent_status, ':'), ':') - 1, 0)))
+    #(doc) Which side of the race the incumbent is on: 1 = D side, -1 = R side, 0 = open seat, new seat or unknown. An independent incumbent counts for the side they stand on, matched by name.
+    incumbent_sign is
+      pick 0 when is_open_seat or incumbent_party is null
+      pick 1 when incumbent_party = 'D'
+      pick -1 when incumbent_party = 'R'
+      pick 1 when length(incumbent_name) > 0 and strpos(dem_candidate, incumbent_name) > 0
+      pick -1 when length(incumbent_name) > 0 and strpos(rep_candidate, incumbent_name) > 0
+      else 0
     #(doc) Expert rating as a number, D-positive: Solid D = 3 ... Toss-up = 0 ... Solid R = -3. Null when unrated.
     rating_score is pick 3 when expert_rating = 'Solid D' pick 2 when expert_rating = 'Likely D'
       pick 1 when expert_rating = 'Lean D' pick 0 when expert_rating = 'Toss-up'
@@ -117,7 +125,7 @@ source: races is duckdb.table('data/races.parquet') extend {
   view: race_inputs is {
     group_by:
       race_id, office, state, geo_id, district_number, race_name, is_special,
-      incumbent_party, is_open_seat, incumbent_status, locked_party, matchup_note,
+      incumbent_party, is_open_seat, incumbent_status, incumbent_sign, locked_party, matchup_note,
       dem_candidate, rep_candidate, expert_rating, rating_score, dem_raised_m, rep_raised_m,
       geo.region, geo.population, geo.pct_white, geo.pct_black, geo.pct_hispanic,
       geo.pct_asian, geo.pct_college, geo.median_age, geo.median_income_k,

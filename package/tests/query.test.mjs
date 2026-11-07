@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { DEFAULT_CONTROLS } from '../public/model.js'
+import { breakdownFromRow, DEFAULT_CONTROLS, environmentFromRow } from '../public/model.js'
 import {
   BOOT_QUERIES,
   demographicsQuery,
+  FORECAST_MODEL,
+  FORECAST_QUERIES,
+  forecastGivens,
   hashToState,
   historyQuery,
   INVENTORY_QUERIES,
@@ -12,6 +15,8 @@ import {
   lit,
   marketQuery,
   modelUrl,
+  pollContributionsQuery,
+  pollTrendQuery,
   pageVersion,
   queryUrl,
   RESULTS_MODEL,
@@ -129,4 +134,45 @@ test('every view the results page queries is defined in results.malloy or what i
   const results = readFileSync(new URL(`../${RESULTS_MODEL}`, import.meta.url), 'utf8')
   assert.match(results, /^import 'elections\.malloy'/m)
   assertQueriesDefined([RESULTS_MODEL, 'elections.malloy'], Object.values(RESULTS_QUERIES))
+})
+
+test('every view the app queries from forecast.malloy is defined there', () => {
+  const forecast = readFileSync(new URL(`../${FORECAST_MODEL}`, import.meta.url), 'utf8')
+  assert.match(forecast, /^import 'elections\.malloy'/m)
+  assertQueriesDefined([FORECAST_MODEL], [...Object.values(FORECAST_QUERIES), pollContributionsQuery('SEN-GA'), pollTrendQuery('SEN-GA')])
+})
+
+/** The row fields `adapter` reads, by handing it a row that records each one. */
+function fieldsRead(adapter) {
+  const seen = new Set()
+  adapter(new Proxy({}, { get: (_, k) => (seen.add(k), 0) }))
+  return [...seen]
+}
+
+test('every column the app reads from a forecast view is in that view', () => {
+  const forecast = readFileSync(new URL(`../${FORECAST_MODEL}`, import.meta.url), 'utf8')
+  for (const [adapter, source, view] of [
+    [breakdownFromRow, 'race_breakdown', 'breakdown'],
+    [environmentFromRow, 'national', 'summary'],
+  ]) {
+    const text = viewBlock(forecast, source, view)
+    assert.ok(text, `${source} -> ${view}`)
+    for (const field of fieldsRead(adapter)) {
+      assert.match(text, new RegExp(`\\b${field}\\b`), `${source} -> ${view} does not select ${field}`)
+    }
+  }
+})
+
+test('forecastGivens sends every lever as a given the model declares, and days as a date filter', () => {
+  const forecast = readFileSync(new URL(`../${FORECAST_MODEL}`, import.meta.url), 'utf8')
+  const declared = new Set([...forecast.matchAll(/^  (\w+) :: /gm)].map((m) => m[1]))
+  const givens = forecastGivens(DEFAULT_CONTROLS)
+  assert.equal(Object.keys(givens).length, Object.keys(DEFAULT_CONTROLS).length)
+  for (const name of Object.keys(givens)) {
+    assert.ok(declared.has(name), `${name} is not declared in ${FORECAST_MODEL}`)
+  }
+  assert.equal(givens.AS_OF_DAYS, undefined)
+  const days = forecastGivens(DEFAULT_CONTROLS, [Date.UTC(2026, 9, 26), Date.UTC(2026, 10, 2)])
+  assert.equal(days.AS_OF_DAYS, '2026-10-26 or 2026-11-02')
+  assert.ok(declared.has('AS_OF_DAYS'))
 })
