@@ -1,10 +1,10 @@
-// Build package/data/*.parquet — one file per table elections.malloy reads — from the cached
-// public sources in data-raw/ and the curated race map in scripts/data/curated/. Every number
+// Build data/*.parquet — one file per table elections.malloy reads — from the cached
+// public sources in data-raw/ and the curated race map in pipeline/data/curated/. Every number
 // is either copied from a cited source or derived from one by a rule written below;
-// package/data/README.md documents each table's provenance.
+// README.md documents each table's provenance.
 //
 //   pnpm data:real                fetch (cached) -> curate -> markets -> build -> validate
-//   node scripts/build-data.mjs   build + validate from what is already in data-raw/
+//   node packages/midterms2026/pipeline/build-data.mjs   build + validate from what is already in data-raw/
 
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -699,7 +699,7 @@ try {
     await db.run(
       `COPY (SELECT * FROM read_json('${file}', format='newline_delimited', columns={${columns}})) TO '${out}' (FORMAT parquet, COMPRESSION zstd)`
     )
-    console.log(`package/data/${name}.parquet`.padEnd(42), String(rows.length).padStart(6), 'rows')
+    console.log(`data/${name}.parquet`.padEnd(42), String(rows.length).padStart(6), 'rows')
   }
 } finally {
   rmSync(tmp, { recursive: true, force: true })

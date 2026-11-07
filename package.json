@@ -4,13 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "malloy-publisher --server_root . --port 4000 --watch-env elections",
-    "data": "node scripts/build-data.mjs",
-    "data:real": "node scripts/data/fetch.mjs && node scripts/data/curate.mjs && node scripts/data/fetch-kalshi.mjs && node scripts/build-data.mjs",
-    "data:validate": "node scripts/validate-data.mjs",
-    "data:stub": "node scripts/generate-stub-data.mjs",
-    "results": "node scripts/results.mjs",
-    "geo": "node scripts/build-geo.mjs",
-    "test": "node --test package/tests/*.test.mjs"
+    "data": "node packages/midterms2026/pipeline/build-data.mjs",
+    "data:real": "node packages/midterms2026/pipeline/data/fetch.mjs && node packages/midterms2026/pipeline/data/curate.mjs && node packages/midterms2026/pipeline/data/fetch-kalshi.mjs && node packages/midterms2026/pipeline/build-data.mjs",
+    "data:validate": "node packages/midterms2026/pipeline/validate-data.mjs",
+    "data:stub": "node packages/midterms2026/pipeline/generate-stub-data.mjs",
+    "results": "node packages/midterms2026/pipeline/results.mjs",
+    "geo": "node packages/midterms2026/pipeline/build-geo.mjs",
+    "test": "node --test packages/midterms2026/tests/*.test.mjs"
   },
   "devDependencies": {
     "@duckdb/node-api": "1.5.5-r.4",

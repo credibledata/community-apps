@@ -1,4 +1,4 @@
-// The column contract between package/data/*.parquet and elections.malloy: names, order and
+// The column contract between data/*.parquet and elections.malloy: names, order and
 // DuckDB types. The build writes exactly these columns; validate-data.mjs checks the files
 // against them.
 
@@ -108,7 +108,7 @@ export const SCHEMA = {
   ],
 }
 
-// Election-night tables, built by scripts/results.mjs and read by results.malloy. Kept apart
+// Election-night tables, built by pipeline/results.mjs and read by results.malloy. Kept apart
 // from SCHEMA: the forecast's inputs stay frozen at the snapshot while these grow each run.
 export const RESULTS_SCHEMA = {
   results: [

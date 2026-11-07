@@ -1,10 +1,10 @@
 // What the simulation needs, from a running Publisher (pnpm dev): the races and seat
 // arithmetic (elections.malloy) and, for a set of levers, every race's forecast inputs
-// (forecast.malloy). Shared by scripts/forecast.mjs and scripts/results.mjs --refreeze, so
+// (forecast.malloy). Shared by pipeline/forecast.mjs and pipeline/results.mjs --refreeze, so
 // both simulate exactly what the app does.
 
-import { breakdownFromRow, environmentFromRow, prepare } from '../package/public/model.js'
-import { BOOT_QUERIES, FORECAST_MODEL, FORECAST_QUERIES, forecastGivens, MODEL } from '../package/public/query.js'
+import { breakdownFromRow, environmentFromRow, prepare } from '../public/model.js'
+import { BOOT_QUERIES, FORECAST_MODEL, FORECAST_QUERIES, forecastGivens, MODEL } from '../public/query.js'
 
 export const PUBLISHER = process.env.PUBLISHER_URL || 'http://localhost:4000'
 

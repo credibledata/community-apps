@@ -4,9 +4,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 export const ROOT = new URL('../../', import.meta.url)
-export const RAW = new URL('data-raw/', ROOT)
-export const CURATED = new URL('scripts/data/curated/', ROOT)
-export const OUT = new URL('package/data/', ROOT)
+// Raw downloads stay at the repo root, outside the package, so they are never published with it.
+export const RAW = new URL('../../data-raw/', ROOT)
+export const CURATED = new URL('pipeline/data/curated/', ROOT)
+export const OUT = new URL('data/', ROOT)
 for (const dir of [RAW, CURATED, OUT]) {
   mkdirSync(dir, { recursive: true })
 }

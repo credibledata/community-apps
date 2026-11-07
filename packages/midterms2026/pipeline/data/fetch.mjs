@@ -3,7 +3,7 @@
 // with --refresh. Kalshi markets are fetched separately (fetch-kalshi.mjs) because which
 // markets to ask for depends on the curated race list.
 //
-//   node scripts/data/fetch.mjs [--refresh]
+//   node packages/midterms2026/pipeline/data/fetch.mjs [--refresh]
 
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'

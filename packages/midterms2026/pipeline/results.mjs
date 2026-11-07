@@ -6,7 +6,7 @@
 //   pnpm results --offline        rebuild from the committed snapshots only
 //   pnpm results --refreeze       recompute the frozen forecast (needs pnpm dev running)
 //
-// What is committed (scripts/data/results/), and why:
+// What is committed (pipeline/data/results/), and why:
 //   snapshots/<time>.csv   one row per race per fetch: side vote totals, share counted, call.
 //                          The raw feeds (~12 MB a fetch) stay in data-raw/results/.
 //   forecast*.csv          the pre-election forecast, frozen the first time this runs: every
@@ -20,7 +20,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
-import { clampControls, DEFAULT_CONTROLS, PRESETS, simulate } from '../package/public/model.js'
+import { clampControls, DEFAULT_CONTROLS, PRESETS, simulate } from '../public/model.js'
 import { cached, num, OUT, parseCsv, parseCsvRows, r1, RAW, readCurated, readRaw, ROOT, toCsv } from './data/lib.mjs'
 import { RESULTS_SCHEMA } from './data/schema.mjs'
 import { validateResults } from './validate-data.mjs'
@@ -28,7 +28,7 @@ import { loadForecast, loadPrep } from './forecast-inputs.mjs'
 
 const OFFLINE = process.argv.includes('--offline')
 const REFREEZE = process.argv.includes('--refreeze')
-const DIR = new URL('scripts/data/results/', ROOT)
+const DIR = new URL('pipeline/data/results/', ROOT)
 const SNAPSHOTS = new URL('snapshots/', DIR)
 mkdirSync(SNAPSHOTS, { recursive: true })
 
@@ -349,7 +349,7 @@ async function writeParquet(tables) {
       await db.run(
         `COPY (SELECT * FROM read_json('${file}', format='newline_delimited', columns={${columns}})) TO '${out}' (FORMAT parquet, COMPRESSION zstd)`
       )
-      console.log(`package/data/${name}.parquet`.padEnd(42), String(rows.length).padStart(6), 'rows')
+      console.log(`data/${name}.parquet`.padEnd(42), String(rows.length).padStart(6), 'rows')
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true })

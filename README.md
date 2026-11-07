@@ -5,7 +5,7 @@ reads, and an HTML app in the package's `public/` directory, served by Publisher
 
 | App | What it answers | Where |
 |---|---|---|
-| 2026 Midterms Simulation Explorer | A Monte Carlo simulation of the 2026 Senate, House and governor races with adjustable assumptions, and an election-night page comparing the count with the forecast | [repo root](#2026-midterms-simulation-explorer) |
+| 2026 Midterms Simulation Explorer | A Monte Carlo simulation of the 2026 Senate, House and governor races with adjustable assumptions, and an election-night page comparing the count with the forecast | [`packages/midterms2026`](packages/midterms2026) |
 | The 2026 Wildfire Season | How 2026's US fire season compared with every season since 2015, and where, when and why the fires burned | [`packages/wildfire-season-2026`](packages/wildfire-season-2026) |
 | New York EV registrations | Whether New York's new EV registrations fell after the federal clean vehicle tax credit ended on 30 September 2025 | [`packages/ev-registrations-2026`](packages/ev-registrations-2026) |
 
@@ -14,8 +14,9 @@ reads, and an HTML app in the package's `public/` directory, served by Publisher
 Each app is a folder under `packages/`, and everything in it publishes: `publisher.json`, the model, `data/`,
 `public/` (the app), `pipeline/` (the scripts that fetch and shape the data) and a README listing every
 source, its licence and how to rebuild the data.
-`packages/publisher.config.json` names them for a local Publisher. The midterms app predates this layout and
-lives at the repo root, with its own config and tooling; it is described below.
+`packages/publisher.config.json` names them for a local Publisher. The midterms app also keeps tooling at the
+repo root: `package.json` (its `pnpm` scripts and their dependencies), and `publisher.config.json`, `serve.mjs`
+and the `Dockerfile` for its deployed image; it is described below.
 
 ## Run the apps in `packages/`
 
@@ -25,6 +26,7 @@ npx @malloy-publisher/server@0.11.2 --server_root packages --port 4100 --mcp_por
 
 - Wildfire: http://localhost:4100/environments/community-apps/packages/wildfire-season-2026/index.html
 - EV registrations: http://localhost:4100/environments/community-apps/packages/ev-registrations-2026/index.html
+- Midterms: http://localhost:4100/environments/community-apps/packages/midterms2026/index.html
 
 The ports differ from the midterms app's, so both can run at once. Add `?check=1` to an app's URL and it
 checks that the numbers it leads with are the ones the model returns, and says so at the top of the page.
@@ -44,8 +46,8 @@ app: a Malloy semantic model served by Publisher, with the app living in the pac
 adjustable assumptions; it is not a prediction or an endorsement of any party.
 
 The data is a dated snapshot of public sources (as of 2026-11-02), committed as one Parquet file
-per table. [`package/data/README.md`](package/data/README.md) lists every source, its licence
-and what is derived here.
+per table. [`packages/midterms2026/README.md`](packages/midterms2026/README.md) lists every
+source, its licence and what is derived here.
 
 ### Run it
 
@@ -62,28 +64,28 @@ Other scripts:
 
 ```bash
 pnpm test                                        # model, query and format tests + the data gate
-node scripts/forecast.mjs envShift=2              # headless topline against the running Publisher
-node scripts/query.mjs "run: polls -> by_pollster" # any Malloy query, printed as a table
+node packages/midterms2026/pipeline/forecast.mjs envShift=2              # headless topline against the running Publisher
+node packages/midterms2026/pipeline/query.mjs "run: polls -> by_pollster" # any Malloy query, printed as a table
 pnpm data:real                                    # re-fetch every source, re-curate, rebuild, validate
 pnpm data                                         # rebuild the Parquet from cached downloads (data-raw/)
 pnpm data:validate                                # just the validation gate
 pnpm data:stub                                    # the old synthetic data, as an offline fixture
 pnpm geo                                          # re-project state shapes into public/geo/
 pnpm results                                      # fetch the latest count, add a snapshot, rebuild results Parquet
-MODEL=results.malloy node scripts/query.mjs "run: results -> tally"
+MODEL=results.malloy node packages/midterms2026/pipeline/query.mjs "run: results -> tally"
 ```
 
 #### Updating election-night results
 
 `pnpm results` fetches the current AP count (via the New York Times' results feeds) for every
 Senate, House and governor race, saves the raw JSON to `data-raw/results/<time>/`, writes a
-committed snapshot to `scripts/data/results/snapshots/<time>.csv`, rebuilds the results Parquet
+committed snapshot to `packages/midterms2026/pipeline/data/results/snapshots/<time>.csv`, rebuilds the results Parquet
 from every snapshot so far and validates it. Re-run it whenever you want a fresh count; each run
 adds a row to the page's "How the count came in" table. It needs network access but not
 Publisher.
 
 - `pnpm results --offline` rebuilds from the committed snapshots without fetching.
-- The pre-election forecast is frozen in `scripts/data/results/forecast*.csv` (every scenario
+- The pre-election forecast is frozen in `pipeline/data/results/forecast*.csv` (every scenario
   preset, 10,000 simulations, seed 538). It is only recomputed with `--refreeze`, which needs
   `pnpm dev` running; don't, unless the model or its data changed on purpose.
 - The run fails loudly if a race in the feed can't be matched to ours or its 2024 presidential
@@ -121,18 +123,19 @@ Publisher.
 ### Layout
 
 ```
-publisher.config.json     environment "elections" -> package ./package (midterms2026)
+publisher.config.json     environment "elections" -> ./packages/midterms2026 (pnpm dev and the image)
 serve.mjs, Dockerfile     production front door, same shape as community/apps/avalanche
-scripts/                  data build and validation, geo projection, headless forecast, query CLI
-  forecast-inputs.mjs     loads the simulation's inputs from Publisher (forecast.mjs, results.mjs)
-  results.mjs             election-night count: fetch, snapshot, frozen forecast, Parquet
-  data/                   fetchers, Wikipedia/Kalshi curation, schema; curated/ is committed
-    results/              committed count snapshots, frozen forecast, past House popular vote
-package/
+packages/midterms2026/
+  README.md               every source, its licence and what is derived
   elections.malloy        the semantic model: sources, measures, views
   forecast.malloy         the forecast's deterministic steps, levers as givens (imports elections.malloy)
   results.malloy          the count against the forecast (imports elections.malloy)
-  data/                   Parquet snapshot + provenance README + build-info.json (as-of date)
+  data/                   Parquet snapshot + build-info.json (as-of date)
+  pipeline/               data build and validation, geo projection, headless forecast, query CLI
+    forecast-inputs.mjs   loads the simulation's inputs from Publisher (forecast.mjs, results.mjs)
+    results.mjs           election-night count: fetch, snapshot, frozen forecast, Parquet
+    data/                 fetchers, Wikipedia/Kalshi curation, schema; curated/ is committed
+      results/            committed count snapshots, frozen forecast, past House popular vote
   public/                 the app (served by Publisher; no build step)
     index.html styles.css markup and the token contract (blue = D, red = R, nothing else)
     query.js              every query the app runs, id validation, URL-hash codec
@@ -180,7 +183,7 @@ the explanation cannot drift from the arithmetic.
 - 179 districts were redrawn for 2026 and have no census tabulation yet; the model reads their
   demographics as national averages. District results start in 2020 (2016 is states only).
 - Ratings are Sabato's Crystal Ball only; House and Senate history from MIT is optional (it
-  sits behind a Dataverse guestbook, see `package/data/README.md`).
+  sits behind a Dataverse guestbook, see `packages/midterms2026/README.md`).
 - The forecast is as of the snapshot date, not today; it moves only when the data is rebuilt.
 - Election-night results are a partial, unofficial count until certified. Early margins move
   with the order places count mail and election-day ballots, which is why comparisons wait for
@@ -194,9 +197,9 @@ the explanation cannot drift from the arithmetic.
 
 The code is [MIT](LICENSE). The data keeps its sources' licences:
 
-- Midterms: the data in `package/data/` and `scripts/data/curated/` is derived from third-party sources
-  (Wikipedia-derived tables are CC BY-SA 4.0, FiveThirtyEight pollster ratings are CC BY 4.0); see
-  [`package/data/README.md`](package/data/README.md).
+- Midterms: the data in `packages/midterms2026/data/` and `packages/midterms2026/pipeline/data/curated/`
+  is derived from third-party sources (Wikipedia-derived tables are CC BY-SA 4.0, FiveThirtyEight pollster
+  ratings are CC BY 4.0); see [`packages/midterms2026/README.md`](packages/midterms2026/README.md).
 - Each app under `packages/`: the Sources section of its README. The libraries and fonts in its
   `public/vendor/` keep theirs (d3 and topojson-client are ISC, the fonts SIL OFL 1.1), listed in
   `public/vendor/README.md`.

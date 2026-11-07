@@ -1,14 +1,14 @@
 // Deterministic stub data: an offline fixture for experimenting with the model, never shipped.
-// The package serves the real snapshot in package/data/*.parquet (scripts/build-data.mjs).
+// The package serves the real snapshot in data/*.parquet (pipeline/build-data.mjs).
 //
 // Everything here is SYNTHETIC. State-level presidential margins and the House
 // apportionment are approximately real so the maps look familiar; every poll,
 // price, rating, dollar figure and district is generated. The generator builds
 // one hidden "true" 2026 environment and samples every source from it, so the
 // sources agree with each other the way real ones roughly do. It predates the real
-// schema (scripts/data/schema.mjs) and lacks the columns added for it.
+// schema (pipeline/data/schema.mjs) and lacks the columns added for it.
 //
-//   pnpm data:stub   -> scripts/fixtures/stub-data/*.csv (same seed, same bytes)
+//   pnpm data:stub   -> pipeline/fixtures/stub-data/*.csv (same seed, same bytes)
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 

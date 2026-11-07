@@ -1,4 +1,4 @@
-// Curate the 2026 map from the cached sources into scripts/data/curated/*.csv (committed, so
+// Curate the 2026 map from the cached sources into pipeline/data/curated/*.csv (committed, so
 // a reviewer can read every race, nominee and rating the forecast uses and where it came from).
 //
 //   races.csv       one row per 2026 race: incumbency, open seat, Sabato rating, matchup
@@ -9,7 +9,7 @@
 // article (CC BY-SA 4.0), whose rating columns cite Sabato's Crystal Ball; current members of
 // Congress from unitedstates/congress-legislators; current governors from Wikipedia.
 //
-//   node scripts/data/curate.mjs
+//   node packages/midterms2026/pipeline/data/curate.mjs
 
 import { partyCode, plain, ratingLabel, readJson, STATES, ABBR, wikiCandidates, writeCurated } from './lib.mjs'
 import { cellValue, sectionAt, tableRows, wikitext } from './wiki.mjs'

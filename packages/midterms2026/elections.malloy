@@ -4,7 +4,7 @@
 // licence and as-of date): Wikipedia for the race map, incumbents and Sabato ratings; VoteHub
 // polls; FiveThirtyEight pollster grades; The Downballot district results and specials; MIT
 // Election Lab state results; Census ACS demographics; FEC fundraising; Kalshi prices. House
-// effects and the approval average are derived from the polls (scripts/build-data.mjs).
+// effects and the approval average are derived from the polls (pipeline/build-data.mjs).
 //
 // Margins are always Democratic minus Republican, in percentage points: +4 = D+4, -4 = R+4.
 // The model keeps the deterministic, reviewable inputs here (partisan lean, poll adjustments,

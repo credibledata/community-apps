@@ -1,7 +1,7 @@
 // Election night: the AP count against the pre-election forecast and past results.
 //
 // Imports the forecast model (elections.malloy) and adds the election-night tables, built by
-// scripts/results.mjs: the count in snapshots as the night goes on, the forecast frozen before
+// pipeline/results.mjs: the count in snapshots as the night goes on, the forecast frozen before
 // the first vote was counted, and the national House vote in past midterms. Rebuilding the
 // results never touches the forecast's inputs.
 //

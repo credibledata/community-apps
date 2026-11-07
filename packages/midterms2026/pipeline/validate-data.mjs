@@ -1,14 +1,14 @@
-// The release gate for package/data/*.parquet: the files must match the schema contract,
+// The release gate for data/*.parquet: the files must match the schema contract,
 // join cleanly, count the 2026 map correctly, stay in range, contain nothing dated after the
 // snapshot, and reproduce a few certified results. Any failure exits non-zero.
 //
-//   node scripts/validate-data.mjs        (also run at the end of the build and by pnpm test)
+//   node packages/midterms2026/pipeline/validate-data.mjs        (also run at the end of the build and by pnpm test)
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { RESULTS_SCHEMA, SCHEMA } from './data/schema.mjs'
 
-const DATA = new URL('../package/data/', import.meta.url)
+const DATA = new URL('../data/', import.meta.url)
 
 // Certified results (D minus R, points) the build must reproduce within 0.3.
 const CERTIFIED = [
@@ -53,7 +53,7 @@ export async function validate({ asOf } = {}) {
   }
   const stray = readdirSync(DATA).filter((f) => f.endsWith('.csv'))
   if (stray.length) {
-    failures.push(`stray CSVs in package/data: ${stray.join(', ')}`)
+    failures.push(`stray CSVs in data/: ${stray.join(', ')}`)
   }
 
   // Keys: unique, and every reference resolves.
@@ -153,7 +153,7 @@ const CERTIFIED_HOUSE = [
   [2018, 8.6],
 ]
 
-/** The election-night tables built by scripts/results.mjs. */
+/** The election-night tables built by pipeline/results.mjs. */
 export async function validateResults() {
   const db = await (await DuckDBInstance.create(':memory:')).connect()
   const failures = []

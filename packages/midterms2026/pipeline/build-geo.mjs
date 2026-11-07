@@ -1,5 +1,5 @@
 // Projects US state boundaries once, at dev time, into SVG path strings so the
-// app draws maps with no runtime geo library. Output: package/public/geo/states.json
+// app draws maps with no runtime geo library. Output: public/geo/states.json
 //
 //   { width, height, states: { "PA": { fips, name, d, cx, cy } }, mesh }
 //
@@ -57,7 +57,7 @@ const borders = round(
   path(mesh(topo, topo.objects.states, (a, b) => a !== b)) || ''
 )
 
-const out = new URL('../package/public/geo/states.json', import.meta.url)
+const out = new URL('../public/geo/states.json', import.meta.url)
 writeFileSync(
   out,
   JSON.stringify({ width: WIDTH, height: HEIGHT, states, borders })

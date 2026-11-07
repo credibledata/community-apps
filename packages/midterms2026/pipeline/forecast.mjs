@@ -1,10 +1,10 @@
 // Run the forecast headlessly against a local Publisher (pnpm dev) and print the topline.
 // Same queries and model code as the app, so this is the quickest way to check a model change.
 //
-//   node scripts/forecast.mjs                 # default levers
-//   node scripts/forecast.mjs envShift=3      # any DEFAULT_CONTROLS key=value
+//   node packages/midterms2026/pipeline/forecast.mjs                 # default levers
+//   node packages/midterms2026/pipeline/forecast.mjs envShift=3      # any DEFAULT_CONTROLS key=value
 
-import { clampControls, DEFAULT_CONTROLS, simulate } from '../package/public/model.js'
+import { clampControls, DEFAULT_CONTROLS, simulate } from '../public/model.js'
 import { loadForecast, loadPrep } from './forecast-inputs.mjs'
 
 const controls = clampControls({

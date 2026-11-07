@@ -5,7 +5,7 @@
 # community/apps/avalanche — see that Dockerfile for the reasoning behind each choice
 # (pinned Publisher, tini as PID 1, Publisher bound to 127.0.0.1, both processes fatal).
 #
-# The data is a committed Parquet snapshot (package/data/, built by scripts/build-data.mjs),
+# The data is a committed Parquet snapshot (packages/midterms2026/data/, built by its pipeline/),
 # so the build touches no network beyond npm and the image is reproducible from the repo alone.
 
 FROM node:22-bookworm-slim AS runtime
@@ -20,7 +20,7 @@ WORKDIR /app
 
 COPY publisher.config.json ./
 COPY serve.mjs ./
-COPY package/ ./package/
+COPY packages/midterms2026/ ./packages/midterms2026/
 
 ENV NODE_ENV=production \
     PORT=8080 \

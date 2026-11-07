@@ -2,7 +2,7 @@
 // race in curated/races.csv, write the mapping to curated/kalshi_tickers.csv, and cache each
 // market's daily candlesticks in data-raw/kalshi/. Public market-data endpoints; no key.
 //
-//   node scripts/data/fetch-kalshi.mjs [--refresh]
+//   node packages/midterms2026/pipeline/data/fetch-kalshi.mjs [--refresh]
 
 import { mkdirSync } from 'node:fs'
 import { cached, RAW, readCurated, STATES, writeCurated } from './lib.mjs'

@@ -1,10 +1,11 @@
 # Tests and generators are for development; the image serves the model and the app.
 node_modules/
 # The other apps in this repo; the image serves only midterms.
-packages/
-scripts/
+packages/*
+!packages/midterms2026/
+packages/midterms2026/pipeline/
+packages/midterms2026/tests/
 data-raw/
-package/tests/
 .screens/
 .git/
 # Local Publisher state, if a dev run leaves any behind.
@@ -13,3 +14,5 @@ publisher.db.wal
 publisher_data/
 server.log
 .mcp.json
+Dockerfile
+package.json

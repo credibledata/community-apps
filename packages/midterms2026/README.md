@@ -1,9 +1,9 @@
-# Data: a dated snapshot of public sources
+# 2026 Midterms Simulation Explorer: a dated snapshot of public sources
 
-Every Parquet file here is built by `scripts/build-data.mjs` from public sources, as of the date
+Every Parquet file in `data/` is built by `pipeline/build-data.mjs` from public sources, as of the date
 in `build-info.json` (currently **2026-11-02**, the day before the election). Nothing after that
 date is included, so the forecast is the forecast as of the snapshot, not a live feed.
-`scripts/validate-data.mjs` gates every build (schema, joins, the 2026 map's counts, ranges, no
+`pipeline/validate-data.mjs` gates every build (schema, joins, the 2026 map's counts, ranges, no
 rows after the snapshot, and certified 2020/2024 results) and runs in `pnpm test`.
 
 Margins everywhere are Democratic minus Republican, in points. "D" and "R" are the two sides of a
@@ -22,7 +22,7 @@ race: where a party has no nominee, the leading independent stands in for that s
 | `approval.parquet` | 362 | A day of the presidential approval average | Derived from VoteHub approval polls |
 | `special_elections.parquet` | 110 | A special election since 2025 | The Downballot |
 
-Election night adds five tables, built by `scripts/results.mjs` (`pnpm results`) rather than
+Election night adds five tables, built by `pipeline/results.mjs` (`pnpm results`) rather than
 `build-data.mjs`, so refreshing the count never touches the forecast's inputs:
 
 | File | Rows | One row is | Source |
@@ -52,7 +52,7 @@ The forecast is independent and not affiliated with or endorsed by any source, r
 
 ## What is derived here, and how
 
-- **Race map.** Parsed from the Wikipedia articles into `scripts/data/curated/races.csv`
+- **Race map.** Parsed from the Wikipedia articles into `pipeline/data/curated/races.csv`
   (committed, with a source URL per row). `locked_party` marks races where both finalists are
   from one party (California's top-two, unopposed seats); polls of those races are dropped.
 - **Ratings.** Sabato's Crystal Ball column only, so every rating has one citable source. Races
@@ -88,7 +88,7 @@ The forecast is independent and not affiliated with or endorsed by any source, r
   validation.
 - **Frozen forecast.** Every scenario preset run once with 10,000 simulations (seed 538)
   against this snapshot, before polls closed, and committed as CSV in
-  `scripts/data/results/`. Validation pins the default topline to the published one.
+  `pipeline/data/results/`. Validation pins the default topline to the published one.
 - **Past House popular vote.** The infobox of each election's Wikipedia article; 2010 and 2018
   are checked against the Clerk of the House's certified totals.
 
