@@ -1,0 +1,4 @@
+// Root model: imports the app's model and exports what may be queried.
+import { registrations, ev_records, passenger_cars, passenger_evs } from "ny_ev.malloy"
+
+export { passenger_cars, passenger_evs, registrations, ev_records }
