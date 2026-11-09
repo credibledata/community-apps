@@ -368,7 +368,8 @@ function keepInView(anchor, ms = 1600) {
 
 let shown = null
 function render({ toTop = false } = {}) {
-  const here = `${route.view}|${route.id ?? ''}`
+  // The compare list is part of the view: adding or removing an entity redraws its picker and chips, not only its cards.
+  const here = `${route.view}|${route.id ?? ''}|${(route.compare ?? []).join(',')}`
   const same = shown === here
   const first = shown === null
   shown = here

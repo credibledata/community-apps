@@ -420,7 +420,8 @@ function keepInView(anchor, ms = 1600) {
 let shownView = null
 /** A filter change keeps the view and draws its cards again in place; another view fades in over the last one. */
 function render({ toTop = false } = {}) {
-  const here = `${route.view}|${route.id ?? ''}`
+  // The compare list is part of the view: adding or removing an entity redraws its picker and chips, not only its cards.
+  const here = `${route.view}|${route.id ?? ''}|${(route.compare ?? []).join(',')}`
   const same = C.MOTION && shownView === here
   const first = shownView === null
   shownView = here
