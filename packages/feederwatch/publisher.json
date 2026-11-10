@@ -1,0 +1,5 @@
+{
+  "name": "feederwatch",
+  "version": "0.2.1",
+  "description": "Project FeederWatch (Cornell Lab of Ornithology and Birds Canada), seasons 1988-89 to 2023-24: 45 million bird counts from 4.1 million checklists at 100,000+ North American feeder sites, pre-aggregated to 81 MB of Parquet. A Malloy model plus an in-package HTML explorer."
+}

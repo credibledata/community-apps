@@ -1,0 +1,256 @@
+##! experimental.parameters
+
+// Colorado avalanche observations, from the Colorado Avalanche Information Center (CAIC).
+// One row is one OBSERVATION: a report of one or more avalanches at a place and date
+// (`avalanche_count_reported`, up to 100). Count avalanches with `avalanches`, not `observations`.
+// Size, aspect, elevation and trigger describe the observation as a whole, so a multi-avalanche
+// row contributes all its avalanches to the same bucket.
+
+#(doc) Avalanche observations reported to the Colorado Avalanche Information Center. One row per observation; an observation can report several avalanches. Coverage is reliable from the 2011 season (water year) onward.
+source: avalanche_observations is duckdb.table('data/avalanche_observations.parquet') extend {
+  primary_key: id
+  rename: reported_count is avalanche_count_reported
+
+  dimension:
+    #(doc) Avalanche season, as the water year it ends in: the 2024 season runs Oct 1 2023 to Sep 30 2024.
+    season is water_year
+    #(doc) Season label such as "2023-24".
+    season_label is concat((water_year - 1)::string, '-', substr(water_year::string, 3, 2))
+    #(doc) True from the 2011 season on, when CAIC's digital observation record becomes consistent. Earlier seasons hold only a handful of back-entered events.
+    is_reliable_era is water_year >= 2011
+
+    #(doc) Calendar month of the observation, 1-12, in Mountain time.
+    month_of_year is month(observed_date)
+    month_name is pick 'Oct' when month_of_year = 10 pick 'Nov' when month_of_year = 11
+      pick 'Dec' when month_of_year = 12 pick 'Jan' when month_of_year = 1
+      pick 'Feb' when month_of_year = 2 pick 'Mar' when month_of_year = 3
+      pick 'Apr' when month_of_year = 4 pick 'May' when month_of_year = 5
+      pick 'Jun' when month_of_year = 6 pick 'Jul' when month_of_year = 7
+      pick 'Aug' when month_of_year = 8 else 'Sep'
+    #(doc) Months ordered through the season: Oct = 1 ... Sep = 12.
+    season_month_order is pick month_of_year - 9 when month_of_year >= 10 else month_of_year + 3
+    season_start is concat((water_year - 1)::string, '-10-01')::date
+    #(doc) Days since October 1 of the season (0 = Oct 1).
+    season_day is days(season_start to observed_date)
+    #(doc) Week of the season, 0 = the week starting Oct 1.
+    season_week is floor(season_day / 7)
+
+    #(doc) Elevation band relative to treeline. The raw column stores HTML-escaped codes (&#62;TL, TL, &#60;TL); "U" and "All" are treated as unknown.
+    elevation is pick 'Above treeline' when elevation_band = '&#62;TL'
+      pick 'Near treeline' when elevation_band = 'TL'
+      pick 'Below treeline' when elevation_band = '&#60;TL'
+      else null
+    elevation_order is pick 1 when elevation = 'Above treeline' pick 2 when elevation = 'Near treeline'
+      pick 3 when elevation = 'Below treeline' else null
+
+    #(doc) Aspect of the slope (N, NE, ... NW). "U", "All" and blanks are treated as unknown.
+    slope_aspect is pick aspect when aspect = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' else null
+    aspect_degrees is pick 0 when slope_aspect = 'N' pick 45 when slope_aspect = 'NE'
+      pick 90 when slope_aspect = 'E' pick 135 when slope_aspect = 'SE'
+      pick 180 when slope_aspect = 'S' pick 225 when slope_aspect = 'SW'
+      pick 270 when slope_aspect = 'W' pick 315 when slope_aspect = 'NW' else null
+
+    #(doc) Avalanche type from the SWAG type code.
+    avalanche_type is pick 'Soft slab' when type_code = 'SS' pick 'Hard slab' when type_code = 'HS'
+      pick 'Wet loose' when type_code = 'WL' pick 'Dry loose' when type_code = 'L'
+      pick 'Wet slab' when type_code = 'WS' pick 'Cornice' when type_code = 'C'
+      pick 'Glide' when type_code = 'G' pick 'Roof' when type_code = 'R'
+      pick 'Ice' when type_code = 'I' pick 'Slush flow' when type_code = 'SF'
+      else null
+    #(doc) True for slab avalanches (soft, hard, wet slab).
+    is_slab is type_code = 'SS' | 'HS' | 'WS'
+
+    #(doc) Avalanche problem as named in CAIC forecasts. Only recorded for about a quarter of observations, mostly since 2020; null means not recorded.
+    avalanche_problem is pick 'Persistent slab' when problem_type = 'persistent'
+      pick 'Deep persistent slab' when problem_type = 'deep_persistent'
+      pick 'Wind slab' when problem_type = 'wind' pick 'Storm slab' when problem_type = 'storm'
+      pick 'Wet slab' when problem_type = 'wet_slab' pick 'Wet loose' when problem_type = 'loose_wet'
+      pick 'Dry loose' when problem_type = 'loose_dry' pick 'Cornice' when problem_type = 'cornice'
+      pick 'Glide' when problem_type = 'glide' else null
+
+    #(doc) Destructive size (D1-D5, half sizes allowed) as a number. D2 can bury, injure or kill a person; D3 can bury a car. "U"/"Unkn" are null.
+    d_size is pick replace(destructive_size, 'D', ''):::number
+      when destructive_size ~ r'^D[1-5](\.5)?$' else null
+    #(doc) Size relative to the avalanche path (R1-R5) as a number. "U"/"Un" are null.
+    r_size is pick replace(relative_size, 'R', ''):::number
+      when relative_size ~ r'^R[1-5]$' else null
+    #(doc) Destructive size rounded down to a whole class: D1, D2, D3, D4+.
+    d_class is pick 'D1' when d_size < 2 pick 'D2' when d_size < 3 pick 'D3' when d_size < 4
+      pick 'D4+' when d_size >= 4 else null
+    #(doc) True when the avalanche was D2 or larger: big enough to bury, injure, or kill a person.
+    is_dangerous_size is d_size >= 2
+
+    #(doc) What released the avalanche, grouped from the SWAG primary trigger code. Natural = N*; Skier / rider = skier, snowboarder, snowshoer; Explosives = control work (AE, AA, AL, AX, AH, AP, AB); Unknown = "U", blank, or "---".
+    trigger is pick 'Natural' when primary_trigger ~ r'^N'
+      pick 'Skier / rider' when primary_trigger = 'AS' | 'AR' | 'AI'
+      pick 'Snowmobile' when primary_trigger = 'AM'
+      pick 'Hiker / climber' when primary_trigger = 'AF'
+      pick 'Explosives' when primary_trigger = 'AE' | 'AA' | 'AL' | 'AX' | 'AH' | 'AP' | 'AB'
+      pick 'Other human' when primary_trigger = 'AC' | 'AO' | 'AV' | 'AK' | 'AN' | 'AU' | 'A' | 'AW'
+      else 'Unknown'
+    #(doc) True for avalanches triggered by people travelling in the terrain (not explosives control work, not natural).
+    is_human_triggered is trigger = 'Skier / rider' | 'Snowmobile' | 'Hiker / climber' | 'Other human'
+    is_known_trigger is trigger != 'Unknown'
+    #(doc) Trigger modifier: remote (triggered from a distance), unintentional, intentional/controlled, sympathetic.
+    trigger_modifier is pick 'Remote' when lower(secondary_trigger) = 'r'
+      pick 'Unintentional' when lower(secondary_trigger) = 'u'
+      pick 'Controlled' when lower(secondary_trigger) = 'c'
+      pick 'Sympathetic' when lower(secondary_trigger) = 'y' else null
+
+    #(doc) True when the observation records an incident: a person or property was caught or involved. Null in the raw data is treated as false.
+    involved_people is is_incident = true
+
+    #(doc) Crown (slab) depth in inches, normalized from inch and centimetre entries; unitless entries and values over 20 ft are discarded as entry errors.
+    crown_depth_in is pick crown_raw when crown_units = 'in' and crown_raw <= 240
+      pick crown_raw / 2.54 when crown_units = 'cm' and crown_raw <= 610
+      else null
+    crown_raw is coalesce(crown_average, crown_maximum)
+    #(doc) Crown depth in 6-inch buckets: 0 = 0-5 in, 6 = 6-11 in, ... capped at 72 (6 ft+).
+    crown_bucket_in is pick 72 when crown_depth_in >= 72 else floor(crown_depth_in / 6) * 6
+    #(doc) Vertical fall in feet, normalized from ft and m; unitless entries and values over 6,000 ft are discarded.
+    vertical_fall_ft is pick vertical_raw when vertical_units = 'ft' and vertical_raw <= 6000
+      pick vertical_raw * 3.2808 when vertical_units = 'm' and vertical_raw <= 1830
+      else null
+    vertical_raw is coalesce(vertical_average, vertical_maximum)
+    #(doc) Width in feet, normalized from ft and m; values over 3 miles are discarded.
+    width_ft is pick width_raw when width_units = 'ft' and width_raw <= 16000
+      pick width_raw * 3.2808 when width_units = 'm' and width_raw <= 4900
+      else null
+    width_raw is coalesce(width_average, width_maximum)
+
+    #(doc) CAIC backcountry forecast zone. Rows with no zone (mostly placeholder coordinates) are "Unassigned".
+    forecast_zone is coalesce(zone, 'Unassigned')
+    #(doc) CAIC region: Northern, Central or Southern Mountains.
+    mountain_region is pick 'Northern Mountains' when region = 'northern-mountains'
+      pick 'Central Mountains' when region = 'central-mountains'
+      pick 'Southern Mountains' when region = 'southern-mountains'
+      else 'Unassigned'
+    #(doc) True when latitude/longitude fall inside Colorado. 512 rows carry 0,0 or out-of-state placeholders.
+    has_valid_location is latitude > 36.9 and latitude < 41.1 and longitude > -109.1 and longitude < -102.0
+    #(doc) Backcountry (bc) or operational/ski-area/highway (op) observation.
+    setting is pick 'Backcountry' when hw_op_bc = 'bc' else 'Operational'
+    #(doc) Free-text place name: the observer's area or location name, whichever is filled.
+    place is coalesce(nullif(trim(area), ''), nullif(trim(location), ''), nullif(trim(landmark), ''))
+
+  measure:
+    #(doc) Number of observation records. Not the number of avalanches: use `avalanches`.
+    observations is count()
+    #(doc) Number of avalanches: each observation's reported count, counting a missing count as 1.
+    avalanches is sum(coalesce(reported_count, 1))
+    human_triggered_avalanches is avalanches { where: is_human_triggered }
+    natural_avalanches is avalanches { where: trigger = 'Natural' }
+    explosive_avalanches is avalanches { where: trigger = 'Explosives' }
+    known_trigger_avalanches is avalanches { where: is_known_trigger }
+    #(doc) Share of avalanches with a KNOWN trigger that people travelling in the terrain set off. Unknown triggers are excluded from the denominator.
+    pct_human_triggered is human_triggered_avalanches / nullif(known_trigger_avalanches, 0)
+    sized_avalanches is avalanches { where: d_size is not null }
+    dangerous_size_avalanches is avalanches { where: is_dangerous_size }
+    #(doc) Share of size-rated avalanches that were D2 or larger. Unrated sizes are excluded from the denominator.
+    pct_dangerous_size is dangerous_size_avalanches / nullif(sized_avalanches, 0)
+    large_avalanches is avalanches { where: d_size >= 3 }
+    #(doc) Observations recording people caught or involved (CAIC incident flag).
+    incident_observations is count() { where: involved_people }
+    #(doc) Mean destructive size per observation (unweighted by avalanche count).
+    avg_d_size is avg(d_size)
+    avg_crown_depth_in is avg(crown_depth_in)
+    #(doc) Days on which at least one avalanche was observed.
+    active_days is count(observed_date)
+    first_observed is min(observed_date)
+    last_observed is max(observed_date)
+
+  #(doc) Headline numbers for whatever scope the caller filters to.
+  view: kpis is {
+    aggregate:
+      avalanches, observations, human_triggered_avalanches, pct_human_triggered,
+      dangerous_size_avalanches, pct_dangerous_size, large_avalanches, incident_observations,
+      active_days, first_observed, last_observed
+  }
+
+  #(doc) Avalanches per season with the trigger split, for trend lines.
+  view: by_season is {
+    group_by: season, season_label
+    aggregate: avalanches, human_triggered_avalanches, natural_avalanches, explosive_avalanches,
+      pct_human_triggered, large_avalanches, incident_observations
+    order_by: season
+  }
+
+  #(doc) Avalanche rose: avalanches by aspect and elevation band.
+  view: rose is {
+    where: slope_aspect is not null and elevation is not null
+    group_by: slope_aspect, aspect_degrees, elevation, elevation_order
+    aggregate: avalanches, human_triggered_avalanches, pct_human_triggered, incident_observations
+    order_by: elevation_order, aspect_degrees
+  }
+
+  #(doc) Season calendar: avalanches per season and week of season.
+  view: calendar is {
+    group_by: season, season_label, season_week
+    aggregate: avalanches, large_avalanches, incident_observations
+    order_by: season, season_week
+  }
+
+  #(doc) Avalanches per season by trigger group, for a composition chart.
+  view: trigger_mix is {
+    group_by: season, trigger
+    aggregate: avalanches
+    order_by: season, trigger
+  }
+
+  #(doc) Avalanches per forecast zone, ranked.
+  view: by_zone is {
+    group_by: forecast_zone, mountain_region
+    aggregate: avalanches, pct_human_triggered, pct_dangerous_size, incident_observations
+    order_by: avalanches desc, forecast_zone
+  }
+
+  #(doc) Which avalanche problems occur in which months of the season.
+  view: problem_by_month is {
+    where: avalanche_problem is not null
+    group_by: avalanche_problem, season_month_order, month_name
+    aggregate: avalanches
+    order_by: avalanche_problem, season_month_order
+  }
+
+  #(doc) Destructive-size distribution split by human vs natural trigger.
+  view: size_by_trigger is {
+    where: d_size is not null and (is_human_triggered or trigger = 'Natural')
+    group_by:
+      d_size
+      trigger_group is pick 'Human' when is_human_triggered else 'Natural'
+    aggregate: avalanches
+    order_by: d_size, trigger_group
+  }
+
+  #(doc) Crown depth distribution (6-inch buckets) by avalanche problem.
+  view: crown_by_problem is {
+    where: crown_depth_in is not null and avalanche_problem is not null
+    group_by: avalanche_problem, crown_bucket_in
+    aggregate: avalanches
+    order_by: avalanche_problem, crown_bucket_in
+  }
+
+  #(doc) Observation locations on a ~0.05 degree grid, for a density map.
+  view: map_grid is {
+    where: has_valid_location
+    group_by:
+      lat is round(latitude * 20) / 20
+      lon is round(longitude * 20) / 20
+    aggregate: avalanches, human_triggered_avalanches, incident_observations
+      max_d is max(d_size)
+  }
+
+  #(doc) The observation records themselves, newest first.
+  view: observation_list is {
+    group_by:
+      id, observed_date, forecast_zone, place, slope_aspect, elevation, avalanche_type,
+      avalanche_problem, trigger, trigger_modifier, destructive_size, relative_size,
+      reported_count, crown_depth_in, vertical_fall_ft, involved_people, description, report_url
+    order_by: observed_date desc, id
+    limit: 200
+  }
+}
+
+#(doc) One forecast zone, for a drill-down drawer. Every inherited measure and view is already scoped to the zone.
+source: zone_detail(zone_name::string is 'Gunnison') is avalanche_observations extend {
+  where: forecast_zone = zone_name
+}

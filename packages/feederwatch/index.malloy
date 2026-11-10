@@ -1,0 +1,43 @@
+##! experimental { givens, access_modifiers }
+
+// The published surface of the feederwatch package: what is listed to agents and people, and
+// what may be queried. Every table behind it is a small pre-aggregated Parquet file in data/
+// (built by ../build from the raw extracts, which never ship): nothing here is row-level.
+//
+// Where to start:
+//   bird_trends          how common a bird is, where, and how it changed (FeederWatch's
+//                        percent of sites visited, flock size, share of checklists)
+//   bird_trend_hits      its non-zero rows, fast for all-species questions (divide by
+//                        bird_trend_cells over the same scope)
+//   species              look up a species code, name, family
+//   site_seasons         count sites: participation, where, species per site
+//   checklist_counts     two-day counts: effort, snow, entry method
+//   species_weeks        when in the winter a bird is reported (divide by checklist_weeks)
+//   report_counts        flock-size bands and review status
+// One bird in depth (supply the focal_species given, an eBird code such as norcar):
+//   companions           birds seen on the same checklists, with lift
+// Rollups the data app divides at read time (each doc names its denominator):
+//   companion_pairs, pfw_yard_sites, pfw_yard_species, pfw_unreported_sites, pfw_grid_species,
+//   pfw_snow_species, pfw_effort_species, checklist_weeks
+
+import "feederwatch.malloy"
+
+export {
+  bird_trends,
+  bird_trend_hits,
+  bird_trend_cells,
+  species,
+  site_seasons,
+  checklist_counts,
+  checklist_weeks,
+  species_weeks,
+  report_counts,
+  companions,
+  companion_pairs,
+  pfw_yard_sites,
+  pfw_yard_species,
+  pfw_unreported_sites,
+  pfw_grid_species,
+  pfw_snow_species,
+  pfw_effort_species
+}

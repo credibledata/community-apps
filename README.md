@@ -8,6 +8,8 @@ reads, and an HTML app in the package's `public/` directory, served by Publisher
 | 2026 Midterms Simulation Explorer | A Monte Carlo simulation of the 2026 Senate, House and governor races with adjustable assumptions, and an election-night page comparing the count with the forecast | [`packages/midterms2026`](packages/midterms2026) |
 | The 2026 Wildfire Season | How 2026's US fire season compared with every season since 2015, and where, when and why the fires burned | [`packages/wildfire-season-2026`](packages/wildfire-season-2026) |
 | New York EV registrations | Whether New York's new EV registrations fell after the federal clean vehicle tax credit ended on 30 September 2025 | [`packages/ev-registrations-2026`](packages/ev-registrations-2026) |
+| Project FeederWatch explorer | How winter feeder birds across North America changed from 1988-89 to 2023-24, by species, region and yard | [`packages/feederwatch`](packages/feederwatch) |
+| Colorado Avalanche Explorer | Where, when and how Colorado's avalanches were observed, from CAIC reports since 1951 | [`packages/avalanche`](packages/avalanche) |
 
 ## Layout
 
@@ -27,8 +29,10 @@ npx @malloy-publisher/server@0.11.2 --server_root packages --port 4100 --mcp_por
 - Wildfire: http://localhost:4100/environments/community-apps/packages/wildfire-season-2026/index.html
 - EV registrations: http://localhost:4100/environments/community-apps/packages/ev-registrations-2026/index.html
 - Midterms: http://localhost:4100/environments/community-apps/packages/midterms2026/index.html
+- FeederWatch: http://localhost:4100/environments/community-apps/packages/feederwatch/index.html
+- Avalanche: http://localhost:4100/environments/community-apps/packages/avalanche/index.html
 
-The ports differ from the midterms app's, so both can run at once. Add `?check=1` to an app's URL and it
+The ports differ from the midterms app's, so both can run at once. Add `?check=1` to the wildfire or EV app's URL and it
 checks that the numbers it leads with are the ones the model returns, and says so at the top of the page.
 
 ## Adding an app

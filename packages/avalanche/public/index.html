@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Colorado Avalanche Explorer</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="page">
+        <div class="eyebrow">
+          Colorado Avalanche Information Center · observations
+        </div>
+        <h1>When, where, and who sets them off</h1>
+        <p>
+          Every avalanche observation reported to CAIC. Click anything — a petal
+          of the rose, a season, a zone, a trigger, a problem — to filter the
+          whole page. The link always carries your view.
+        </p>
+      </div>
+    </header>
+
+    <nav class="scope" aria-label="Filters">
+      <div class="page">
+        <label class="control"
+          >Seasons
+          <select id="f-from" aria-label="First season"></select></label
+        >
+        <label class="control"
+          >to <select id="f-to" aria-label="Last season"></select></label
+        >
+        <label class="control">Zone <select id="f-zone"></select></label>
+        <label class="control">Trigger <select id="f-trigger"></select></label>
+        <label class="control">Problem <select id="f-problem"></select></label>
+        <button
+          class="toggle people"
+          id="f-people"
+          aria-pressed="false"
+          type="button"
+        >
+          People involved
+        </button>
+        <button class="toggle" id="f-big" aria-pressed="false" type="button">
+          D2+ only
+        </button>
+        <span class="spacer"></span>
+        <button class="linkbtn" id="copy-link" type="button">Copy link</button>
+        <div class="chips" id="chips" aria-live="polite"></div>
+      </div>
+    </nav>
+
+    <main class="page">
+      <section class="lead" aria-label="Headline numbers" data-tile="kpis">
+        <div class="kpi">
+          <div class="label">Avalanches recorded</div>
+          <div class="value" id="k-avalanches">—</div>
+          <div class="sub" id="k-avalanches-sub">&nbsp;</div>
+          <svg id="k-spark-avalanches" aria-label="Avalanches per season"></svg>
+        </div>
+        <div class="kpi human">
+          <div class="label">Triggered by people</div>
+          <div class="value" id="k-human">—</div>
+          <div class="sub" id="k-human-sub">&nbsp;</div>
+          <svg
+            id="k-spark-human"
+            aria-label="Share human-triggered per season"
+          ></svg>
+        </div>
+        <div class="kpi">
+          <div class="label">Big enough to bury a person (D2+)</div>
+          <div class="value" id="k-big">—</div>
+          <div class="sub" id="k-big-sub">&nbsp;</div>
+        </div>
+        <div class="kpi people">
+          <div class="label">Observations with people caught or involved</div>
+          <div class="value" id="k-people">—</div>
+          <div class="sub" id="k-people-sub">&nbsp;</div>
+          <svg
+            id="k-spark-people"
+            aria-label="Incident observations per season"
+          ></svg>
+        </div>
+      </section>
+
+      <div class="section-head">
+        <h2>Terrain and timing</h2>
+        <p>Which slopes slide, and when in the season.</p>
+      </div>
+      <div class="grid rose-cal">
+        <article class="tile md" data-tile="rose">
+          <header>
+            <h3>Avalanche rose</h3>
+            <p>
+              Aspect × elevation. Centre = above treeline, outer ring = below.
+              Click a cell to filter.
+            </p>
+          </header>
+          <div class="legend" role="group" aria-label="Rose colouring">
+            <button
+              class="toggle"
+              id="rose-count"
+              aria-pressed="true"
+              type="button"
+            >
+              Colour by avalanches
+            </button>
+            <button
+              class="toggle"
+              id="rose-human"
+              aria-pressed="false"
+              type="button"
+            >
+              Colour by % human-triggered
+            </button>
+          </div>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >Observations with unknown aspect or elevation are left out.</span
+            >
+          </footer>
+        </article>
+        <article class="tile md" data-tile="calendar">
+          <header>
+            <h3>Season calendar</h3>
+            <p>
+              Avalanches per week, each row one season (Oct → Jun). Grey bar =
+              season total. Click a season to filter to it.
+            </p>
+          </header>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >Darker = more avalanches (square-root scale).</span
+            >
+          </footer>
+        </article>
+      </div>
+
+      <div class="section-head">
+        <h2>Where</h2>
+        <p>
+          Forecast zones ranked; click a zone to filter, or open its profile.
+        </p>
+      </div>
+      <div class="grid map-rank">
+        <article class="tile lg" data-tile="map">
+          <header>
+            <h3>Observation density</h3>
+            <p>
+              Each disk is a ~5 km cell sized by avalanches; the orange core is
+              the human-triggered part (area-true). Red dot: people caught or
+              involved there.
+            </p>
+          </header>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >CAIC publishes no boundary for Grand Mesa; 512 observations have
+              no usable coordinates.</span
+            >
+          </footer>
+        </article>
+        <article class="tile lg" data-tile="zones">
+          <header>
+            <h3>Forecast zones</h3>
+            <p>
+              Avalanches recorded, with the human-triggered share in orange.
+            </p>
+          </header>
+          <div class="body scroll-box"></div>
+          <footer>
+            <span class="caption"
+              >Counts track reporting effort as well as hazard: Gunnison's lead
+              reflects dense observer coverage around Crested Butte.</span
+            >
+          </footer>
+        </article>
+      </div>
+
+      <div class="section-head">
+        <h2>Who and how big</h2>
+        <p>Triggers over time, and whether people set off smaller slides.</p>
+      </div>
+      <div class="grid two">
+        <article class="tile md" data-tile="triggers">
+          <header>
+            <h3>What triggered them, by season</h3>
+            <p>
+              Share of each season's avalanches. Click a colour to filter to
+              that trigger.
+            </p>
+          </header>
+          <div class="legend" id="trigger-legend"></div>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >"Explosives" is control work by ski areas and highway crews.</span
+            >
+          </footer>
+        </article>
+        <article class="tile md" data-tile="sizes">
+          <header>
+            <h3>Size: human vs natural</h3>
+            <p>
+              Share of each group's avalanches at each destructive size. D2 can
+              bury a person; D3 a car.
+            </p>
+          </header>
+          <div class="legend">
+            <span><i style="background: var(--human)"></i>Human-triggered</span>
+            <span><i style="background: var(--natural)"></i>Natural</span>
+          </div>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >Shares, not counts: natural avalanches outnumber human ones about
+              3 to 1. Unrated sizes excluded.</span
+            >
+          </footer>
+        </article>
+      </div>
+
+      <div class="section-head">
+        <h2>Avalanche problems</h2>
+        <p>Recorded on about a quarter of observations, mostly since 2020.</p>
+      </div>
+      <div class="grid two">
+        <article class="tile md" data-tile="problems">
+          <header>
+            <h3>Which problem, which month</h3>
+            <p>
+              Avalanches by forecast problem and month of the season. Click a
+              problem to filter.
+            </p>
+          </header>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >Observations with no problem recorded are left out.</span
+            >
+          </footer>
+        </article>
+        <article class="tile md" data-tile="crown">
+          <header>
+            <h3>How deep they break</h3>
+            <p>
+              Crown (slab) depth in 6-inch bins, by problem, ordered shallow to
+              deep. Each row is scaled to its own total.
+            </p>
+          </header>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >Only observations with a measured crown depth (≈5k); cm converted
+              to inches.</span
+            >
+          </footer>
+        </article>
+      </div>
+
+      <div class="section-head">
+        <h2>The observations</h2>
+        <p id="table-sub">
+          Newest 200 in the current scope. Click a row for the observer's notes.
+        </p>
+      </div>
+      <article class="tile" data-tile="table">
+        <div class="body table-wrap scroll-box"></div>
+      </article>
+
+      <section class="notes" aria-label="About the data">
+        <h4>About these numbers</h4>
+        <p>
+          <b>Source.</b>
+          The Colorado Avalanche Information Center's public observation API
+          (api.avalanche.state.co.us), downloaded 2 Oct 2026: 29,010
+          observations reporting 45,536 avalanches. Observations come from
+          forecasters, professionals and the public.
+        </p>
+        <p>
+          <b>Avalanches vs observations.</b>
+          One observation can report many avalanches (up to 100). Totals count
+          avalanches; a missing count counts as one. Size, aspect and trigger
+          apply to the whole observation.
+        </p>
+        <p>
+          <b>Seasons.</b>
+          A season is a water year: "2023-24" runs 1 Oct 2023 – 30 Sep 2024. The
+          page starts at 2010-11, when CAIC's digital record becomes consistent;
+          earlier seasons hold only a few back-entered events.
+        </p>
+        <p>
+          <b>Human-triggered share.</b>
+          Of avalanches with a known trigger, the share set off by skiers,
+          riders, snowshoers, snowmobilers, hikers and other people travelling —
+          not explosives control work. Unknown triggers are excluded from the
+          denominator.
+        </p>
+        <p>
+          <b>People involved.</b>
+          CAIC's incident flag on the observation: a person or property was
+          caught or involved. It is not a fatality count.
+        </p>
+        <p>
+          <b>Reporting bias.</b>
+          More observers means more recorded avalanches. Compare shares and
+          timing across zones with more confidence than raw counts.
+        </p>
+      </section>
+    </main>
+
+    <div class="scrim" id="scrim" hidden></div>
+    <aside
+      class="drawer"
+      id="drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="drawer-title"
+      hidden
+    >
+      <button class="close" id="drawer-close" type="button" aria-label="Close">
+        ×
+      </button>
+      <div class="eyebrow">Forecast zone</div>
+      <h2 id="drawer-title"></h2>
+      <p class="scope-note" id="drawer-scope"></p>
+      <div class="stats" id="drawer-stats"></div>
+      <h4>Avalanches per season</h4>
+      <div class="chart" id="drawer-seasons"></div>
+      <h4>Rose</h4>
+      <div class="rose-box" id="drawer-rose"></div>
+      <h4>Most recent</h4>
+      <ul class="recent" id="drawer-recent"></ul>
+      <div class="actions">
+        <button class="linkbtn" id="drawer-filter" type="button">
+          Filter page to this zone
+        </button>
+      </div>
+    </aside>
+
+    <script src="/sdk/publisher.js"></script>
+    <script src="./vendor/chart.umd.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
