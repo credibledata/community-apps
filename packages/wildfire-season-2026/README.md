@@ -44,3 +44,4 @@ shaping script from a fresh download on 2026-11-04 reproduced the CSVs byte for 
 
 - `wildfires.malloy`: the model (source `fires`), every field documented. `index.malloy` exports it.
 - `public/`: the app. d3 7.9.0 and topojson-client 3.1.0 (ISC), Figtree and Source Serif 4 (SIL OFL 1.1).
+- `tests/`: checks on the app's query builder, run with `node --test packages/wildfire-season-2026/tests/*.test.mjs`.

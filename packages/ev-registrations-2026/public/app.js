@@ -420,8 +420,9 @@ function keepInView(anchor, ms = 1600) {
 let shownView = null
 /** A filter change keeps the view and draws its cards again in place; another view fades in over the last one. */
 function render({ toTop = false } = {}) {
-  // The compare list is part of the view: adding or removing an entity redraws its picker and chips, not only its cards.
-  const here = `${route.view}|${route.id ?? ''}|${(route.compare ?? []).join(',')}`
+  // The compare list is part of the view: adding or removing an entity redraws its chips, its Add button and its
+  // Compare link, not only its cards. A county page's Add button changes compareSet without changing the route.
+  const here = `${route.view}|${route.id ?? ''}|${(route.compare ?? []).join(',')}|${[...compareSet].join(',')}`
   const same = C.MOTION && shownView === here
   const first = shownView === null
   shownView = here
