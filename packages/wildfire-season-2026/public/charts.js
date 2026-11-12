@@ -1624,7 +1624,7 @@ function hatch(svg, size) {
 }
 
 /**
- * topo: a pre-projected US TopoJSON from reference/maps.md (975 x 610). values: Map(key -> amount); amounts at or
+ * topo: a pre-projected US TopoJSON (975 x 610). values: Map(key -> amount); amounts at or
  * below zero get no circle. opts: object (the topology object, default 'states'), key (feature -> the values' key,
  * default its name; for counties, the FIPS id, `(f) => f.id`), color (the circles' token, default '--c-bar'), emph
  * (keys ringed and labelled), labelTop, selected, onPick(key), tip(key, value), format (the tooltip), keyFormat (the
@@ -1687,8 +1687,8 @@ export const tercile = (values) => {
 const BI = (a, b) => paint(`--bi-${a}${b}`)
 
 /**
- * A map whose colour carries two measures, each split into thirds. topo: a pre-projected US TopoJSON from
- * reference/maps.md. values: Map key -> { a, b } (a value with either one null is drawn hatched, as withheld; a key
+ * A map whose colour carries two measures, each split into thirds. topo: a pre-projected US TopoJSON.
+ * values: Map key -> { a, b } (a value with either one null is drawn hatched, as withheld; a key
  * not in the map is plain no-data). opts: object (default 'states'), key (feature -> key, default its name), aLabel
  * and bLabel (the key's axis words, such as 'Jobs' and 'Growth'), aFmt, bFmt (the class edges), note (one sentence on
  * how to read the darkest and the warmest cells), withheldLabel, noneLabel, selected, onPick(key), tip(key, v), label.

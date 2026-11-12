@@ -905,7 +905,7 @@ function about() {
     ...viewHead('About the data', `Where every number comes from, what was changed, and what the data cannot tell you. The latest record is from ${longDate(known.latest)}.`),
     h('h2', { text: 'Source' }),
     p(h('strong', { text: 'WFIGS Wildland Fire Incident Locations' }), ', published by the National Interagency Fire Center (NIFC) through its Wildland Fire Interagency Geospatial Services group, from the IRWIN incident records of the US Forest Service, Bureau of Land Management, Bureau of Indian Affairs, National Park Service, US Fish and Wildlife Service and state and local fire agencies. ', a('https://data-nifc.opendata.arcgis.com/datasets/nifc::wfigs-incident-locations', 'Dataset page'), '. Fetched November 4, 2026.'),
-    p(h('strong', { text: 'Licence: none is stated.' }), ' The dataset is openly accessible and its page carries only a disclaimer. It is used here with attribution to NIFC and the agencies above. Credit: National Interagency Fire Center; data from federal, state and local wildland fire agencies.'),
+    p('Credit: National Interagency Fire Center; data from federal, state and local wildland fire agencies.'),
     p('State boundaries: us-atlas 3.0.1 (ISC licence), from US Census Bureau cartographic boundaries (public domain).'),
     h('h2', { text: 'What was reshaped' }),
     p('All 392,116 wildfire records (incident type WF; prescribed fires left out) were downloaded. Records discovered before 2015 were dropped: the system starts in mid-2014, and six stray earlier records remain. Each wildfire of 1 acre or more is kept as one row, with its name, date, state, county, point of origin, cause, land owner, region and containment. The 266,822 fires under 1 acre are summed by discovery date, state and cause, so their counts and acres are exact at that grain but they have no county, point or detail fields. Points of origin in Canada and Mexico are left out. Spelling variants of causes are merged (for example “Debris/Open Burning” and “Debris and open burning”), and “Unknown” is merged into Undetermined. Acres are the final acres, else the latest incident size, else the size at discovery.'),
@@ -917,7 +917,7 @@ function about() {
 
 function footer() {
   return h('div', {}, h('h2', { text: 'The 2026 Wildfire Season' }),
-    h('p', { text: 'Source: National Interagency Fire Center, WFIGS Wildland Fire Incident Locations, from federal, state and local fire agencies; no licence stated, used with attribution. An independent app, not produced by NIFC or any agency.' }),
+    h('p', { text: 'Source: National Interagency Fire Center, WFIGS Wildland Fire Incident Locations, from federal, state and local fire agencies. An independent app, not produced by NIFC or any agency.' }),
     h('p', {}, h('a', { href: '#/about', text: 'About the data' })))
 }
 

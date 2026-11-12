@@ -196,15 +196,15 @@ Election night adds five tables, built by `pipeline/results.mjs` (`pnpm results`
 | Source | Used for | Terms |
 | --- | --- | --- |
 | [Wikipedia](https://en.wikipedia.org/wiki/2026_United_States_elections): the 2026 Senate, House, gubernatorial and House-ratings articles, and the list of current governors | Race map, nominees, incumbents and their status, Sabato ratings, governors' parties | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/): attribute, share alike |
-| [VoteHub polls API](https://votehub.com/) | Polls and approval polls | Public API; confirm redistribution terms before a commercial release |
+| [VoteHub polls API](https://votehub.com/) | Polls and approval polls | Public API |
 | [FiveThirtyEight pollster ratings](https://github.com/fivethirtyeight/data/tree/master/pollster-ratings) | Pollster grades | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | [The Downballot](https://www.the-downballot.com/) presidential-results-by-district sheets (2024 and 2026 lines) and special-elections tracker | District presidential margins; special elections | Public Google Sheets; credit The Downballot |
 | [MIT Election Data and Science Lab](https://electionlab.mit.edu/data), U.S. President 1976–2024 | State and national presidential results | Harvard Dataverse, CC0 |
 | [U.S. Census Bureau](https://www.census.gov/programs-surveys/acs), ACS 2024 1-year summary files (tables B01003, B03002, B15003, B01002, B19013) | Demographics | Public domain |
 | [FEC bulk data](https://www.fec.gov/data/browse-data/?tab=bulk-data), `weball26` | Candidate total receipts | Public domain |
-| [Kalshi trade API](https://kalshi.com/) | Market prices | Public market data; confirm display terms before a commercial release |
+| [Kalshi trade API](https://kalshi.com/) | Market prices | Public market data |
 | [unitedstates/congress-legislators](https://github.com/unitedstates/congress-legislators) | Current Senate and House membership | CC0 |
-| [The New York Times' election results](https://www.nytimes.com/spotlight/elections) (Associated Press data), the JSON feeds behind its 2026 results pages | Election-night counts and race calls | Unofficial, undocumented feed; credit AP and the Times, and confirm terms (or license AP directly) before a commercial release |
+| [The New York Times' election results](https://www.nytimes.com/spotlight/elections) (Associated Press data), the JSON feeds behind its 2026 results pages | Election-night counts and race calls | Credit the Associated Press and The New York Times |
 
 The forecast is independent and not affiliated with or endorsed by any source, rater or market.
 

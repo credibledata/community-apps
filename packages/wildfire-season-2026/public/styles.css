@@ -195,7 +195,7 @@ select, .btn { font: 500 var(--fs-sm)/1.2 var(--font-ui); padding: 7px 12px; bor
 .rt__act button[aria-pressed="true"] { background: var(--text-strong); color: var(--surface); border-color: var(--text-strong); }
 .rt-more { margin-top: var(--sp-3); }
 
-/* Maps (reference/maps.md) */
+/* Maps */
 .map svg { display: block; width: 100%; height: auto; }
 .map path.area { stroke: #ffffff; stroke-width: 0.6; cursor: pointer; }
 .map path.area:hover { stroke: var(--text-strong); stroke-width: 1.2; }

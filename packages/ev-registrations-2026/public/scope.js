@@ -1,5 +1,5 @@
 // Every query the app runs, and its address, are built here. No DOM code: test it with node.
-// Adapted from reference/scope-module.md for two sources: `registrations` (every fuel, for the EV share) and
+// Two sources: `registrations` (every fuel, for the EV share) and
 // `ev_records` (one row per EV, for makes, body types and records).
 
 export const MODEL = 'index.malloy'

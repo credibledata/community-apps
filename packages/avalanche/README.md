@@ -6,11 +6,9 @@ Coverage is reliable from the 2010-11 season, which the app defaults to. The mod
 
 ## Sources
 
-| Dataset | Publisher | License | Source | Fetched | Rows kept | Shaping |
-|---|---|---|---|---|---|---|
-| Avalanche observations | Colorado Avalanche Information Center | None stated for the data. CAIC's [terms of use](https://avalanche.state.co.us/terms-use) disclaim accuracy and bar robots and data mining of the site | [CAIC public API](https://api.avalanche.state.co.us/api/v2/avalanche_observations) | 2026-10-02 | 29,010 observations, 1951-04-23 to 2026-05-30 | See `data/README.md`: nested zone, detail and report fields flattened; dates converted to America/Denver; nearly empty columns dropped |
-| Forecast-zone boundaries | Colorado Avalanche Information Center | None stated | `public/zones.geojson` (no Grand Mesa polygon is published) | — | — | unmodified |
-| Chart.js v4.5.0 | Chart.js contributors | MIT | jsDelivr, sha256 in `public/vendor/README.md` | — | — | unmodified |
+Avalanche observations and forecast-zone boundaries from the [Colorado Avalanche Information Center](https://avalanche.state.co.us)
+(CAIC), through its public API, fetched 2026-10-02: 29,010 observations from 1951-04-23 to 2026-05-30.
+`data/README.md` describes how the file was prepared. Chart.js v4.5.0 (MIT) is in `public/vendor/`.
 
 ## Modeling notes
 

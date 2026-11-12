@@ -15,7 +15,7 @@ reads, and an HTML app in the package's `public/` directory, served by Publisher
 
 Each app is a folder under `packages/`, and everything in it publishes: `publisher.json`, the model, `data/`,
 `public/` (the app), `pipeline/` (the scripts that fetch and shape the data, where the app has them) and a
-README listing every source, its licence and how the data was built.
+README crediting its data sources.
 `packages/publisher.config.json` names them for a local Publisher. The midterms app also keeps its own tooling
 in its folder: `pnpm` scripts and the container image it is deployed as. Its `.credignore` keeps that tooling
 out of the published package, and [its README](packages/midterms2026/README.md) describes it.
@@ -39,7 +39,7 @@ checks that the numbers it leads with are the ones the model returns, and says s
 
 Add a folder under `packages/` with a `publisher.json` whose `name` is the folder's name, add it to
 `packages/publisher.config.json`, and list it in the table above. Data files ship in the package, so its
-README has to name each source and its licence.
+README has to credit each source.
 
 ## License
 

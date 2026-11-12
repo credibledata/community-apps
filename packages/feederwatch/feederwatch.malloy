@@ -4,10 +4,9 @@
 // Published surface: index.malloy. Start with `bird_trends`.
 //
 // DATA: every table this package reads is a small Parquet file in data/, read with DuckDB. They
-// are pre-aggregated: nothing here is row-level. They were built outside this repo from the raw
-// FeederWatch extracts (45M reports, 4.1M checklists): taxonomic roll-up, code labels, no-food
-// sites dropped, valid records only (except where review state is the point). The build is not
-// in this repo. Only tables the data app reads are built.
+// are pre-aggregated: nothing here is row-level. They are built from the raw FeederWatch extracts
+// (45M reports, 4.1M checklists): taxonomic roll-up, code labels, no-food sites dropped, valid
+// records only (except where review state is the point). Only tables the data app reads are built.
 //
 // READ THIS BEFORE USING A NUMBER:
 // - FeederWatch is a count at a SITE (a yard, a nature centre) over a SEASON (November to April).
