@@ -727,9 +727,12 @@ function explore() {
         sub: 'Each hexagon sums the acres of fires of 100 acres or more that started inside it; grey shows the same fires with no filter.',
         queries: () => [T('points'), 'run: fires -> fire_points'],
         explain: ['The 5,000 largest fires of 100 acres or more under the scope, with their point of origin and acres.', 'The same with no filter, drawn grey underneath.'],
-        draw: ([pts, base], body) => C.hexMap(chartBox(body), pts.map((p) => ({ lat: p.latitude, lon: p.longitude, value: p.fire_acres })), {
-          base: base.map((p) => ({ lat: p.latitude, lon: p.longitude, value: p.fire_acres })), format: (v) => `${C.fmt(Math.round(v))} acres`, legendTitle: 'Acres',
-        }),
+        draw: ([pts, base], body) => {
+          const drawMap = (topo) => C.hexMap(chartBox(body), pts.map((p) => ({ lat: p.latitude, lon: p.longitude, value: p.fire_acres })), {
+            base: base.map((p) => ({ lat: p.latitude, lon: p.longitude, value: p.fire_acres })), format: (v) => `${C.fmt(Math.round(v))} acres`, legendTitle: 'Acres', topo,
+          })
+          return C.loadTopo('./vendor/maps/states-10m.json').then(drawMap, () => drawMap(null))
+        },
         finding: ([pts]) => [{ b: pts[0].fire_name }, ` (${pts[0].fire_year}) is the largest fire in scope, ${acres(pts[0].fire_acres)}.`],
         method: 'At most the 5,000 largest fires in scope are drawn, so with no filter the smaller ones drop out. Alaska and Hawaii are left out of this map only. A hexagon is not a filter; filter by state instead.',
       }),

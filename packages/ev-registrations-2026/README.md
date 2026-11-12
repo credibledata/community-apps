@@ -16,11 +16,9 @@ It responds to:
 
 | Dataset | Publisher | License | Source | Fetched | Rows kept | Shaping |
 |---|---|---|---|---|---|---|
-| Department of Motor Vehicles Registration Transactions: Two Year Window, electric ORIGINAL transactions | New York State Department of Motor Vehicles | OPEN-NY Terms of Use (below) | [data.ny.gov/d/s2dd-yksa](https://data.ny.gov/d/s2dd-yksa) | 2026-11-03 | 96,886 of 101,885 | effective months 2024-11 to 2026-09; VIN, city, ZIP, coordinates and use not kept; county, class, make, body type and registrant type coded to integers with `lookup_*.csv`; `ev_registrations_<year>h<half>.parquet` |
-| The same dataset, ORIGINAL transactions of every fuel | New York State Department of Motor Vehicles | OPEN-NY Terms of Use (below) | [data.ny.gov/d/s2dd-yksa](https://data.ny.gov/d/s2dd-yksa) | 2026-11-03 | 46,173 of 50,422 grouped rows | counted on the portal by effective month, county, fuel and registration class; months 2024-11 to 2026-09; `originals_by_month.parquet` |
+| Department of Motor Vehicles Registration Transactions: Two Year Window, electric ORIGINAL transactions | New York State Department of Motor Vehicles | [OPEN-NY Terms of Use](https://data.ny.gov/download/77gx-ii52/application/pdf) | [data.ny.gov/d/s2dd-yksa](https://data.ny.gov/d/s2dd-yksa) | 2026-11-03 | 96,886 of 101,885 | effective months 2024-11 to 2026-09; VIN, city, ZIP, coordinates and use not kept; county, class, make, body type and registrant type coded to integers with `lookup_*.csv`; `ev_registrations_<year>h<half>.parquet` |
+| The same dataset, ORIGINAL transactions of every fuel | New York State Department of Motor Vehicles | [OPEN-NY Terms of Use](https://data.ny.gov/download/77gx-ii52/application/pdf) | [data.ny.gov/d/s2dd-yksa](https://data.ny.gov/d/s2dd-yksa) | 2026-11-03 | 46,173 of 50,422 grouped rows | counted on the portal by effective month, county, fuel and registration class; months 2024-11 to 2026-09; `originals_by_month.parquet` |
 
-License: the OPEN-NY Terms of Use ([data.ny.gov/download/77gx-ii52/application/pdf](https://data.ny.gov/download/77gx-ii52/application/pdf)) say:
-"So long as you are not doing anything malicious with NYS data, you may use it as you wish, subject to no other requirements."
 Source: New York State Department of Motor Vehicles, via data.ny.gov.
 
 The window's exports run from 2024-11-02 to 2026-10-31 (18,492,611 transactions in all). October 2026 is

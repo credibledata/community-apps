@@ -1099,7 +1099,7 @@ function about() {
       p('The latest registration in the data took effect on ', asOf, '.'),
       h('h2', { text: 'Source' }),
       p('Source: New York State Department of Motor Vehicles, ', a('https://data.ny.gov/d/s2dd-yksa', 'Department of Motor Vehicles Registration Transactions: Two Year Window'), ', on data.ny.gov, fetched on 3 November 2026. It lists every registration transaction of the last two years, refreshed weekly; the window fetched runs from exports of 2 November 2024 to 31 October 2026.'),
-      p('License: the ', a('https://data.ny.gov/download/77gx-ii52/application/pdf', 'OPEN-NY Terms of Use'), ' say: “So long as you are not doing anything malicious with NYS data, you may use it as you wish, subject to no other requirements.” This is an independent app, not produced by New York State.'),
+      p('This is an independent app, not produced by New York State.'),
       p('County boundaries: ', a('https://github.com/topojson/us-atlas', 'us-atlas 3.0.1'), ' (US Census Bureau cartographic boundaries, public domain; ISC license), cut to New York’s 62 counties.'),
       h('h2', { text: 'What was reshaped' }),
       p('Only ORIGINAL transactions are kept: a vehicle registered in New York for the first time by its owner. Renewals, re-registrations, amendments and duplicates are left out. For electric vehicles, each registration is one row with its date, county of residence, registration class, make, body type, model year and registrant type; VIN, city, ZIP code and coordinates were never downloaded. For every fuel, registrations are counted by month, county, fuel and class on the portal, to give the share its denominator. Months run from November 2024 to September 2026; October 2026 is left out because registrations keep arriving for weeks after they take effect. Text values are coded to numbers in the files and decoded by the model.'),
@@ -1114,7 +1114,7 @@ function about() {
 
 function footer() {
   return [
-    h('div', {}, h('h2', { text: 'EVs in New York after the credit' }), h('p', { text: 'Source: New York State Department of Motor Vehicles, Registration Transactions (data.ny.gov), under the OPEN-NY Terms of Use. Reshaped for this app. An independent app, not produced by New York State.' })),
+    h('div', {}, h('h2', { text: 'EVs in New York after the credit' }), h('p', { text: 'Source: New York State Department of Motor Vehicles, Registration Transactions (data.ny.gov). Reshaped for this app. An independent app, not produced by New York State.' })),
     h('div', {}, h('h2', { text: 'Views' }), ...['overview', 'explore', 'compare', 'records', 'about'].map((v) => h('a', { href: `#/${v === 'overview' ? '' : v}`, text: { overview: 'Overview', explore: 'Explore', compare: 'Compare', records: 'Records', about: 'About the data' }[v] }))),
     h('div', {}, h('h2', { text: 'In the news' }), ...ARTICLES.map((x) => h('a', { href: x.url, target: '_blank', rel: 'noopener', text: x.outlet }))),
   ]

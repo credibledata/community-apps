@@ -938,14 +938,16 @@ function hexbin(points, r) {
 const hexPath = (r) => `M${d3.range(6).map((i) => { const a = (i * Math.PI) / 3; return `${(Math.sin(a) * r).toFixed(2)},${(-Math.cos(a) * r).toFixed(2)}` }).join('L')}Z`
 
 /**
- * A map of points binned into hexagons, for places with coordinates and no boundary file. points: [{ lat, lon,
- * value }] (a count per location). opts: base (the same for every location, unfiltered, drawn grey underneath), area
- * ('south,west,north,east' of the selected hexagon), onPick(area), format, height, legendTitle, label.
+ * A map of points binned into hexagons, for places with coordinates. points: [{ lat, lon, value }] (a count per
+ * location). opts: base (the same for every location, unfiltered, drawn grey underneath), area
+ * ('south,west,north,east' of the selected hexagon), onPick(area), format, height, legendTitle, label, topo (a loaded
+ * longitude and latitude TopoJSON with `states`, such as us-atlas states-10m: the land underneath and the state lines
+ * over the hexagons; the grey base is then drawn only when it differs from points), valueLabel(n) (the hover's first line).
  * Colours are capped at the 98th percentile, so one heavy spot does not wash out the rest; the legend says so.
  * Hexagons are clicked, not tabbed to: put a ranked table beside the map.
  */
 export function hexMap(el, points, opts = {}) {
-  const { base = points, area: picked = null, onPick, format = fmt, height = 520, legendTitle = '', label = 'Map' } = opts
+  const { base = points, area: picked = null, onPick, format = fmt, height = 520, legendTitle = '', label = 'Map', topo = null, valueLabel = (n) => format(n) } = opts
   // On the globe, and not 0,0, where a failed geocode lands.
   const ok = (p) => num(p.lat) && num(p.lon) && Math.abs(p.lat) <= 85 && Math.abs(p.lon) <= 180 && (p.lat || p.lon)
   const located = points.filter(ok)
@@ -959,15 +961,25 @@ export function hexMap(el, points, opts = {}) {
     const bin = (ps) => hexbin(ps.filter(ok).map((p) => { const [x, y] = projection([p.lon, p.lat]); return { x, y, n: num(p.value) ? p.value : 0 } }), r)
     const svg = svgIn(w, height, label)
     const g = svg.append('g')
-    g.append('g').selectAll('path').data(bin(base)).join('path').attr('class', 'fx-hex-base').attr('d', hexPath(r * 0.92)).attr('transform', (d) => `translate(${d.x},${d.y})`)
+    // The land and its state lines under the hexagons, in the hexagons' own projection, when a longitude and latitude
+    // file (us-atlas states-10m) is given. They zoom with the hexagons; their lines keep their width.
+    const land = topo?.objects?.states ? d3.geoPath(projection) : null
+    if (land) g.append('path').attr('class', 'fx-geo-land').attr('d', land(topojson.feature(topo, topo.objects.nation ?? topo.objects.states)))
+    // The grey layer gives the shape when there is no land under it, and context when the points are a subset of it.
+    // Over the land and the same points, it would only grey them.
+    if (!land || base !== points) g.append('g').selectAll('path').data(bin(base)).join('path').attr('class', 'fx-hex-base').attr('d', hexPath(r * 0.92)).attr('transform', (d) => `translate(${d.x},${d.y})`)
     const bins = bin(located)
     const max = d3.max(bins, (d) => d.n) || 1
     const cap = Math.max(1, d3.quantile(bins.map((d) => d.n).sort(d3.ascending), 0.98) || max)
-    const color = d3.scaleSequentialSqrt([0, cap], d3.interpolateRgbBasis(['--seq-0', ...['--seq-1', '--seq-2', '--seq-3', '--seq-4', '--seq-5']].map(token))).clamp(true)
+    // From the second step up: the lightest step is nearly the land's colour, and most hexagons hold only a few wells.
+    const color = d3.scaleSequentialSqrt([0, cap], d3.interpolateRgbBasis(['--seq-1', '--seq-2', '--seq-3', '--seq-4', '--seq-5'].map(token))).clamp(true)
     const box = (d) => { const [wl, n] = projection.invert([d.x - r, d.y - r]); const [e, s] = projection.invert([d.x + r, d.y + r]); return [s, wl, n, e].map((v) => v.toFixed(4)).join(',') }
     const hexes = g.append('g').selectAll('path').data(bins).join('path').attr('class', 'fx-hex').attr('d', hexPath(r * 0.96)).attr('transform', (d) => `translate(${d.x},${d.y})`).style('fill', (d) => color(d.n))
       .each(function (d) { pickable(this, box(d), onPick, null, false, false) })
-    hover(hexes, (d) => { const [lon, lat] = projection.invert([d.x, d.y]); return [format(d.n), `near ${lat.toFixed(3)}, ${lon.toFixed(3)}`, onPick ? 'Click to choose this spot.' : ''] })
+    // The state lines over the hexagons, so they show through the busiest areas; they take no clicks.
+    if (land) g.append('path').attr('class', 'fx-geo-border').attr('d', land(topojson.mesh(topo, topo.objects.states)))
+    const deg = (v, pos, neg) => `${Math.abs(v).toFixed(1)}°${v >= 0 ? pos : neg}`
+    hover(hexes, (d) => { const [lon, lat] = projection.invert([d.x, d.y]); return [valueLabel(d.n), `near ${deg(lat, 'N', 'S')}, ${deg(lon, 'E', 'W')}`, onPick ? 'Click to choose this spot.' : ''] })
     if (picked) {
       const [s, wl, n, e] = picked.split(',').map(Number)
       const [x0, y0] = projection([wl, n])
