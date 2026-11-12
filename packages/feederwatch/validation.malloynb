@@ -1,7 +1,7 @@
 >>>markdown
 # Validating the model against FeederWatch's published numbers
 
-Project FeederWatch publishes a summary of each season in *Winter Bird Highlights*, including a Top 25 table for each region: the percent of sites each species visited and its average flock size. This notebook puts the 2023-24 published values next to the same measures computed by this package, so a change to the model or to the data build (../build) that moves the numbers shows up here.
+Project FeederWatch publishes a summary of each season in *Winter Bird Highlights*, including a Top 25 table for each region: the percent of sites each species visited and its average flock size. This notebook puts the 2023-24 published values next to the same measures computed by this package, so a change to the model or to the data build that moves the numbers shows up here.
 
 Source: [Winter Bird Highlights 2024](https://cdn.feederwatch.org/wp-content/uploads/2025/02/WinterBirdHighlights2024.pdf) (2023-24 season, season 2024 in this model). Published values are typed in from the report and rounded as printed: percents to whole points, flock sizes to whole birds. More seasons, states and provinces: [Top 25 Feeder Birds](https://data.feederwatch.org/pfw/top25).
 

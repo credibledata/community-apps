@@ -260,6 +260,7 @@ pnpm results      # election night: fetch the latest count, add a snapshot, rebu
 pnpm results --offline   # rebuild the results tables from committed snapshots only
 ```
 
-The build is deterministic given `data-raw/`. Two optional MIT files (House and Senate results)
+Raw downloads go to `data-raw/` at the repo root, outside the package, so they never publish. The build is
+deterministic given `data-raw/`. Two optional MIT files (House and Senate results)
 sit behind a Dataverse guestbook; download them by hand to `data-raw/mit-house.tab` and
 `data-raw/mit-senate.tab` to add those offices to `historical_results`.

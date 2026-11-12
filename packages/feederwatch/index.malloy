@@ -2,7 +2,7 @@
 
 // The published surface of the feederwatch package: what is listed to agents and people, and
 // what may be queried. Every table behind it is a small pre-aggregated Parquet file in data/
-// (built by ../build from the raw extracts, which never ship): nothing here is row-level.
+// (built outside this repo from the raw extracts, which never ship): nothing here is row-level.
 //
 // Where to start:
 //   bird_trends          how common a bird is, where, and how it changed (FeederWatch's

@@ -1,5 +1,5 @@
 {
   "name": "avalanche",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Colorado avalanche observations from the Colorado Avalanche Information Center (CAIC) public API, 1951-2026 (reliable from the 2011 season). A Malloy model plus an in-package HTML explorer app."
 }

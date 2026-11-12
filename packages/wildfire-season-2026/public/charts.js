@@ -1,5 +1,5 @@
 /* global d3, topojson */
-// Built from scripts/chart_module in gtme-in-a-box: edit there, not here.
+// Built from a shared chart module kept outside this repo.
 // The app's charts, drawn with d3 into SVG. Colours are token names from the stylesheet ('--accent', '--c2'), so the
 // look carries through. Every chart that stands for something can be clicked (onPick) and says what it is on hover.
 
