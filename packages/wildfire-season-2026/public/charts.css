@@ -162,8 +162,10 @@
 .fx-band.is-lit { stroke-opacity: 0.65; }
 .fx-band.is-dim { stroke-opacity: 0.06; }
 .fx-scroll { overflow-x: auto; }
-.fx-hex-base { fill: var(--surface-2); }
-.fx-hex { stroke: var(--bg); stroke-width: 0.35; }
+.fx-geo-land { fill: var(--surface-2); }
+.fx-geo-border { fill: none; stroke: var(--border-strong); stroke-width: 0.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+.fx-hex-base { fill: var(--border); }
+.fx-hex { stroke: none; }
 .fx-hex:hover { stroke: var(--text-strong); stroke-width: 1.2; }
 .fx-hex-box { fill: none; stroke: var(--text-strong); stroke-width: 1.5; }
 .fx-map-wrap { position: relative; overflow: hidden; }
