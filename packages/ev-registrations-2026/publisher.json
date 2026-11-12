@@ -1,5 +1,5 @@
 {
   "name": "ev-registrations-2026",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Electric vehicles newly registered in New York State, month by month and county by county, before and after the federal EV tax credit ended on 30 September 2025."
 }
