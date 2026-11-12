@@ -19,7 +19,7 @@ const PORT = Number(process.env.PORT || 8080)
 const PUBLISHER_PORT = Number(process.env.PUBLISHER_PORT || 4000)
 const ENVIRONMENT = process.env.PUBLISHER_ENV || 'elections'
 const PACKAGE = process.env.PACKAGE_NAME || 'midterms2026'
-const PUBLIC_DIR = new URL('./packages/midterms2026/public/', import.meta.url).pathname
+const PUBLIC_DIR = new URL('./public/', import.meta.url).pathname
 
 // The only upstream paths this app proxies: one query endpoint per model, the
 // forecast (elections.malloy) and election night (results.malloy, which imports

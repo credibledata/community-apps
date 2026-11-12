@@ -97,10 +97,11 @@ export function entityQuery(view, id, scope, known, extra = '', ignore = []) {
 }
 
 /** Several entities side by side: the view grouped by the entity, limited to the ids being compared. */
-export function compareQuery(view, ids, scope, known, extra = '') {
+export function compareQuery(view, ids, scope, known, extra = '', ignore = []) {
   const ok = ids.filter((id) => isEntity(id, known)).slice(0, COMPARE_MAX)
   if (!ok.length) throw new Error('Nothing to compare')
-  const clauses = [`${ENTITY.field} = ${ok.map(lit).join(' | ')}`, ...scopeClauses(scope, known, ['state'])]
+  // In brackets: Malloy reads `a = 'x' | 'y' and b = 'z'` as `a = 'x' | ('y' and b = 'z')`, which it refuses.
+  const clauses = [`(${ENTITY.field} = ${ok.map(lit).join(' | ')})`, ...scopeClauses(scope, known, ['state', ...ignore])]
   return `run: ${SOURCE} -> ${view}${refine(clauses, extra)}`
 }
 

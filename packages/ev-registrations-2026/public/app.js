@@ -420,7 +420,9 @@ function keepInView(anchor, ms = 1600) {
 let shownView = null
 /** A filter change keeps the view and draws its cards again in place; another view fades in over the last one. */
 function render({ toTop = false } = {}) {
-  const here = `${route.view}|${route.id ?? ''}`
+  // The compare list is part of the view: adding or removing an entity redraws its chips, its Add button and its
+  // Compare link, not only its cards. A county page's Add button changes compareSet without changing the route.
+  const here = `${route.view}|${route.id ?? ''}|${(route.compare ?? []).join(',')}|${[...compareSet].join(',')}`
   const same = C.MOTION && shownView === here
   const first = shownView === null
   shownView = here
@@ -1107,9 +1109,7 @@ function about() {
         h('li', { text: 'Battery-electric only. The DMV’s data dictionary files a vehicle that can also run on another fuel under that fuel, so plug-in hybrids and hybrids count as gasoline, and every share here is a battery-electric share.' }),
         h('li', { text: 'Re-registrations. Only first registrations by an owner (the DMV’s ORIGINAL transactions) are counted; re-registrations and renewals are left out.' }),
         h('li', { text: 'Why. The credit’s end is one change among several in these months, such as prices, models and interest rates. The comparison is before and after, not cause and effect.' }),
-        h('li', { text: 'National figures. Articles quote national shares of new-vehicle sales from industry sources; this app counts New York registrations, used cars included, so its shares are not comparable one to one.' })),
-      h('h2', { text: 'Rebuild' }),
-      p('The package’s pipeline/fetch.sh downloads the data and pipeline/shape_ny.py and pipeline/shape_map.py rebuild data/ and the map; the README lists the commands. Every number on these pages comes from a view in the package’s Malloy model, ny_ev.malloy, and each card’s “Show the working” shows the query and its rows.')))
+        h('li', { text: 'National figures. Articles quote national shares of new-vehicle sales from industry sources; this app counts New York registrations, used cars included, so its shares are not comparable one to one.' }))))
 }
 
 function footer() {

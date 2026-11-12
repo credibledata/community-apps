@@ -1,0 +1,16 @@
+# The image serves the model and the app; tests, the data pipeline and dev tooling stay out.
+node_modules/
+pipeline/
+tests/
+.screens/
+Dockerfile
+.dockerignore
+package.json
+pnpm-lock.yaml
+.npmrc
+# Local Publisher state, if a dev run leaves any behind.
+publisher.db
+publisher.db.wal
+publisher_data/
+server.log
+.mcp.json

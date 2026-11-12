@@ -368,7 +368,8 @@ function keepInView(anchor, ms = 1600) {
 
 let shown = null
 function render({ toTop = false } = {}) {
-  const here = `${route.view}|${route.id ?? ''}`
+  // The compare list is part of the view: adding or removing an entity redraws its picker and chips, not only its cards.
+  const here = `${route.view}|${route.id ?? ''}|${(route.compare ?? []).join(',')}`
   const same = shown === here
   const first = shown === null
   shown = here
@@ -904,21 +905,19 @@ function about() {
     ...viewHead('About the data', `Where every number comes from, what was changed, and what the data cannot tell you. The latest record is from ${longDate(known.latest)}.`),
     h('h2', { text: 'Source' }),
     p(h('strong', { text: 'WFIGS Wildland Fire Incident Locations' }), ', published by the National Interagency Fire Center (NIFC) through its Wildland Fire Interagency Geospatial Services group, from the IRWIN incident records of the US Forest Service, Bureau of Land Management, Bureau of Indian Affairs, National Park Service, US Fish and Wildlife Service and state and local fire agencies. ', a('https://data-nifc.opendata.arcgis.com/datasets/nifc::wfigs-incident-locations', 'Dataset page'), '. Fetched November 4, 2026.'),
-    p(h('strong', { text: 'Licence: none is stated.' }), ' The dataset is openly accessible and its page carries only a disclaimer. It is used here with attribution to NIFC and the agencies above. Credit: National Interagency Fire Center; data from federal, state and local wildland fire agencies.'),
+    p('Credit: National Interagency Fire Center; data from federal, state and local wildland fire agencies.'),
     p('State boundaries: us-atlas 3.0.1 (ISC licence), from US Census Bureau cartographic boundaries (public domain).'),
     h('h2', { text: 'What was reshaped' }),
     p('All 392,116 wildfire records (incident type WF; prescribed fires left out) were downloaded. Records discovered before 2015 were dropped: the system starts in mid-2014, and six stray earlier records remain. Each wildfire of 1 acre or more is kept as one row, with its name, date, state, county, point of origin, cause, land owner, region and containment. The 266,822 fires under 1 acre are summed by discovery date, state and cause, so their counts and acres are exact at that grain but they have no county, point or detail fields. Points of origin in Canada and Mexico are left out. Spelling variants of causes are merged (for example “Debris/Open Burning” and “Debris and open burning”), and “Unknown” is merged into Undetermined. Acres are the final acres, else the latest incident size, else the size at discovery.'),
     h('h2', { text: 'Caveats' }),
     p(h('strong', { text: 'These are not NIFC’s official statistics.' }), ' NIFC’s National Fire News reported 67,457 fires and nearly 9.4 million acres, 146% of the ten-year average, by October 30, 2026; those figures come from daily situation reports. WFIGS is the incident record agencies file; it counts fewer fires (many small fires are reported only to the situation reports) and slightly fewer acres, so its totals and percentages here are lower. The ten-year average here is computed from WFIGS itself, over the ten years before this one, to the same month and day.'),
-    p('A fire’s acres count in the year, week, state and county where it was discovered, even when it burned for months or across a line. Fires still burning carry their latest reported size. Specific causes are recorded for only about one fire in five of 1 acre or more, and containment times are often missing. Dates are UTC, so a fire found late in the evening in the West can fall on the next day. Fires managed as part of a complex appear as their member fires; the complexes themselves are not separate records here, so no acres are counted twice.'),
-    h('h2', { text: 'Rebuild' }),
-    p('The package holds the scripts: ', h('code', { text: 'pipeline/fetch.sh /tmp/raw' }), ' downloads every record, and ', h('code', { text: 'python3 -I pipeline/shape_fires.py /tmp/raw data' }), ' writes the files in data/; the README’s last step turns the record files into Parquet, which the model reads. The model is wildfires.malloy; every number in this app is a view or measure in it.'),
+    p('A fire’s acres count in the year, week, state and county where it was discovered, even when it burned for months or across a line. Fires still burning carry their latest reported size. Specific causes are recorded for only about one fire in five of 1 acre or more, and containment times are often missing. Dates are UTC, so a fire found late in the evening in the West can fall on the next day. Fires managed as part of a complex appear as their member fires; the complexes themselves are not separate records here, so no acres are counted twice.')
   )
 }
 
 function footer() {
   return h('div', {}, h('h2', { text: 'The 2026 Wildfire Season' }),
-    h('p', { text: 'Source: National Interagency Fire Center, WFIGS Wildland Fire Incident Locations, from federal, state and local fire agencies; no licence stated, used with attribution. An independent app, not produced by NIFC or any agency.' }),
+    h('p', { text: 'Source: National Interagency Fire Center, WFIGS Wildland Fire Incident Locations, from federal, state and local fire agencies. An independent app, not produced by NIFC or any agency.' }),
     h('p', {}, h('a', { href: '#/about', text: 'About the data' })))
 }
 

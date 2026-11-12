@@ -1,0 +1,136 @@
+>>>markdown
+# Validating the model against FeederWatch's published numbers
+
+Project FeederWatch publishes a summary of each season in *Winter Bird Highlights*, including a Top 25 table for each region: the percent of sites each species visited and its average flock size. This notebook puts the 2023-24 published values next to the same measures computed by this package, so a change to the model or to the data build that moves the numbers shows up here.
+
+Source: [Winter Bird Highlights 2024](https://cdn.feederwatch.org/wp-content/uploads/2025/02/WinterBirdHighlights2024.pdf) (2023-24 season, season 2024 in this model). Published values are typed in from the report and rounded as printed: percents to whole points, flock sizes to whole birds. More seasons, states and provinces: [Top 25 Feeder Birds](https://data.feederwatch.org/pfw/top25).
+
+The published counts were compiled soon after the season closed, while the downloadable data FeederWatch released later can include late or corrected checklists, so expect small differences rather than an exact match.
+
+>>>malloy
+import "index.malloy"
+
+>>>markdown
+## Season totals
+
+Do the model's checklist count, site count and average birds per checklist agree with the season summary (233,750 checklists, 16,623 count locations, 37 birds per checklist)?
+
+>>>malloy
+run: (checklist_counts extend {
+  join_cross: sites is site_seasons -> { where: season = 2024; aggregate: site_count }
+}) -> {
+  where: season = 2024
+  aggregate:
+    checklist_count
+    site_count is sites.site_count.max()
+    avg_birds
+} -> {
+  select:
+    published_checklists is 233750
+    model_checklists is checklist_count
+    published_sites is 16623
+    model_sites is site_count
+    published_birds_per_checklist is 37
+    # number="0.0"
+    model_birds_per_checklist is avg_birds
+}
+
+>>>markdown
+## Sites by region
+
+How many sites does each region's Top 25 table report, against the sites the model counts in that region? Sites outside the six FeederWatch regions have no published table.
+
+>>>malloy
+run: (site_seasons extend {
+  dimension:
+    published_sites is pick 81 when region = 'Far North'
+      pick 1667 when region = 'Northwest'
+      pick 1604 when region = 'Southwest'
+      pick 1210 when region = 'Central'
+      pick 9700 when region = 'Northeast'
+      pick 2348 when region = 'Southeast'
+      else null
+}) -> {
+  where: season = 2024 and published_sites is not null
+  group_by: region, published_sites
+  aggregate: site_count
+} -> {
+  select:
+    region, published_sites
+    model_sites is site_count
+    # percent
+    difference is (site_count - published_sites) / published_sites
+  order_by: region
+}
+
+>>>markdown
+## Top 25 species: percent of sites and flock size
+
+For three or four species in each region's Top 25, does the model's percent of sites visited and average flock size match the table? Differences are in percentage points. Regions with few sites, such as the Far North, move by several points when a handful of sites differ.
+
+>>>malloy
+run: (bird_trends extend {
+  dimension:
+    top25_key is concat(region, ' | ', common_name)
+    published_pct is pick 0.88 when top25_key = 'Far North | Black-capped Chickadee'
+      pick 0.71 when top25_key = 'Far North | Red-breasted Nuthatch'
+      pick 0.48 when top25_key = 'Far North | Dark-eyed Junco'
+      pick 0.90 when top25_key = 'Northeast | Dark-eyed Junco'
+      pick 0.88 when top25_key = 'Northeast | Northern Cardinal'
+      pick 0.88 when top25_key = 'Northeast | Downy Woodpecker'
+      pick 0.87 when top25_key = 'Northeast | Blue Jay'
+      pick 0.93 when top25_key = 'Southeast | Northern Cardinal'
+      pick 0.77 when top25_key = 'Southeast | Carolina Wren'
+      pick 0.76 when top25_key = 'Southeast | House Finch'
+      pick 0.87 when top25_key = 'Northwest | Dark-eyed Junco'
+      pick 0.83 when top25_key = 'Northwest | Black-capped Chickadee'
+      pick 0.76 when top25_key = 'Northwest | Northern Flicker'
+      pick 0.73 when top25_key = 'Northwest | House Finch'
+      pick 0.87 when top25_key = 'Southwest | House Finch'
+      pick 0.72 when top25_key = 'Southwest | Dark-eyed Junco'
+      pick 0.54 when top25_key = 'Southwest | Mourning Dove'
+      pick 0.89 when top25_key = 'Central | Downy Woodpecker'
+      pick 0.88 when top25_key = 'Central | Dark-eyed Junco'
+      pick 0.86 when top25_key = 'Central | Blue Jay'
+      pick 0.71 when top25_key = 'Central | Northern Cardinal'
+      else null
+    published_flock is pick 4 when top25_key = 'Far North | Black-capped Chickadee'
+      pick 2 when top25_key = 'Far North | Red-breasted Nuthatch'
+      pick 6 when top25_key = 'Far North | Dark-eyed Junco'
+      pick 5 when top25_key = 'Northeast | Dark-eyed Junco'
+      pick 3 when top25_key = 'Northeast | Northern Cardinal'
+      pick 2 when top25_key = 'Northeast | Downy Woodpecker'
+      pick 3 when top25_key = 'Northeast | Blue Jay'
+      pick 3 when top25_key = 'Southeast | Northern Cardinal'
+      pick 1 when top25_key = 'Southeast | Carolina Wren'
+      pick 3 when top25_key = 'Southeast | House Finch'
+      pick 9 when top25_key = 'Northwest | Dark-eyed Junco'
+      pick 3 when top25_key = 'Northwest | Black-capped Chickadee'
+      pick 2 when top25_key = 'Northwest | Northern Flicker'
+      pick 5 when top25_key = 'Northwest | House Finch'
+      pick 6 when top25_key = 'Southwest | House Finch'
+      pick 5 when top25_key = 'Southwest | Dark-eyed Junco'
+      pick 6 when top25_key = 'Southwest | Mourning Dove'
+      pick 2 when top25_key = 'Central | Downy Woodpecker'
+      pick 6 when top25_key = 'Central | Dark-eyed Junco'
+      pick 3 when top25_key = 'Central | Blue Jay'
+      pick 3 when top25_key = 'Central | Northern Cardinal'
+      else null
+}) -> {
+  where: season = 2024 and published_pct is not null
+  group_by: region, common_name, published_pct, published_flock
+  aggregate: pct_sites, avg_flock_size
+} -> {
+  select:
+    region, common_name
+    # percent
+    published_pct
+    # percent
+    model_pct is pct_sites
+    # number="0.0"
+    pct_points_diff is (pct_sites - published_pct) * 100
+    published_flock
+    # number="0.0"
+    model_flock is avg_flock_size
+  order_by: region, common_name
+}

@@ -3,7 +3,7 @@
   "environments": [
     {
       "name": "elections",
-      "packages": [{ "name": "midterms2026", "location": "./packages/midterms2026" }],
+      "packages": [{ "name": "midterms2026", "location": "./" }],
       "connections": []
     }
   ]

@@ -1,0 +1,838 @@
+##! experimental { givens, access_modifiers }
+
+// Project FeederWatch, seasons 1988-89 through 2023-24 (public release of 5 June 2024).
+// Published surface: index.malloy. Start with `bird_trends`.
+//
+// DATA: every table this package reads is a small Parquet file in data/, read with DuckDB. They
+// are pre-aggregated: nothing here is row-level. They are built from the raw FeederWatch extracts
+// (45M reports, 4.1M checklists): taxonomic roll-up, code labels, no-food sites dropped, valid
+// records only (except where review state is the point). Only tables the data app reads are built.
+//
+// READ THIS BEFORE USING A NUMBER:
+// - FeederWatch is a count at a SITE (a yard, a nature centre) over a SEASON (November to April).
+//   A season is named by the year it ends: season 2024 = Nov 2023 - Apr 2024.
+// - Participants count in two-day "checklists" and record, per species, the most birds seen AT
+//   ONE TIME. Summing how_many across checklists double-counts the same birds; the headline
+//   measures below are FeederWatch's own, which do not.
+// - Headline measure, as on feederwatch.org's trend graphs: PERCENT OF SITES VISITED = the share
+//   of site-seasons in scope where the species was reported at least once. Checked against the
+//   published trend graphs (e.g. Dark-eyed Junco 1992: Far North 59.3%, Central 90.0%).
+//   Across several seasons it is the share of site-seasons, i.e. a site-weighted seasonal average.
+// - AVERAGE FLOCK SIZE = the mean count on checklists where the species was reported.
+// - Only VALID records count (VALID = 1). Flagged, unconfirmed records appear only in
+//   report_counts, for the review-status view.
+// - Forms (Oregon Junco, feral Rock Pigeon...) are rolled up to species per eBird's taxonomy;
+//   forms on one checklist are summed, as in FeederWatch's own roll-up code.
+// - Sites that reported offering no food (allowed from 2021-22) are excluded, as FeederWatch
+//   recommends. Site-description fields are self-reported, per season, and often blank. Habitat
+//   means within 0.5 mile, nearby_feeders within 90 m, cats/dogs within 30 m of the feeders; the
+//   thistle feeder question was retired after the 2004-05 season.
+// - Regions are FeederWatch's six trend-graph regions. region_code 'XX' = outside them.
+// - Participation grew about fourfold (1989: 4,490 site-seasons; 2023: 18,195), and the average
+//   flock size across all species fell steadily from 6.4 (1989) to 3.4 (2024), with no single
+//   break. Compare shares within a scope, not raw totals, across eras.
+//
+// GRAIN: the scope cell is season x region x state or province x housing density. Every table
+// except species and site_seasons is counts and sums per scope cell (and per species, week, band
+// or feature as named), so any scope filter is a plain where:. bird_trends is zero-filled (every
+// species has a row in every cell), so its percentages are safe under a species filter. The
+// other per-species tables are not: divide them by the matching denominator table over the same
+// scope, as each source's doc says. The data app does exactly that.
+// Two tables are coarser, to fit Credible's 50 MB upload cap: companion_pairs is per season x
+// region, and checklist_weeks / species_weeks have no housing density.
+
+// ------------------------------------------------------------------ runtime values (givens)
+
+# description="eBird species code of the bird to analyse, e.g. daejun (Dark-eyed Junco), norcar (Northern Cardinal), amegfi (American Goldfinch). Look codes up in the species source. Required by companions."
+given: focal_species :: string
+
+// ------------------------------------------------------------------ taxonomy
+
+#(doc) Bird species and other taxa reported to FeederWatch (after taxonomic roll-up), with eBird 2023 common and scientific names, family, order and category. Use it to look up a species code from a bird's name, or to list the species in a family.
+source: species is duckdb.table('data/species.parquet') include {
+  public:
+    #(doc) eBird species code, e.g. daejun for Dark-eyed Junco; the key every other source uses.
+    species_code
+    #(index)
+    #(doc) English common name of the bird, e.g. Dark-eyed Junco, Northern Cardinal.
+    common_name
+    #(index)
+    #(doc) Scientific (Latin) name, e.g. Junco hyemalis.
+    scientific_name
+    #(index)
+    #(doc) Taxon category: species for a full species; slash (e.g. Downy/Hairy Woodpecker), spuh (e.g. woodpecker sp.), hybrid or domestic otherwise.
+    category
+    #(index)
+    #(doc) Bird family common name, e.g. Woodpeckers, New World Sparrows, Finches.
+    family_name
+    #(index)
+    #(doc) Bird family scientific name, e.g. Picidae.
+    family_scientific_name
+    #(index)
+    #(doc) Taxonomic order, e.g. Passeriformes (perching birds, songbirds).
+    order_name
+    #(doc) Position in the eBird taxonomic sequence, for sorting species in field-guide order.
+    taxon_order
+    #(doc) Four-letter banding code, where one exists.
+    banding_code
+    #(doc) Accepted FeederWatch reports of this taxon, all seasons.
+    n_records
+} extend {
+  primary_key: species_code
+  dimension:
+    #(doc) True for full species; false for slashes, spuhs, hybrids and domestic types.
+    is_full_species is category = 'species'
+    #(doc) Link to the species page on eBird.
+    ebird_url is concat('https://ebird.org/species/', species_code)
+  measure:
+    #(doc) Number of taxa.
+    taxa is count()
+}
+
+// ------------------------------------------------------------------ count sites
+
+#(doc) Count sites by season: one row per FeederWatch site in one November-April season, with its region, state or province, housing density, half-degree grid cell, how often it was counted and how many species it reported. Use it for participation questions (how many sites, where, how active). For how common a bird is, use bird_trends; for yard features, pfw_yard_sites and pfw_yard_species.
+source: site_seasons is duckdb.table('data/site_seasons.parquet') include {
+  public:
+    #(doc) Season, named by the year it ends: 2024 = November 2023 to April 2024. 1989 to 2024.
+    # number=id
+    season
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(doc) Country code: US, CA, or another country's two-letter code.
+    country_code
+    #(doc) FeederWatch region code: AC Far North, WE Northwest, SW Southwest, CE Central, NE Northeast, SO Southeast, XX outside regions.
+    region_code
+    #(index)
+    #(doc) Housing density around the site, as the participant described it: Rural, Rural/suburban, Suburban, Urban; null when not described.
+    housing_density
+    #(doc) Half-degree grid cell (south-west corner latitude) of the site, for maps; exact coordinates are not in this package.
+    grid_lat
+    #(doc) Half-degree grid cell (south-west corner longitude) of the site, for maps.
+    grid_lon
+    #(doc) Two-day checklists the site submitted that season.
+    n_checklists
+    #(doc) Number of full species the site reported that season (valid reports).
+    n_species
+  internal:
+    // participant site ids stay inside the model; distinct_sites counts them
+    loc_id
+} extend {
+  dimension:
+    #(doc) Identifier of one site in one season (participant site id plus season).
+    site_season_id is concat(loc_id, '_', season::string)
+    #(index)
+    #(doc) FeederWatch trend-graph region: Far North, Northwest, Southwest, Central, Northeast or Southeast ("Outside regions" for misplaced sites).
+    region is pick 'Far North' when region_code = 'AC' pick 'Northwest' when region_code = 'WE'
+      pick 'Southwest' when region_code = 'SW' pick 'Central' when region_code = 'CE'
+      pick 'Northeast' when region_code = 'NE' pick 'Southeast' when region_code = 'SO' else 'Outside regions'
+    #(doc) Sort order for regions, west and north to south and east, as FeederWatch lists them.
+    region_order is pick 1 when region_code = 'AC' pick 2 when region_code = 'WE' pick 3 when region_code = 'SW'
+      pick 4 when region_code = 'CE' pick 5 when region_code = 'NE' pick 6 when region_code = 'SO' else 9
+    #(doc) Country: United States, Canada or Other.
+    country is pick 'United States' when country_code = 'US' pick 'Canada' when country_code = 'CA' else 'Other'
+    #(doc) Season as written on feederwatch.org, e.g. 2023-24 for season 2024.
+    season_label is concat((season - 1)::string, '-', substr(season::string, 3, 2))
+    #(index)
+    #(doc) Era of the project: 1989-1999, 2000-2009, 2010-2019 or 2020-2024.
+    era is pick '1989-1999' when season <= 1999 pick '2000-2009' when season <= 2009
+      pick '2010-2019' when season <= 2019 else '2020-2024'
+    #(doc) Sort order for housing density, rural to urban.
+    housing_order is pick 1 when housing_density = 'Rural' pick 2 when housing_density = 'Rural/suburban'
+      pick 3 when housing_density = 'Suburban' pick 4 when housing_density = 'Urban' else 9
+  measure:
+    #(doc) Count sites in scope, counted once per season (site-seasons). For a single season this is the number of active sites.
+    site_count is count()
+    #(doc) Distinct count sites in scope, across all seasons.
+    distinct_sites is count(loc_id)
+    #(doc) Two-day checklists submitted in scope.
+    checklist_count is n_checklists.sum()
+    #(doc) Average number of species a site reported in a season.
+    avg_species_per_site is n_species.avg()
+    #(doc) Average number of checklists a site submitted in a season.
+    avg_checklists_per_site is n_checklists.avg()
+    #(doc) Share of site-seasons whose participant described the housing density (a proxy for how complete site descriptions are).
+    described_share is count() { where: housing_density is not null } / nullif(count(), 0)
+
+  #(doc) Participation per season: active sites, checklists, species per site.
+  view: by_season is {
+    group_by: season, season_label
+    aggregate: site_count, checklist_count, avg_species_per_site
+    order_by: season
+  }
+  #(doc) Active sites per season in each region.
+  view: season_by_region is {
+    group_by: season, region_code
+    aggregate: site_count
+    order_by: season
+    limit: 1000
+  }
+  #(doc) Participation by FeederWatch region.
+  view: by_region is {
+    group_by: region, region_code, region_order
+    where: region_code != 'XX'
+    aggregate: site_count, distinct_sites, checklist_count
+    order_by: region_order
+  }
+  #(doc) Participation by state or province.
+  view: by_state is {
+    group_by: state_code, region_code
+    aggregate: site_count, distinct_sites, checklist_count, avg_species_per_site
+    order_by: site_count desc
+  }
+}
+
+// ------------------------------------------------------------------ headline source
+
+// bird_trends ships as its two parts and is zero-filled here, at query time: every species gets a
+// row in every scope cell (cells x species, 8M rows, built from 3 MB of Parquet instead of 11 MB).
+source: trend_cells is duckdb.table('data/trend_cells.parquet')
+source: trend_hits is duckdb.table('data/trend_hits.parquet')
+source: bird_trends_grid is (trend_cells extend {
+  join_cross: sp is duckdb.table('data/species.parquet')
+  join_one: h is trend_hits on season = h.season and region_code = h.region_code
+    and state_code = h.state_code and housing_density = h.housing_density
+    and sp.species_code = h.species_code
+}) -> {
+  select:
+    species_code is sp.species_code
+    season, region_code, state_code, housing_density, n_sites, n_checklists
+    n_sites_reporting is h.n_sites_reporting ?? 0
+    n_checklists_reporting is h.n_checklists_reporting ?? 0
+    n_birds is h.n_birds ?? 0
+    max_birds is h.max_birds
+}
+
+#(doc) START HERE for how common a bird is, where, and how that changed. One row per species x season x state or province x housing density, zero-filled, so any filter is safe: filter or group by species and every percentage keeps the right denominator. Percent of sites visited is FeederWatch's own headline measure (as on feederwatch.org trend graphs); also average flock size and share of checklists. Seasons 1989 to 2024 (named by the year they end). Not for yard features, timing within a season or individual sites: see pfw_yard_species, species_weeks and site_seasons.
+source: bird_trends is bird_trends_grid include {
+  public:
+    #(doc) eBird species code, e.g. daejun. Group or filter by it, or by common_name.
+    species_code
+    #(doc) Season, named by the year it ends: 2024 = November 2023 to April 2024. 1989 to 2024.
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC Far North, WE Northwest, SW Southwest, CE Central, NE Northeast, SO Southeast, XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(index)
+    #(doc) Housing density the participant described: Rural, Rural/suburban, Suburban, Urban, or Not described.
+    housing_density
+  internal:
+    n_sites, n_checklists, n_sites_reporting, n_checklists_reporting, n_birds, max_birds
+} extend {
+  join_one: sp is species on species_code = sp.species_code
+  dimension:
+    #(index)
+    #(doc) English common name of the species, e.g. Northern Cardinal.
+    common_name is sp.common_name
+    #(index)
+    #(doc) Bird family, e.g. Woodpeckers, Finches, New World Sparrows.
+    family_name is sp.family_name
+    #(index)
+    #(doc) Taxon category: species for full species; slash, spuh, hybrid and domestic otherwise.
+    category is sp.category
+    #(doc) Position in field-guide (taxonomic) order.
+    taxon_order is sp.taxon_order
+    #(index)
+    #(doc) FeederWatch region name: Far North, Northwest, Southwest, Central, Northeast, Southeast, or Outside regions.
+    region is pick 'Far North' when region_code = 'AC' pick 'Northwest' when region_code = 'WE'
+      pick 'Southwest' when region_code = 'SW' pick 'Central' when region_code = 'CE'
+      pick 'Northeast' when region_code = 'NE' pick 'Southeast' when region_code = 'SO' else 'Outside regions'
+    #(doc) Country: United States, Canada or Other.
+    country is pick 'United States' when substr(state_code, 1, 2) = 'US' pick 'Canada' when substr(state_code, 1, 2) = 'CA' else 'Other'
+    #(doc) Season as written on feederwatch.org, e.g. 2023-24 for season 2024.
+    season_label is concat((season - 1)::string, '-', substr(season::string, 3, 2))
+    #(index)
+    #(doc) Era of the project: 1989-1999, 2000-2009, 2010-2019 or 2020-2024.
+    era is pick '1989-1999' when season <= 1999 pick '2000-2009' when season <= 2009
+      pick '2010-2019' when season <= 2019 else '2020-2024'
+    #(doc) Sort order for housing density, rural to urban.
+    housing_order is pick 1 when housing_density = 'Rural' pick 2 when housing_density = 'Rural/suburban'
+      pick 3 when housing_density = 'Suburban' pick 4 when housing_density = 'Urban' else 9
+  measure:
+    #(doc) Count sites in scope, once per season (site-seasons). Correct with or without a species filter.
+    site_count is n_sites.sum() / nullif(count(species_code), 0)
+    #(doc) Two-day checklists in scope. Correct with or without a species filter.
+    checklist_count is n_checklists.sum() / nullif(count(species_code), 0)
+    #(doc) Site-seasons that reported the species at least once.
+    sites_reporting is n_sites_reporting.sum()
+    #(doc) Checklists that reported the species.
+    checklists_reporting is n_checklists_reporting.sum()
+    #(doc) Percent of sites visited (0-1): share of site-seasons in scope that reported the species at least once. FeederWatch's headline measure. Read per species: across several species it is their average.
+    # percent
+    pct_sites is n_sites_reporting.sum() / nullif(n_sites.sum(), 0)
+    #(doc) Share of two-day checklists in scope that reported the species (0-1).
+    # percent
+    pct_checklists is n_checklists_reporting.sum() / nullif(n_checklists.sum(), 0)
+    #(doc) Average flock size: mean number of birds on checklists where the species was reported (the most seen at one time).
+    avg_flock_size is n_birds.sum() / nullif(n_checklists_reporting.sum(), 0)
+    #(doc) Average birds per checklist with zeros counted: an abundance index, not a census.
+    birds_per_checklist is n_birds.sum() / nullif(n_checklists.sum(), 0)
+    #(doc) Largest number of the species seen at once on any checklist in scope.
+    max_count is max_birds.max()
+    #(doc) Number of species reported at least once in scope (full species only).
+    species_reported is count(species_code) { where: n_sites_reporting > 0 and sp.category = 'species' }
+
+  #(doc) Every taxon reported in scope, ranked by sites reporting it: percent of sites visited and average flock size. Answers "which birds are most common at feeders in X".
+  view: species_ranking is {
+    group_by: species_code, common_name, family_name, category, taxon_order
+    aggregate: sites_reporting, pct_sites, avg_flock_size
+    having: sites_reporting > 0
+    order_by: sites_reporting desc
+    limit: 800
+  }
+  #(doc) Long-run change for every taxon: percent of sites visited in the first five seasons (1989-1993) versus the latest five (2020-2024), plus a per-season trend. Fixed windows: run it without a season filter. Answers "which birds increased or declined".
+  view: species_history is {
+    group_by: species_code
+    aggregate:
+      reports_early is sites_reporting { where: season <= 1993 }
+      reports_recent is sites_reporting { where: season >= 2020 }
+      pct_early is pct_sites { where: season <= 1993 }
+      pct_recent is pct_sites { where: season >= 2020 }
+    having: sites_reporting > 0
+    nest: trend is {
+      group_by: season
+      aggregate: season_pct is pct_sites
+      order_by: season
+    }
+    order_by: reports_recent desc
+    limit: 800
+  }
+  #(doc) Count sites in scope in the two fixed windows used by species_history (1989-1993 and 2020-2024).
+  view: window_sites is {
+    aggregate:
+      sites_early is site_count { where: season <= 1993 }
+      sites_recent is site_count { where: season >= 2020 }
+  }
+  #(doc) One species' headline numbers in scope. Filter to one species_code first.
+  view: summary is {
+    aggregate: site_count, sites_reporting, pct_sites, avg_flock_size, pct_checklists, birds_per_checklist, max_count
+  }
+  #(doc) One species, 1989-1993 versus 2020-2024: percent of sites and flock size. Filter to one species_code; no season filter.
+  view: history is {
+    aggregate:
+      sites_early is site_count { where: season <= 1993 }
+      sites_recent is site_count { where: season >= 2020 }
+      pct_early is pct_sites { where: season <= 1993 }
+      pct_recent is pct_sites { where: season >= 2020 }
+      flock_early is avg_flock_size { where: season <= 1993 }
+      flock_recent is avg_flock_size { where: season >= 2020 }
+  }
+  #(doc) One species, season by season: percent of sites visited, flock size, share of checklists. Filter to one species_code.
+  view: trend is {
+    group_by: season, season_label
+    aggregate: site_count, sites_reporting, pct_sites, avg_flock_size, pct_checklists
+    order_by: season
+  }
+  #(doc) One species in each FeederWatch region, season by season, like the feederwatch.org trend graphs. Filter to one species_code.
+  view: trend_by_region is {
+    where: region_code != 'XX'
+    group_by: region_code, region, season
+    aggregate: site_count, pct_sites, avg_flock_size
+    order_by: region_code, season
+  }
+  #(doc) One species by state or province: percent of sites visited and flock size. Filter to one species_code.
+  view: state_map is {
+    group_by: state_code, region_code
+    aggregate: site_count, sites_reporting, pct_sites, avg_flock_size
+    order_by: site_count desc
+  }
+  #(doc) One species from rural to urban sites. Filter to one species_code.
+  view: by_housing is {
+    where: housing_density != 'Not described'
+    group_by: housing_density, housing_order
+    aggregate: site_count, pct_sites, avg_flock_size
+    order_by: housing_order
+  }
+  #(doc) Number of species reported in each bird family, in scope.
+  view: by_family is {
+    where: category = 'species'
+    group_by: family_name
+    aggregate: species_reported
+    order_by: species_reported desc
+  }
+} include {
+  internal: sp, n_sites, n_checklists, n_sites_reporting, n_checklists_reporting, n_birds, max_birds
+  public: *
+}
+
+#(doc) The scope cells behind bird_trends: one row per season x region x state or province x housing density ('Not described' when blank), with its site-seasons and checklists. The denominator for bird_trend_hits: percent of sites visited is sites_reporting there over site_count here, over the same scope.
+source: bird_trend_cells is trend_cells include {
+  public:
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(index)
+    #(doc) Housing density the participant described: Rural, Rural/suburban, Suburban, Urban, or Not described.
+    housing_density
+  internal: n_sites, n_checklists
+} extend {
+  measure:
+    #(doc) Count sites in scope, once per season (site-seasons).
+    site_count is n_sites.sum()
+    #(doc) Two-day checklists in scope.
+    checklist_count is n_checklists.sum()
+}
+
+#(doc) The non-zero rows of bird_trends: one row per species x scope cell where the species was reported, with site-seasons and checklists reporting it and their summed counts. Fast for all-species questions; divide by bird_trend_cells over the same scope for percentages (a species filter here does NOT keep the denominator, which bird_trends does).
+source: bird_trend_hits is trend_hits include {
+  public:
+    #(doc) eBird species code, e.g. daejun.
+    species_code
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(index)
+    #(doc) Housing density the participant described: Rural, Rural/suburban, Suburban, Urban, or Not described.
+    housing_density
+  internal: n_sites_reporting, n_checklists_reporting, n_birds, max_birds
+} extend {
+  join_one: sp is species on species_code = sp.species_code
+  dimension:
+    #(index)
+    #(doc) English common name of the species, e.g. Northern Cardinal.
+    common_name is sp.common_name
+    #(index)
+    #(doc) Bird family, e.g. Woodpeckers, Finches, New World Sparrows.
+    family_name is sp.family_name
+    #(doc) Taxon category: species for full species; slash, spuh, hybrid and domestic otherwise.
+    category is sp.category
+    #(doc) Position in field-guide (taxonomic) order.
+    taxon_order is sp.taxon_order
+  measure:
+    #(doc) Site-seasons that reported the species at least once.
+    sites_reporting is n_sites_reporting.sum()
+    #(doc) Checklists that reported the species.
+    checklists_reporting is n_checklists_reporting.sum()
+    #(doc) Sum of the species' high counts on those checklists; divide by checklists_reporting for average flock size.
+    birds is n_birds.sum()
+    #(doc) Largest number of the species seen at once on any checklist in scope.
+    max_count is max_birds.max()
+} include {
+  internal: sp
+  public: *
+}
+
+// ------------------------------------------------------------------ checklists (counts per scope cell)
+
+#(doc) Two-day checklists counted per scope cell (season x region x state or province x housing density) and by snow depth, hours watched and entry method. Use it for how many checklists, effort, snow and data-entry questions, and as the denominator for pfw_snow_species and pfw_effort_species. There is no per-checklist detail in this package.
+source: checklist_counts is duckdb.table('data/checklist_cells.parquet') include {
+  public:
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(index)
+    #(doc) Housing density of the site that season: Rural, Rural/suburban, Suburban, Urban; null when not described.
+    housing_density
+    #(index)
+    #(doc) Snow on the ground during the count: None, Under 5 cm, 5-15 cm, Over 15 cm; null when not recorded.
+    snow_depth
+    #(index)
+    #(doc) Hours spent watching over the two days: Under 1 hour, 1-4 hours, 4-8 hours, Over 8 hours; null when not recorded.
+    effort_hours
+    #(index)
+    #(doc) How the checklist was entered: Web, Mobile app or Paper form (recorded from 1997-98); null before.
+    entry_method
+  internal: n_checklists, n_birds
+} extend {
+  dimension:
+    #(index)
+    #(doc) FeederWatch region name: Far North, Northwest, Southwest, Central, Northeast, Southeast, or Outside regions.
+    region is pick 'Far North' when region_code = 'AC' pick 'Northwest' when region_code = 'WE'
+      pick 'Southwest' when region_code = 'SW' pick 'Central' when region_code = 'CE'
+      pick 'Northeast' when region_code = 'NE' pick 'Southeast' when region_code = 'SO' else 'Outside regions'
+    #(doc) Season as written on feederwatch.org, e.g. 2023-24.
+    season_label is concat((season - 1)::string, '-', substr(season::string, 3, 2))
+    #(index)
+    #(doc) Era of the project: 1989-1999, 2000-2009, 2010-2019 or 2020-2024.
+    era is pick '1989-1999' when season <= 1999 pick '2000-2009' when season <= 2009
+      pick '2010-2019' when season <= 2019 else '2020-2024'
+    #(doc) Sort order for snow depth, none to deep.
+    snow_order is pick 1 when snow_depth = 'None' pick 2 when snow_depth = 'Under 5 cm' pick 3 when snow_depth = '5-15 cm'
+      pick 4 when snow_depth = 'Over 15 cm' else 9
+    #(doc) Sort order for hours watched, least to most.
+    effort_order is pick 1 when effort_hours = 'Under 1 hour' pick 2 when effort_hours = '1-4 hours'
+      pick 3 when effort_hours = '4-8 hours' pick 4 when effort_hours = 'Over 8 hours' else 9
+  measure:
+    #(doc) Number of two-day checklists.
+    checklist_count is n_checklists.sum()
+    #(doc) Average birds per checklist: the sum of each species' high count (valid reports). An index of activity, not a census.
+    avg_birds is n_birds.sum() / nullif(n_checklists.sum(), 0)
+
+  #(doc) Checklists per season by entry method (paper, web, mobile app; recorded from 1997-98).
+  view: by_entry_method is {
+    group_by: season, entry_method
+    aggregate: checklist_count
+    order_by: season
+  }
+  #(doc) Checklists by snow depth on the ground.
+  view: by_snow is {
+    where: snow_depth is not null
+    group_by: snow_depth, snow_order
+    aggregate: checklist_count
+    order_by: snow_order
+  }
+  #(doc) Checklists by hours watched.
+  view: by_effort is {
+    where: effort_hours is not null
+    group_by: effort_hours, effort_order
+    aggregate: checklist_count
+    order_by: effort_order
+  }
+}
+
+#(doc) Two-day checklists per season x region x state or province and week of the season, with no housing density (weeks 0-25: week 0 starts 1 November, week 25 ends late April). The denominator for species_weeks: a species' share of checklists in a week is species_weeks reports over checklist_count here, over the same scope and weeks.
+source: checklist_weeks is duckdb.table('data/week_cells.parquet') include {
+  public:
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(doc) Week of the season: 0 = the week starting 1 November, 25 = the last week of April.
+    season_week
+  internal: n_checklists
+} extend {
+  dimension:
+    #(index)
+    #(doc) FeederWatch region name: Far North, Northwest, Southwest, Central, Northeast, Southeast, or Outside regions.
+    region is pick 'Far North' when region_code = 'AC' pick 'Northwest' when region_code = 'WE'
+      pick 'Southwest' when region_code = 'SW' pick 'Central' when region_code = 'CE'
+      pick 'Northeast' when region_code = 'NE' pick 'Southeast' when region_code = 'SO' else 'Outside regions'
+    #(index)
+    #(doc) Era of the project: 1989-1999, 2000-2009, 2010-2019 or 2020-2024.
+    era is pick '1989-1999' when season <= 1999 pick '2000-2009' when season <= 2009
+      pick '2010-2019' when season <= 2019 else '2020-2024'
+  measure:
+    #(doc) Number of two-day checklists.
+    checklist_count is n_checklists.sum()
+}
+
+#(doc) When in the winter a bird is reported: checklists reporting each species (valid reports) and their summed counts, per season x region x state or province and week of the season (weeks 0-25), with no housing density. Not zero-filled: weeks where the species was not reported have no row, so divide reports by checklist_count from checklist_weeks over the same scope and weeks for the share of checklists, and birds by reports for average flock size.
+source: species_weeks is duckdb.table('data/week_species.parquet') include {
+  public:
+    #(doc) eBird species code, e.g. pinsis for Pine Siskin.
+    species_code
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(doc) Week of the season: 0 = the week starting 1 November, 25 = the last week of April.
+    season_week
+  internal: n_checklists_reporting, n_birds
+} extend {
+  join_one: sp is species on species_code = sp.species_code
+  dimension:
+    #(index)
+    #(doc) English common name of the species, e.g. Northern Cardinal.
+    common_name is sp.common_name
+    #(doc) Taxon category: species, slash, spuh, hybrid or domestic.
+    category is sp.category
+    #(index)
+    #(doc) FeederWatch region name: Far North, Northwest, Southwest, Central, Northeast, Southeast, or Outside regions.
+    region is pick 'Far North' when region_code = 'AC' pick 'Northwest' when region_code = 'WE'
+      pick 'Southwest' when region_code = 'SW' pick 'Central' when region_code = 'CE'
+      pick 'Northeast' when region_code = 'NE' pick 'Southeast' when region_code = 'SO' else 'Outside regions'
+    #(index)
+    #(doc) Era of the project: 1989-1999, 2000-2009, 2010-2019 or 2020-2024.
+    era is pick '1989-1999' when season <= 1999 pick '2000-2009' when season <= 2009
+      pick '2010-2019' when season <= 2019 else '2020-2024'
+  measure:
+    #(doc) Checklists that reported the species.
+    reports is n_checklists_reporting.sum()
+    #(doc) Sum of the species' high counts on those checklists; divide by reports for average flock size.
+    birds is n_birds.sum()
+    #(doc) Average flock size on checklists that reported the species.
+    avg_flock_size is n_birds.sum() / nullif(n_checklists_reporting.sum(), 0)
+}
+
+// ------------------------------------------------------------------ reports (counts per scope cell)
+
+#(doc) Individual reports counted per species and scope cell, by FeederWatch review state and flock-size band. Use for flock-size distributions and data quality. A report is one species on one two-day checklist, with the most birds seen at one time.
+source: report_counts is duckdb.table('data/report_bands.parquet') include {
+  public:
+    #(doc) eBird species code of the bird reported, e.g. daejun.
+    species_code
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(index)
+    #(doc) Housing density of the site that season: Rural, Rural/suburban, Suburban, Urban; null when not described.
+    housing_density
+    #(doc) 1 when the report is accepted (not flagged, or approved after review); 0 when flagged and not confirmed. FeederWatch advises using 0 records only with extreme caution (Bonter and Cooper 2012, Frontiers in Ecology and the Environment 10:305-307).
+    is_valid
+    #(doc) 1 when a FeederWatch reviewer looked at the report.
+    is_reviewed
+    #(doc) Sort order for flock_band: 1 = 1 bird, 2 = 2, 3 = 3-4, 4 = 5-9, 5 = 10-19, 6 = 20-49, 7 = 50-99, 8 = 100+.
+    flock_band_order
+  internal: n_records
+} extend {
+  join_one: sp is species on species_code = sp.species_code
+  dimension:
+    #(index)
+    #(doc) English common name of the species, e.g. Northern Cardinal.
+    common_name is sp.common_name
+    #(doc) Taxon category: species, slash, spuh, hybrid or domestic.
+    category is sp.category
+    #(index)
+    #(doc) FeederWatch review state: Accepted (not flagged), Approved after review, Unconfirmed after review, Awaiting review.
+    review_status is pick 'Accepted (not flagged)' when is_valid = 1 and is_reviewed = 0
+      pick 'Approved after review' when is_valid = 1 and is_reviewed = 1
+      pick 'Unconfirmed after review' when is_valid = 0 and is_reviewed = 1
+      pick 'Awaiting review' when is_valid = 0 and is_reviewed = 0 else 'Unknown'
+    #(doc) Flock size band of a report (most birds seen at one time): 1, 2, 3-4, 5-9, 10-19, 20-49, 50-99, 100+.
+    flock_band is pick '1' when flock_band_order = 1 pick '2' when flock_band_order = 2 pick '3-4' when flock_band_order = 3
+      pick '5-9' when flock_band_order = 4 pick '10-19' when flock_band_order = 5 pick '20-49' when flock_band_order = 6
+      pick '50-99' when flock_band_order = 7 else '100+'
+  measure:
+    #(doc) Number of reports, flagged ones included.
+    records is n_records.sum()
+    #(doc) Reports accepted or approved.
+    valid_records is n_records.sum() { where: is_valid = 1 }
+    #(doc) Reports flagged and not (yet) confirmed.
+    flagged_records is n_records.sum() { where: is_valid = 0 }
+    #(doc) Share of reports flagged and not confirmed (0-1).
+    # percent
+    unconfirmed_share is n_records.sum() { where: is_valid = 0 } / nullif(n_records.sum(), 0)
+
+  #(doc) Reports by review state. Filter by species_code for one bird.
+  view: review_states is {
+    group_by: review_status
+    aggregate: records
+    order_by: records desc
+  }
+  #(doc) Valid reports by flock size band. Filter by species_code for one bird.
+  view: flock_sizes is {
+    where: is_valid = 1
+    group_by: flock_band, flock_band_order
+    aggregate: records
+    order_by: flock_band_order
+  }
+}
+
+// ------------------------------------------------------------------ per-species rollups (divide at read time)
+
+#(doc) Checklists (valid reports) on which both the focal and the companion species were reported, per season x FeederWatch region (no state or housing density). Self-pairs included; a missing row means the pair never shared a checklist. Divide by the focal species' checklists_reporting in bird_trends over the same seasons and region, or use companions.
+source: companion_pairs is duckdb.table('data/companion_pairs.parquet') include {
+  public:
+    #(doc) eBird species code of the focal species.
+    focal_code
+    #(doc) eBird species code of the species reported alongside it.
+    companion_code
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(doc) Checklists reporting both species.
+    n_together
+}
+
+#(doc) Site-seasons in scope WITH (has_feature true) and WITHOUT (false) each yard feature, per season x region x state or province x housing density (null when not described). Only sites that answered count. feature_key is one of squirrels, cats, dogs, nearby_feeders, evergreen_trees, fruit_trees, brush_piles, water_sources, bird_baths, woods, fresh_water, agricultural, suet, ground, platform, thistle, fruit_feeder, hummingbird. Denominator for pfw_yard_species.
+source: pfw_yard_sites is duckdb.table('data/yard_sites.parquet') include {
+  public:
+    #(doc) Yard feature: squirrels, cats, dogs, nearby_feeders, evergreen_trees (4 or more), fruit_trees, brush_piles, water_sources, bird_baths, woods (within half a mile), fresh_water, agricultural, suet, ground, platform, thistle, fruit_feeder, hummingbird.
+    feature_key
+    #(doc) True for sites with the feature, false for sites without it.
+    has_feature
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(index)
+    #(doc) Housing density the participant described: Rural, Rural/suburban, Suburban, Urban; null when not described.
+    housing_density
+    #(doc) Site-seasons.
+    n_sites
+}
+
+#(doc) Site-seasons reporting each species, at sites with (has_feature true) and without (false) each yard feature, per season x region x state or province x housing density. Divide n_sites_reporting summed over a scope by n_sites in pfw_yard_sites summed over the same feature, has_feature and scope for percent of sites visited. Associations, not causes.
+source: pfw_yard_species is duckdb.table('data/yard_species.parquet') include {
+  public:
+    #(doc) eBird species code.
+    species_code
+    #(doc) Yard feature; see pfw_yard_sites.
+    feature_key
+    #(doc) True for sites with the feature, false for sites without it.
+    has_feature
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(index)
+    #(doc) Housing density the participant described: Rural, Rural/suburban, Suburban, Urban; null when not described.
+    housing_density
+    #(doc) Site-seasons that reported the species.
+    n_sites_reporting
+}
+
+#(doc) Site-seasons with no valid report of any taxon, per season x region x state or province x housing density (null when not described). The yard-feature page lists one row with no species whenever its scope contains such a site-season.
+source: pfw_unreported_sites is duckdb.table('data/unreported_sites.parquet') include {
+  public:
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(index)
+    #(doc) Housing density the participant described: Rural, Rural/suburban, Suburban, Urban; null when not described.
+    housing_density
+    #(doc) Site-seasons with no valid report.
+    n_sites
+}
+
+#(doc) Site-seasons reporting each species per half-degree grid cell, season and housing density. Divide by site_count from site_seasons grouped by grid_lat, grid_lon over the same scope for percent of sites visited on a map.
+source: pfw_grid_species is duckdb.table('data/grid_species.parquet') include {
+  public:
+    #(doc) eBird species code.
+    species_code
+    #(doc) Half-degree grid cell (south-west corner latitude).
+    grid_lat
+    #(doc) Half-degree grid cell (south-west corner longitude).
+    grid_lon
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) Housing density the participant described: Rural, Rural/suburban, Suburban, Urban; null when not described.
+    housing_density
+    #(doc) Site-seasons that reported the species.
+    n_sites_reporting
+}
+
+#(doc) Checklists reporting each species (valid reports) and their summed counts, by snow depth, season, region, state or province and housing density. Divide by checklist_count from checklist_counts over the same scope and snow depth.
+source: pfw_snow_species is duckdb.table('data/snow_species.parquet') include {
+  public:
+    #(doc) eBird species code.
+    species_code
+    #(doc) Snow on the ground: None, Under 5 cm, 5-15 cm, Over 15 cm.
+    snow_depth
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(index)
+    #(doc) Housing density the participant described: Rural, Rural/suburban, Suburban, Urban; null when not described.
+    housing_density
+    #(doc) Checklists that reported the species.
+    n_checklists_reporting
+    #(doc) Sum of the species' high counts on those checklists.
+    n_birds
+}
+
+#(doc) Checklists reporting each species (valid reports) and their summed counts, by hours watched, season, region, state or province and housing density. Divide by checklist_count from checklist_counts over the same scope and hours.
+source: pfw_effort_species is duckdb.table('data/effort_species.parquet') include {
+  public:
+    #(doc) eBird species code.
+    species_code
+    #(doc) Hours watched over the two days: Under 1 hour, 1-4 hours, 4-8 hours, Over 8 hours.
+    effort_hours
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+    #(index)
+    #(doc) State or province code, e.g. US-NY (New York), CA-ON (Ontario).
+    state_code
+    #(index)
+    #(doc) Housing density the participant described: Rural, Rural/suburban, Suburban, Urban; null when not described.
+    housing_density
+    #(doc) Checklists that reported the species.
+    n_checklists_reporting
+    #(doc) Sum of the species' high counts on those checklists.
+    n_birds
+}
+
+// ------------------------------------------------------------------ one species (given)
+
+// bird_trends at the grain companion_pairs is stored at: species x season x region.
+source: companion_scope is bird_trends -> {
+  group_by: species_code, common_name, category, season, region_code
+  aggregate: checklists_reporting, checklist_count
+}
+
+#(doc) Which other birds turn up on the same checklists as the focal species (requires the focal_species given): the share of its checklists that also had each species, and lift, how much more often than on checklists in general (1 = no different). Filter by season and region only: pairs are stored per season x region. Lift partly reflects shared range and habitat.
+source: companions is companion_scope include {
+  public:
+    #(doc) eBird species code of the species seen alongside the focal species.
+    species_code
+    #(index)
+    #(doc) English common name of the species.
+    common_name
+    #(doc) Taxon category: species, slash, spuh, hybrid or domestic.
+    category
+    #(doc) Season, named by the year it ends (2024 = 2023-24).
+    # number=id
+    season
+    #(doc) FeederWatch region code: AC, WE, SW, CE, NE, SO, or XX outside regions.
+    region_code
+  internal: checklists_reporting, checklist_count
+} extend {
+  join_one: pr is companion_pairs on pr.season = season and pr.region_code = region_code
+    and pr.companion_code = species_code and pr.focal_code = $focal_species
+  measure:
+    #(doc) Share of the focal species' checklists on which this species was also reported (0-1).
+    # percent
+    share_with_focal is pr.n_together.sum()
+      / nullif(all(checklists_reporting.sum() { where: species_code = $focal_species }), 0)
+    #(doc) Share of all checklists in scope on which this species was reported (0-1).
+    # percent
+    share_overall is checklists_reporting.sum()
+      / nullif(all(checklist_count.sum() { where: species_code = $focal_species }), 0)
+
+  #(doc) Top companions of the focal species. Includes the focal species itself (share 1) and non-species taxa; drop those rows rather than filtering them, so the denominators stay all checklists in scope.
+  view: top_companions is {
+    group_by: species_code, common_name, category
+    aggregate: share_with_focal, share_overall, lift is share_with_focal / nullif(share_overall, 0)
+    order_by: share_with_focal desc
+    limit: 45
+  }
+} include {
+  internal: pr
+  public: *
+}

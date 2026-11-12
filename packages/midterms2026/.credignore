@@ -1,2 +1,11 @@
 # Synthetic offline fixture from `pnpm data:stub`; gitignored and not the published data.
 pipeline/fixtures/
+# Dev tooling and the container's front door: not part of the published package.
+node_modules/
+package.json
+pnpm-lock.yaml
+.npmrc
+Dockerfile
+.dockerignore
+serve.mjs
+publisher.config.json

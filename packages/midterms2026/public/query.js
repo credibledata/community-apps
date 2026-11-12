@@ -22,7 +22,7 @@ const PACKAGE_PATH = /\/environments\/([^/]+)\/packages\/([^/]+)\//
 /**
  * Where the app POSTs its queries, resolved against the page it is served from, so the same
  * files work under Publisher's four-level path, at "/" behind serve.mjs, and under a
- * load-balancer prefix such as "/elections/". See community/apps/avalanche for the history.
+ * load-balancer prefix such as "/elections/".
  */
 export function queryUrl(pathname, model = MODEL) {
   return modelUrl(pathname, model) + '/query'
