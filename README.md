@@ -9,7 +9,7 @@ reads, and an HTML app in the package's `public/` directory, served by Publisher
 | The 2026 Wildfire Season | How 2026's US fire season compared with every season since 2015, and where, when and why the fires burned | [`packages/wildfire-season-2026`](packages/wildfire-season-2026) |
 | New York EV registrations | Whether New York's new EV registrations fell after the federal clean vehicle tax credit ended on 30 September 2025 | [`packages/ev-registrations-2026`](packages/ev-registrations-2026) |
 | Project FeederWatch explorer | How winter feeder birds across North America changed from 1988-89 to 2023-24, by species, region and yard | [`packages/feederwatch`](packages/feederwatch) |
-| Colorado Avalanche Explorer | Where, when and how Colorado's avalanches were observed, from CAIC reports since 1951 | [`packages/avalanche`](packages/avalanche) |
+| Colorado Avalanche Explorer | Where, when and how Colorado's avalanches run, how storms and warm-ups drive them, and who gets caught, from CAIC reports and SNOTEL | [`packages/avalanche`](packages/avalanche) |
 
 ## Layout
 

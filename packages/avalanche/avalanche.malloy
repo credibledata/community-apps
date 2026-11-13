@@ -7,7 +7,9 @@
 // row contributes all its avalanches to the same bucket.
 
 #(doc) Avalanche observations reported to the Colorado Avalanche Information Center. One row per observation; an observation can report several avalanches. Coverage is reliable from the 2011 season (water year) onward.
-source: avalanche_observations is duckdb.table('data/avalanche_observations.parquet') extend {
+source: avalanche_observations is duckdb.sql("""
+  select * replace (id::varchar as id) from 'data/avalanche_observations.parquet'
+""") extend {
   primary_key: id
   rename: reported_count is avalanche_count_reported
 
@@ -91,10 +93,11 @@ source: avalanche_observations is duckdb.table('data/avalanche_observations.parq
     #(doc) True for avalanches triggered by people travelling in the terrain (not explosives control work, not natural).
     is_human_triggered is trigger = 'Skier / rider' | 'Snowmobile' | 'Hiker / climber' | 'Other human'
     is_known_trigger is trigger != 'Unknown'
-    #(doc) Trigger modifier: remote (triggered from a distance), unintentional, intentional/controlled, sympathetic.
-    trigger_modifier is pick 'Remote' when lower(secondary_trigger) = 'r'
+    #(doc) SWAG trigger modifier for avalanches people or explosives released: remote (from a distance), unintentional, intentional (a ski cut or deliberate release), sympathetic (set off by another slide). SWAG defines no modifier for natural avalanches, so one recorded on a natural avalanche is treated as an entry error and nulled.
+    trigger_modifier is pick null when trigger = 'Natural' or trigger = 'Unknown'
+      pick 'Remote' when lower(secondary_trigger) = 'r'
       pick 'Unintentional' when lower(secondary_trigger) = 'u'
-      pick 'Controlled' when lower(secondary_trigger) = 'c'
+      pick 'Intentional' when lower(secondary_trigger) = 'c'
       pick 'Sympathetic' when lower(secondary_trigger) = 'y' else null
 
     #(doc) True when the observation records an incident: a person or property was caught or involved. Null in the raw data is treated as false.
@@ -241,7 +244,7 @@ source: avalanche_observations is duckdb.table('data/avalanche_observations.parq
 
   #(doc) The observation records themselves, newest first.
   view: observation_list is {
-    group_by:
+    select:
       id, observed_date, forecast_zone, place, slope_aspect, elevation, avalanche_type,
       avalanche_problem, trigger, trigger_modifier, destructive_size, relative_size,
       reported_count, crown_depth_in, vertical_fall_ft, involved_people, description, report_url
@@ -253,4 +256,171 @@ source: avalanche_observations is duckdb.table('data/avalanche_observations.parq
 #(doc) One forecast zone, for a drill-down drawer. Every inherited measure and view is already scoped to the zone.
 source: zone_detail(zone_name::string is 'Gunnison') is avalanche_observations extend {
   where: forecast_zone = zone_name
+}
+
+// ---- Accidents ---------------------------------------------------------------------------------
+// CAIC accident and incident reports for Colorado (data/accidents.parquet, built by pipeline/shape.py).
+// One row per report: an event where people (or property) were caught or involved. Deaths per
+// season match CAIC's published fatality table.
+
+#(doc) Colorado avalanche accidents and incidents reported to CAIC, one row per report, 1951 on. Counts of people involved, caught, buried, injured and killed; activity; the forecast danger rating where CAIC recorded it.
+source: accidents is duckdb.table('data/accidents.parquet') extend {
+  primary_key: report_id
+
+  dimension:
+    #(doc) Avalanche season (water year) of the accident.
+    season is water_year
+    season_label is concat((water_year - 1)::string, '-', substr(water_year::string, 3, 2))
+    is_reliable_era is water_year >= 2011
+    month_of_year is month(observed_date)
+    season_month_order is pick month_of_year - 9 when month_of_year >= 10 else month_of_year + 3
+    month_name is pick 'Oct' when month_of_year = 10 pick 'Nov' when month_of_year = 11
+      pick 'Dec' when month_of_year = 12 pick 'Jan' when month_of_year = 1
+      pick 'Feb' when month_of_year = 2 pick 'Mar' when month_of_year = 3
+      pick 'Apr' when month_of_year = 4 pick 'May' when month_of_year = 5
+      pick 'Jun' when month_of_year = 6 pick 'Jul' when month_of_year = 7
+      pick 'Aug' when month_of_year = 8 else 'Sep'
+    forecast_zone is coalesce(nullif(zone, ''), 'Unassigned')
+    #(doc) Who was caught, grouped from CAIC's travel activity.
+    activity_group is pick 'Skiers and riders' when activity = 'Skiers and snowboarders'
+      pick 'Snowmobilers' when activity = 'Snowmobilers and snowbikers'
+      pick 'Hikers and climbers' when activity = 'Snowshoers, hikers, and climbers'
+      pick 'Residents and workers' when activity = 'Residents and workers' | 'People in transportation corridors'
+      else 'Other'
+    #(doc) CAIC backcountry danger rating for the place and day, as recorded in the report. Only about one report in six records it, nearly all since 2011.
+    danger is nullif(danger_rating, '')
+    danger_order is pick 1 when danger = 'Low' pick 2 when danger = 'Moderate' pick 3 when danger = 'Considerable'
+      pick 4 when danger = 'High' pick 5 when danger = 'Extreme' else null
+    is_fatal is killed > 0
+    #(doc) Worst outcome in the report: Fatal, Buried, Caught or Involved.
+    outcome is pick 'Fatal' when killed > 0 pick 'Buried' when buried > 0 pick 'Caught' when caught > 0 else 'Involved'
+
+  measure:
+    #(doc) Number of accident and incident reports.
+    reports is count()
+    fatal_accidents is count() { where: is_fatal }
+    people_involved is involved.sum()
+    people_caught is caught.sum()
+    people_buried is buried.sum()
+    people_injured is injured.sum()
+    #(doc) People killed. Matches CAIC's published Colorado fatality counts by season.
+    people_killed is killed.sum()
+    #(doc) Share of people caught who died.
+    pct_caught_killed is people_killed / nullif(people_caught, 0)
+
+  view: kpis is {
+    aggregate: reports, fatal_accidents, people_caught, people_buried, people_killed, pct_caught_killed
+  }
+  view: by_season is {
+    group_by: season, season_label
+    aggregate: reports, people_caught, people_buried, people_killed
+    order_by: season
+  }
+  view: by_activity is {
+    group_by: activity_group
+    aggregate: reports, people_caught, people_killed
+    order_by: people_killed desc
+  }
+  #(doc) Reports and deaths by the danger rating recorded for the day. Only reports that recorded one.
+  view: by_danger is {
+    where: danger_order is not null
+    group_by: danger, danger_order
+    aggregate: reports, fatal_accidents, people_caught, people_killed
+    order_by: danger_order
+  }
+  view: by_month is {
+    group_by: season_month_order, month_name
+    aggregate: reports, people_killed
+    order_by: season_month_order
+  }
+  view: accident_list is {
+    select: report_id, observed_date, forecast_zone, location, activity_group, outcome,
+      caught, buried, injured, killed, danger, report_url
+    order_by: observed_date desc, report_id
+    limit: 200
+  }
+}
+
+#(doc) The avalanches in accident reports: each row links a report to one of its avalanche observations, with both sides joined.
+source: accident_avalanches is duckdb.table('data/accident_observations.parquet') extend {
+  join_one: accident is accidents on report_id = accident.report_id
+  join_one: obs is avalanche_observations on observation_id = obs.id
+  measure:
+    reports is count(report_id)
+    fatal_reports is count(report_id) { where: accident.is_fatal }
+  #(doc) Aspect of the avalanches that caught people, with how many reports were fatal. By aspect only: since 2011 the avalanches in fatal reports almost never carry an elevation band.
+  view: by_aspect is {
+    where: obs.slope_aspect is not null
+    group_by: obs.slope_aspect, obs.aspect_degrees
+    aggregate: reports, fatal_reports
+    order_by: aspect_degrees
+  }
+}
+
+// ---- Snowpack and weather -----------------------------------------------------------------------
+// NRCS SNOTEL stations averaged per CAIC zone and day (data/snotel_zone_daily.parquet), joined to the
+// avalanches observed in that zone on that day. Station counts per zone differ: Gunnison has 4.
+
+#(doc) Avalanches observed per forecast zone and day, for joining to daily weather.
+source: zone_day_avalanches is avalanche_observations -> {
+  group_by: forecast_zone, observed_date
+  aggregate: avalanches, human_triggered_avalanches, natural_avalanches, large_avalanches
+}
+
+#(doc) One row per CAIC forecast zone and day from Oct 2010: SNOTEL snow water equivalent, depth, new SWE and temperature averaged over the zone's stations, with the avalanches observed there that day.
+source: snow_days is duckdb.table('data/snotel_zone_daily.parquet') extend {
+  rename: snow_date is `date`
+  join_one: av is zone_day_avalanches on zone = av.forecast_zone and snow_date = av.observed_date
+  dimension:
+    forecast_zone is zone
+    season is pick year(snow_date) + 1 when month(snow_date) >= 10 else year(snow_date)
+    season_label is concat((season - 1)::string, '-', substr(season::string, 3, 2))
+    month_of_year is month(snow_date)
+    #(doc) December to March: the core of the season, when new snow drives most slides.
+    is_core_winter is month_of_year = 12 | 1 | 2 | 3
+    #(doc) New snow water equivalent over three days, in inches, binned. About 1 inch of SWE is roughly a foot of new snow.
+    storm_bin is pick '0 None' when new_swe_3d_in < 0.1 pick '1 Light' when new_swe_3d_in < 0.4
+      pick '2 Moderate' when new_swe_3d_in < 0.8 pick '3 Heavy' when new_swe_3d_in < 1.2
+      pick '4 Major' when new_swe_3d_in >= 1.2 else null
+    storm_label is pick 'Under 0.1 in' when storm_bin = '0 None' pick '0.1-0.4 in' when storm_bin = '1 Light'
+      pick '0.4-0.8 in' when storm_bin = '2 Moderate' pick '0.8-1.2 in' when storm_bin = '3 Heavy'
+      pick '1.2 in or more' when storm_bin = '4 Major' else null
+    #(doc) Day's high against the day before, binned (degrees F).
+    warming_bin is pick '0 Cooling' when tmax_change_f < -5 pick '1 Steady' when tmax_change_f <= 5
+      pick '2 Warming' when tmax_change_f <= 10 pick '3 Sharp warming' when tmax_change_f > 10 else null
+  measure:
+    zone_days is count()
+    avalanches is coalesce(av.avalanches.sum(), 0)
+    human_triggered_avalanches is coalesce(av.human_triggered_avalanches.sum(), 0)
+    natural_avalanches is coalesce(av.natural_avalanches.sum(), 0)
+    #(doc) Avalanches observed per zone-day.
+    avalanches_per_day is avalanches / nullif(zone_days, 0)
+    human_per_day is human_triggered_avalanches / nullif(zone_days, 0)
+    natural_per_day is natural_avalanches / nullif(zone_days, 0)
+    #(doc) Share of zone-days with at least one D3 or larger avalanche observed.
+    pct_days_with_large is count() { where: av.large_avalanches > 0 } / nullif(zone_days, 0)
+    avg_swe_in is avg(swe_in)
+    avg_depth_in is avg(depth_in)
+    total_new_swe_in is new_swe_in.sum()
+
+  #(doc) Avalanche activity by three-day storm loading, Dec-Mar.
+  view: by_storm is {
+    where: is_core_winter and storm_bin is not null
+    group_by: storm_bin, storm_label
+    aggregate: zone_days, avalanches_per_day, human_per_day, natural_per_day, pct_days_with_large
+    order_by: storm_bin
+  }
+  #(doc) Wet-season activity (Mar-Jun) by day-over-day warming.
+  view: by_warming is {
+    where: (month_of_year = 3 | 4 | 5 | 6) and warming_bin is not null
+    group_by: warming_bin
+    aggregate: zone_days, avalanches_per_day, natural_per_day
+    order_by: warming_bin
+  }
+  #(doc) Daily snowpack and avalanches for one season, for a season timeline. Filter to a zone.
+  view: season_timeline is {
+    group_by: snow_date
+    aggregate: avg_swe_in, avg_depth_in, total_new_swe_in, avalanches, human_triggered_avalanches
+    order_by: snow_date
+  }
 }

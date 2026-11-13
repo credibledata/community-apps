@@ -10,13 +10,19 @@ import {
   MODEL,
   SOURCE,
   scopeChips,
+  sideQuery,
+  sideScopeNote,
   stateToHash,
   TRIGGERS,
   tileQuery,
+  timelinePick,
+  timelineQuery,
   zoneQuery,
 } from './query.js'
 
 const $ = (id) => document.getElementById(id)
+// ?perf=1 logs each tile's query and render time to the console.
+const PERF = new URLSearchParams(location.search).has('perf')
 const known = {
   minSeason: 1951,
   maxSeason: 2026,
@@ -30,8 +36,25 @@ let allSeasons = []
 
 // Queries go through Publisher's SDK (/sdk/publisher.js), as the other apps in this repo do: it finds the
 // environment and package from the page, so the same files work on a local Publisher and inside Credible.
-async function run(malloy) {
-  return window.Publisher.query(MODEL, malloy)
+// The data is a static snapshot, so a query's result never changes while the page is open: keep
+// results by query text. Revisiting a scope is instant, and tiles that ask for the same thing (the
+// danger tile reuses the accident totals) share one request. Failures are not kept.
+const cache = new Map()
+const CACHE_MAX = 300
+function run(malloy) {
+  const hit = cache.get(malloy)
+  if (hit) {
+    cache.delete(malloy) // re-insert: Map order doubles as least-recently-used
+    cache.set(malloy, hit)
+    return hit
+  }
+  const p = window.Publisher.query(MODEL, malloy)
+  cache.set(malloy, p)
+  p.catch(() => cache.delete(malloy))
+  if (cache.size > CACHE_MAX) {
+    cache.delete(cache.keys().next().value)
+  }
+  return p
 }
 
 // ---- State bus ------------------------------------------------------------------------------
@@ -62,6 +85,67 @@ const scopeSeasons = () =>
       (state.from === null || s >= state.from) &&
       (state.to === null || s <= state.to)
   )
+
+/**
+ * Links out to CAIC open in a new tab. Inside a sandboxed frame (an embedded preview) the browser
+ * can drop that silently, so if no tab opened, copy the link and say so rather than do nothing.
+ */
+function externalLink(a, href) {
+  a.href = href
+  a.target = '_blank'
+  a.rel = 'noopener'
+  a.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Opened without 'noopener' so a blocked open is detectable (null); the opener link is cut by hand.
+    let opened = null
+    try {
+      opened = window.open(href, '_blank')
+    } catch {
+      opened = null
+    }
+    if (opened) {
+      opened.opener = null
+      return
+    }
+    // Blocked (an embedded viewer without popup permission): show the address to copy, and try the clipboard too.
+    const note = flash(a, 'New tabs are blocked here. Copy the address:', href)
+    Promise.resolve()
+      .then(() => navigator.clipboard.writeText(href))
+      .then(() => {
+        note.firstChild.textContent = 'New tabs are blocked here. Address copied:'
+      })
+      .catch(() => {})
+  })
+}
+
+function flash(anchor, text, href) {
+  anchor.parentElement.querySelectorAll('.link-note').forEach((n) => n.remove())
+  const note = document.createElement('span')
+  note.className = 'link-note'
+  note.setAttribute('role', 'status')
+  const label = document.createElement('span')
+  label.textContent = text
+  const field = document.createElement('input')
+  field.type = 'text'
+  field.readOnly = true
+  field.value = href
+  field.setAttribute('aria-label', 'Report address')
+  field.addEventListener('click', (e) => e.stopPropagation())
+  note.append(label, field)
+  anchor.after(note)
+  field.select()
+  setTimeout(() => note.remove(), 12000)
+  return note
+}
+
+/** Trigger as a patroller would say it: a skier's intentional release is a ski cut. */
+function triggerText(r) {
+  if (r.trigger === 'Skier / rider' && r.trigger_modifier === 'Intentional') {
+    return 'Ski cut'
+  }
+  return r.trigger_modifier ? `${r.trigger}, ${r.trigger_modifier.toLowerCase()}` : r.trigger
+}
 
 // ---- Controls -------------------------------------------------------------------------------
 function option(sel, value, label) {
@@ -142,6 +226,9 @@ function syncControls() {
   $('f-problem').value = state.problem ?? ''
   $('f-people').setAttribute('aria-pressed', String(state.people))
   $('f-big').setAttribute('aria-pressed', String(state.big))
+  for (const hint of document.querySelectorAll('[data-scope-hint]')) {
+    hint.textContent = sideScopeNote(state)
+  }
   const box = $('chips')
   box.replaceChildren()
   const chips = scopeChips(state, seasonLabel)
@@ -209,7 +296,7 @@ function setStatus(body, kind, text) {
 function clearDrawn(body) {
   body
     .querySelectorAll(
-      ':scope > svg, :scope > canvas, :scope > ul, :scope > table'
+      ':scope > svg, :scope > canvas, :scope > ul, :scope > table, :scope > .chart-stack'
     )
     .forEach((n) => n.remove())
 }
@@ -265,7 +352,12 @@ function registerTile(
       return
     }
     setStatus(body, 'done')
+    t.drawnWidth = body.clientWidth
+    const r0 = performance.now()
     const made = render(results, body)
+    if (PERF) {
+      console.debug(`[perf] ${id} render ${Math.round(performance.now() - r0)} ms`)
+    }
     if (made) {
       t.chart = [].concat(made)
     }
@@ -274,9 +366,13 @@ function registerTile(
     t.dirty = false
     const mySeq = ++t.seq
     setStatus(body, 'loading')
-    queue.push(() =>
-      Promise.all(queries().map(run))
+    queue.push(() => {
+      const q0 = performance.now()
+      return Promise.all(queries().map(run))
         .then((results) => {
+          if (PERF) {
+            console.debug(`[perf] ${id} query ${Math.round(performance.now() - q0)} ms`)
+          }
           if (mySeq !== t.seq) {
             return // stale: scope moved on while this was in flight
           }
@@ -296,7 +392,7 @@ function registerTile(
           )
           console.error(`[tile ${id}]`, err)
         })
-    )
+    })
     pump()
   }
   if (provenance && root.tagName === 'ARTICLE') {
@@ -330,13 +426,18 @@ const io = new IntersectionObserver(
   { rootMargin: '240px' }
 )
 
+// Redraw a tile only when its own width changed. A tile finishing its load changes the page's
+// height, and redrawing every visible tile on any resize drew the calendar three times on scroll.
 let resizeTimer
 const ro = new ResizeObserver(() => {
   clearTimeout(resizeTimer)
-  resizeTimer = setTimeout(
-    () => Object.values(tiles).forEach((t) => t.visible && t.redraw()),
-    150
-  )
+  resizeTimer = setTimeout(() => {
+    for (const t of Object.values(tiles)) {
+      if (t.visible && t.last && t.body.clientWidth !== t.drawnWidth) {
+        t.redraw()
+      }
+    }
+  }, 150)
 })
 
 // ---- Tile definitions -----------------------------------------------------------------------
@@ -352,7 +453,7 @@ function defineTiles() {
       const inScope = seasons.filter((r) => scopeSeasons().includes(r.season))
       $('k-avalanches').textContent = fmtInt(k?.avalanches)
       $('k-avalanches-sub').textContent = k?.avalanches
-        ? `${fmtInt(k.observations)} observations · ${fmtDate(k.first_observed)} – ${fmtDate(k.last_observed)}`
+        ? `${fmtInt(k.observations)} observations, ${fmtDate(k.first_observed)} to ${fmtDate(k.last_observed)}`
         : 'No avalanches in scope'
       $('k-human').textContent = fmtPct(k?.pct_human_triggered)
       $('k-human-sub').textContent = k?.avalanches
@@ -360,7 +461,7 @@ function defineTiles() {
         : ' '
       $('k-big').textContent = fmtPct(k?.pct_dangerous_size)
       $('k-big-sub').textContent = k?.avalanches
-        ? `${fmtInt(k.dangerous_size_avalanches)} D2+ · ${fmtInt(k.large_avalanches)} D3+ (car-burying)`
+        ? `${fmtInt(k.dangerous_size_avalanches)} D2 or larger, ${fmtInt(k.large_avalanches)} D3 or larger`
         : ' '
       $('k-people').textContent = fmtInt(k?.incident_observations)
       $('k-people-sub').textContent = k?.avalanches
@@ -494,7 +595,7 @@ function defineTiles() {
           const open = document.createElement('button')
           open.type = 'button'
           open.className = 'open'
-          open.textContent = 'Profile →'
+          open.textContent = 'Zone profile'
           open.addEventListener('click', (e) => {
             e.stopPropagation()
             openDrawer(r.forecast_zone)
@@ -695,7 +796,7 @@ function defineTiles() {
           fmtDate(r.observed_date),
           r.forecast_zone,
           r.place ?? '—',
-          [r.slope_aspect, r.elevation].filter(Boolean).join(' · ') || '—',
+          [r.slope_aspect, r.elevation?.toLowerCase()].filter(Boolean).join(', ') || '—',
           r.avalanche_problem ?? r.avalanche_type ?? '—',
         ]
         for (const c of cells) {
@@ -704,9 +805,7 @@ function defineTiles() {
         const trig = tr.insertCell()
         const tag = document.createElement('span')
         tag.className = `tag ${HUMAN_TRIGGERS.has(r.trigger) ? 'human' : r.trigger === 'Natural' ? 'natural' : 'other'}`
-        tag.textContent = r.trigger_modifier
-          ? `${r.trigger} · ${r.trigger_modifier}`
-          : r.trigger
+        tag.textContent = triggerText(r)
         trig.appendChild(tag)
         if (r.involved_people) {
           const p = document.createElement('span')
@@ -743,10 +842,8 @@ function defineTiles() {
             /^https:\/\/avalanche\.state\.co\.us\//.test(r.report_url)
           ) {
             const a = document.createElement('a')
-            a.href = r.report_url
-            a.target = '_blank'
-            a.rel = 'noopener'
-            a.textContent = 'Full report on avalanche.state.co.us →'
+            externalLink(a, r.report_url)
+            a.textContent = 'Read the full report on avalanche.state.co.us'
             td.appendChild(a)
           }
           open.appendChild(td)
@@ -758,6 +855,212 @@ function defineTiles() {
             toggle()
           }
         })
+      }
+      body.appendChild(table)
+    },
+  })
+
+  // ---- Storms and warm-ups (snow_days) ----
+  registerTile('storm', {
+    queries: () => [sideQuery('storm', state, known)],
+    render: ([rows], body) =>
+      charts.bars(body, {
+        labels: rows.map((r) => r.storm_label),
+        series: [
+          { label: 'Natural', data: rows.map((r) => r.natural_per_day), color: charts.token('--natural') },
+          { label: 'Triggered by people', data: rows.map((r) => r.human_per_day), color: charts.token('--human') },
+        ],
+        format: (v) => (v == null ? '—' : v.toFixed(1)),
+        tipTitle: (i) => `${rows[i].storm_label} of new SWE in 3 days`,
+        tipRows: (i) => [
+          ['Natural avalanches per day', rows[i].natural_per_day.toFixed(2)],
+          ['Triggered by people per day', rows[i].human_per_day.toFixed(2)],
+          ['Days with a D3 or larger', fmtPct(rows[i].pct_days_with_large, 1)],
+          ['Zone-days', fmtInt(rows[i].zone_days)],
+        ],
+      }),
+  })
+
+  registerTile('warming', {
+    queries: () => [sideQuery('warming', state, known)],
+    render: ([rows], body) => {
+      const names = {
+        '0 Cooling': 'Cooler by 5°F+',
+        '1 Steady': 'Within 5°F',
+        '2 Warming': 'Warmer by 5-10°F',
+        '3 Sharp warming': 'Warmer by 10°F+',
+      }
+      return charts.bars(body, {
+        labels: rows.map((r) => names[r.warming_bin] ?? r.warming_bin),
+        series: [
+          { label: 'Natural avalanches per day', data: rows.map((r) => r.natural_per_day), color: charts.token('--natural') },
+        ],
+        format: (v) => (v == null ? '—' : v.toFixed(1)),
+        tipRows: (i) => [
+          ['Natural avalanches per day', rows[i].natural_per_day.toFixed(2)],
+          ['All avalanches per day', rows[i].avalanches_per_day.toFixed(2)],
+          ['Zone-days', fmtInt(rows[i].zone_days)],
+        ],
+      })
+    },
+  })
+
+  registerTile('timeline', {
+    queries: () => [timelineQuery(state, known)],
+    render: ([all], body) => {
+      // October to June: summer days carry no snow and no avalanches worth the width.
+      const rows = all.filter((r) => {
+        const m = Number(String(r.snow_date).slice(5, 7))
+        return m >= 10 || m <= 6
+      })
+      const { season, zone } = timelinePick(state, known)
+      $('timeline-title').textContent = `${zone}, ${seasonLabel(season)}, day by day`
+      const total = rows.reduce((a, r) => a + (r.avalanches || 0), 0)
+      const peak = rows.reduce((a, r) => (r.avg_swe_in > (a?.avg_swe_in ?? -1) ? r : a), null)
+      $('timeline-caption').textContent =
+        `${fmtInt(total)} avalanches seen; snowpack peaked at ${peak?.avg_swe_in?.toFixed(1) ?? '—'} in of SWE on ${peak ? fmtDate(peak.snow_date) : '—'}. ` +
+        (state.zone ? '' : `Pick a zone above to see another; `) +
+        (state.to === null ? 'set the last season to see another year.' : '')
+      return charts.timeline(body, rows)
+    },
+  })
+
+  // ---- Accidents ----
+  registerTile('acc-kpis', {
+    provenance: false,
+    queries: () => [sideQuery('acc-kpis', state, known)],
+    isEmpty: () => false,
+    render: ([[k]]) => {
+      $('a-reports').textContent = fmtInt(k?.reports)
+      $('a-reports-sub').textContent = k?.reports
+        ? `${fmtInt(k.fatal_accidents)} with a death`
+        : 'No reports in scope'
+      $('a-caught').textContent = fmtInt(k?.people_caught)
+      $('a-caught-sub').textContent = k?.people_caught ? 'carried by the slide' : ' '
+      $('a-buried').textContent = fmtInt(k?.people_buried)
+      $('a-buried-sub').textContent = k?.people_caught
+        ? `${fmtPct(share(k.people_buried, k.people_caught))} of those caught`
+        : ' '
+      $('a-killed').textContent = fmtInt(k?.people_killed)
+      $('a-killed-sub').textContent = k?.people_caught
+        ? `${fmtPct(k.pct_caught_killed)} of those caught`
+        : ' '
+    },
+  })
+
+  registerTile('danger', {
+    queries: () => [sideQuery('danger', state, known), sideQuery('acc-kpis', state, known)],
+    render: ([rows, [k]], body) => {
+      const rated = rows.reduce((a, r) => a + r.reports, 0)
+      $('danger-caption').textContent =
+        `Only reports that record a rating: ${fmtInt(rated)} of ${fmtInt(k?.reports)} in this scope, nearly all since 2011.`
+      charts.dangerRows(body, rows)
+    },
+  })
+
+  registerTile('acc-seasons', {
+    queries: () => [sideQuery('acc-seasons', state, known)],
+    render: ([rows], body) => {
+      const inScope = new Set(scopeSeasons())
+      return charts.bars(body, {
+        labels: rows.map((r) => `'${String(r.season % 100).padStart(2, '0')}`),
+        stacked: true,
+        series: [
+          {
+            label: 'Killed',
+            data: rows.map((r) => r.people_killed),
+            color: rows.map((r) => (inScope.has(r.season) ? charts.token('--people') : charts.token('--people-soft'))),
+          },
+          {
+            label: 'Caught and survived',
+            data: rows.map((r) => r.people_caught - r.people_killed),
+            color: rows.map((r) => (inScope.has(r.season) ? charts.token('--seq-2') : charts.token('--seq-1'))),
+          },
+        ],
+        tipTitle: (i) => rows[i].season_label,
+        tipRows: (i) => [
+          ['Killed', fmtInt(rows[i].people_killed)],
+          ['Caught', fmtInt(rows[i].people_caught)],
+          ['Buried', fmtInt(rows[i].people_buried)],
+          ['Reports', fmtInt(rows[i].reports)],
+        ],
+      })
+    },
+  })
+
+  registerTile('acc-activity', {
+    queries: () => [sideQuery('acc-activity', state, known)],
+    render: ([rows], body) => {
+      const shown = rows.filter((r) => r.people_caught > 0)
+      return charts.bars(body, {
+        labels: shown.map(
+          (r) => `${r.activity_group}, ${fmtPct(share(r.people_killed, r.people_caught))} died`
+        ),
+        horizontal: true,
+        stacked: true,
+        series: [
+          { label: 'Killed', data: shown.map((r) => r.people_killed), color: charts.token('--people') },
+          { label: 'Caught and survived', data: shown.map((r) => r.people_caught - r.people_killed), color: charts.token('--seq-2') },
+        ],
+        tipRows: (i) => [
+          ['People caught', fmtInt(shown[i].people_caught)],
+          ['Killed', `${fmtInt(shown[i].people_killed)} (${fmtPct(share(shown[i].people_killed, shown[i].people_caught))} of those caught)`],
+          ['Reports', fmtInt(shown[i].reports)],
+        ],
+      })
+    },
+  })
+
+  registerTile('acc-rose', {
+    queries: () => [sideQuery('acc-rose', state, known)],
+    render: ([rows], body) =>
+      charts.rose(
+        body,
+        rows.map((r) => ({ ...r, elevation: 'All elevations' })),
+        { metric: 'fatal', rings: ['All elevations'] }
+      ),
+  })
+
+  registerTile('acc-list', {
+    queries: () => [sideQuery('acc-list', state, known)],
+    render: ([rows], body) => {
+      $('acc-list-sub').textContent =
+        rows.length >= 200
+          ? "Newest 200 reports in the current scope. Each links to CAIC's full write-up."
+          : `All ${rows.length} reports in the current scope. Each links to CAIC's full write-up.`
+      const table = document.createElement('table')
+      table.className = 'obs'
+      const head = table.createTHead().insertRow()
+      for (const h of ['Date', 'Zone', 'Place', 'Who', 'Outcome', 'Caught', 'Buried', 'Killed', 'Danger', '']) {
+        const th = document.createElement('th')
+        th.textContent = h
+        head.appendChild(th)
+      }
+      const tb = table.createTBody()
+      for (const r of rows) {
+        const tr = tb.insertRow()
+        for (const c of [fmtDate(r.observed_date), r.forecast_zone, r.location || '—', r.activity_group]) {
+          tr.insertCell().textContent = c
+        }
+        const oc = tr.insertCell()
+        const tag = document.createElement('span')
+        tag.className = `tag outcome-${r.outcome.toLowerCase()}`
+        tag.textContent = r.outcome
+        oc.appendChild(tag)
+        for (const v of [r.caught, r.buried, r.killed]) {
+          const td = tr.insertCell()
+          td.className = 'num'
+          td.textContent = fmtInt(v)
+        }
+        tr.insertCell().textContent = r.danger ?? '—'
+        const link = tr.insertCell()
+        if (/^https:\/\/avalanche\.state\.co\.us\/report\//.test(r.report_url)) {
+          const a = document.createElement('a')
+          externalLink(a, r.report_url)
+          a.textContent = 'Report'
+          a.setAttribute('aria-label', `CAIC report, ${fmtDate(r.observed_date)}, ${r.location || r.forecast_zone}`)
+          link.appendChild(a)
+        }
       }
       body.appendChild(table)
     },
@@ -849,7 +1152,7 @@ function renderDrawer() {
     (c) => c.label
   )
   $('drawer-scope').textContent =
-    `Scope: ${chips.length ? chips.join(' · ') : `seasons ${seasonLabel(state.from)} → now`}`
+    `Scope: ${chips.length ? chips.join(', ') : `seasons ${seasonLabel(state.from)} to now`}`
   for (const id of ['drawer-stats', 'drawer-recent']) {
     $(id).replaceChildren()
   }
@@ -875,7 +1178,7 @@ function renderDrawer() {
         [fmtInt(k?.avalanches), 'avalanches'],
         [fmtPct(k?.pct_human_triggered), 'human-triggered'],
         [fmtPct(k?.pct_dangerous_size), 'D2 or larger'],
-        [fmtInt(k?.large_avalanches), 'D3+ (car-burying)'],
+        [fmtInt(k?.large_avalanches), 'D3 or larger'],
         [fmtInt(k?.incident_observations), 'with people involved'],
         [fmtInt(k?.active_days), 'days with avalanches'],
       ]) {
@@ -907,7 +1210,14 @@ function renderDrawer() {
         const li = document.createElement('li')
         const when = document.createElement('div')
         when.className = 'when'
-        when.textContent = `${fmtDate(r.observed_date)} · ${[r.slope_aspect, r.elevation].filter(Boolean).join(' · ')} · ${r.trigger} · ${r.destructive_size ?? 'size ?'}`
+        when.textContent = [
+          fmtDate(r.observed_date),
+          [r.slope_aspect, r.elevation?.toLowerCase()].filter(Boolean).join(' '),
+          triggerText(r),
+          r.destructive_size ?? 'size not rated',
+        ]
+          .filter(Boolean)
+          .join(', ')
         const what = document.createElement('div')
         what.textContent = r.description
           ? r.description.length > 220
@@ -938,15 +1248,14 @@ function renderDrawer() {
 
 // ---- Boot -----------------------------------------------------------------------------------
 async function boot() {
-  const [zones, problems, seasons] = await Promise.all([
-    run(
-      `run: ${SOURCE} -> { group_by: forecast_zone; order_by: forecast_zone }`
-    ),
-    run(
-      `run: ${SOURCE} -> { where: avalanche_problem is not null; group_by: avalanche_problem; order_by: avalanche_problem }`
-    ),
-    run(`run: ${SOURCE} -> { group_by: season; order_by: season }`),
-  ])
+  // One request for the three lists the controls are built from (Publisher runs queries one at a time).
+  const [{ zones, problems, seasons }] = await run(
+    `run: ${SOURCE} -> {
+      nest: zones is { group_by: forecast_zone; order_by: forecast_zone }
+      nest: problems is { where: avalanche_problem is not null; group_by: avalanche_problem; order_by: avalanche_problem }
+      nest: seasons is { group_by: season; order_by: season }
+    }`
+  )
   known.zones = zones.map((r) => r.forecast_zone)
   known.problems = problems.map((r) => r.avalanche_problem)
   allSeasons = seasons.map((r) => r.season)
@@ -968,6 +1277,20 @@ async function boot() {
     openDrawer(parsed.drawer)
   }
 }
+
+// Charts read colour tokens when they draw, so redraw when the theme flips: the OS setting, or a
+// host page stamping data-theme on <html>.
+const redrawAll = () => {
+  charts.clearTokens()
+  for (const t of Object.values(tiles)) {
+    t.redraw()
+  }
+}
+window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', redrawAll)
+new MutationObserver(redrawAll).observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ['data-theme'],
+})
 
 boot().catch((err) => {
   const s = document.createElement('div')

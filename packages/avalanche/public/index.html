@@ -10,14 +10,16 @@
   <body>
     <header class="masthead">
       <div class="page">
-        <div class="eyebrow">
-          Colorado Avalanche Information Center · observations
-        </div>
-        <h1>When, where, and who sets them off</h1>
-        <p>
-          Every avalanche observation reported to CAIC. Click anything — a petal
-          of the rose, a season, a zone, a trigger, a problem — to filter the
-          whole page. The link always carries your view.
+        <h1>Colorado's avalanche record</h1>
+        <p class="dek">
+          Every avalanche reported to the Colorado Avalanche Information Center
+          since the 2010-11 season, the snowpack that loaded the slopes, and the
+          accidents that followed. Click a petal, a season, a zone or a trigger
+          to filter the page, and the link keeps your view.
+        </p>
+        <p class="source">
+          Data from CAIC observations and accident reports, and NRCS SNOTEL
+          stations.
         </p>
       </div>
     </header>
@@ -197,7 +199,10 @@
           <div class="body"></div>
           <footer>
             <span class="caption"
-              >"Explosives" is control work by ski areas and highway crews.</span
+              >Explosives means control work. Ski areas rarely send their
+              control results to CAIC, so this record is almost all backcountry
+              and highway: about 1% of avalanches since 2010-11 are tagged
+              operational.</span
             >
           </footer>
         </article>
@@ -261,7 +266,181 @@
         </article>
       </div>
 
-      <div class="section-head">
+      <div class="section-head major">
+        <h2>Storms and warm-ups</h2>
+        <p>
+          SNOTEL snow and temperature, averaged over each zone's stations, set
+          against the avalanches seen there that day.
+        </p>
+      </div>
+      <p class="scope-hint" data-scope-hint></p>
+      <div class="grid two">
+        <article class="tile md" data-tile="storm">
+          <header>
+            <h3>New snow loads the slopes</h3>
+            <p>
+              Avalanches seen per zone per day, December to March, by the new
+              snow water equivalent (SWE) of the last three days. An inch of SWE
+              is roughly a foot of new snow.
+            </p>
+          </header>
+          <div class="legend">
+            <span><i style="background: var(--natural)"></i>Natural</span>
+            <span><i style="background: var(--human)"></i>Triggered by people</span>
+          </div>
+          <div class="body"></div>
+          <footer>
+            <span class="caption" id="storm-caption"
+              >Counts are what observers saw and reported, so big storms that
+              keep people home and visibility low under-count.</span
+            >
+          </footer>
+        </article>
+        <article class="tile md" data-tile="warming">
+          <header>
+            <h3>Spring warm-ups wake the wet slides</h3>
+            <p>
+              Natural avalanches per zone per day, March to June, by how much
+              the day's high rose over the day before.
+            </p>
+          </header>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >Warming is the zone's mean SNOTEL high, day over day, in °F.</span
+            >
+          </footer>
+        </article>
+      </div>
+      <article class="tile timeline-tile" data-tile="timeline">
+        <header>
+          <h3 id="timeline-title">One season, day by day</h3>
+          <p id="timeline-sub">
+            The zone's snowpack (SWE) through the season, with the avalanches
+            seen each day underneath on the same dates.
+          </p>
+        </header>
+        <div class="legend">
+          <span><i class="line-key" style="background: var(--natural)"></i>Snow water equivalent</span>
+          <span><i style="background: var(--human)"></i>Triggered by people</span>
+          <span><i style="background: var(--seq-2)"></i>Other avalanches</span>
+        </div>
+        <div class="body"></div>
+        <footer>
+          <span class="caption" id="timeline-caption"></span>
+        </footer>
+      </article>
+
+      <div class="section-head major">
+        <h2>Accidents</h2>
+        <p>
+          Reports CAIC wrote up when people were caught, from the accident and
+          incident records.
+        </p>
+      </div>
+      <p class="scope-hint" data-scope-hint></p>
+      <section class="lead small" aria-label="Accident numbers" data-tile="acc-kpis">
+        <div class="kpi">
+          <div class="label">Accident and incident reports</div>
+          <div class="value" id="a-reports">—</div>
+          <div class="sub" id="a-reports-sub">&nbsp;</div>
+        </div>
+        <div class="kpi">
+          <div class="label">People caught</div>
+          <div class="value" id="a-caught">—</div>
+          <div class="sub" id="a-caught-sub">&nbsp;</div>
+        </div>
+        <div class="kpi">
+          <div class="label">People buried</div>
+          <div class="value" id="a-buried">—</div>
+          <div class="sub" id="a-buried-sub">&nbsp;</div>
+        </div>
+        <div class="kpi people">
+          <div class="label">People killed</div>
+          <div class="value" id="a-killed">—</div>
+          <div class="sub" id="a-killed-sub">&nbsp;</div>
+        </div>
+      </section>
+      <div class="grid two">
+        <article class="tile md" data-tile="danger">
+          <header>
+            <h3>The danger rating on the day</h3>
+            <p>
+              People killed and caught by the backcountry danger rating CAIC
+              recorded for the place and day of the accident.
+            </p>
+          </header>
+          <div class="body"></div>
+          <footer>
+            <span class="caption" id="danger-caption"
+              >Only reports that record a rating.</span
+            >
+          </footer>
+        </article>
+        <article class="tile md" data-tile="acc-seasons">
+          <header>
+            <h3>Caught and killed, by season</h3>
+            <p>
+              People caught in each season's reports; the red part died.
+            </p>
+          </header>
+          <div class="legend">
+            <span><i style="background: var(--people)"></i>Killed</span>
+            <span><i style="background: var(--seq-2)"></i>Caught and survived</span>
+          </div>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >Statewide, deaths per season match CAIC's published Colorado
+              fatality table. Pale bars are seasons outside the filter.</span
+            >
+          </footer>
+        </article>
+        <article class="tile md" data-tile="acc-activity">
+          <header>
+            <h3>Who gets caught</h3>
+            <p>
+              People caught, by what they were doing; the red part died.
+            </p>
+          </header>
+          <div class="legend">
+            <span><i style="background: var(--people)"></i>Killed</span>
+            <span><i style="background: var(--seq-2)"></i>Caught and survived</span>
+          </div>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >Each label gives the share of that group's people caught who
+              died.</span
+            >
+          </footer>
+        </article>
+        <article class="tile md" data-tile="acc-rose">
+          <header>
+            <h3>Which aspects caught people</h3>
+            <p>
+              Accident reports by the aspect of their avalanche. Darker red
+              means more reports with a death; hover for counts.
+            </p>
+          </header>
+          <div class="body"></div>
+          <footer>
+            <span class="caption"
+              >By aspect only: since 2011 the avalanches in fatal reports
+              almost never record an elevation band.</span
+            >
+          </footer>
+        </article>
+      </div>
+      <article class="tile acc-list" data-tile="acc-list">
+        <header>
+          <h3>The reports</h3>
+          <p id="acc-list-sub">Newest first. Each links to CAIC's full write-up.</p>
+        </header>
+        <div class="body table-wrap scroll-box"></div>
+      </article>
+
+      <div class="section-head major">
         <h2>The observations</h2>
         <p id="table-sub">
           Newest 200 in the current scope. Click a row for the observer's notes.
@@ -302,7 +481,29 @@
         <p>
           <b>People involved.</b>
           CAIC's incident flag on the observation: a person or property was
-          caught or involved. It is not a fatality count.
+          caught or involved. The Accidents section has the counts of people
+          caught, buried and killed.
+        </p>
+        <p>
+          <b>Accidents.</b>
+          CAIC's Colorado accident and incident reports, 1,326 from 1951 to
+          November 2026, merged where a report appears in both records. Deaths
+          per season match CAIC's published fatality table. Names and narrative
+          text are left out; each row links to CAIC's report. About one report
+          in six records the day's danger rating.
+        </p>
+        <p>
+          <b>Snow and weather.</b>
+          NRCS SNOTEL daily snow water equivalent, snow depth and temperature
+          for 115 Colorado stations, averaged over the stations inside each
+          CAIC zone. Zones have from 4 stations (Gunnison) to 28 (Front Range).
+          New SWE is the day's rise in snow water equivalent.
+        </p>
+        <p>
+          <b>Ski areas.</b>
+          Ski areas rarely send CAIC their control results, so in-bounds
+          avalanches are almost absent: about 1% of avalanches since 2010-11
+          are tagged operational.
         </p>
         <p>
           <b>Reporting bias.</b>
@@ -324,7 +525,7 @@
       <button class="close" id="drawer-close" type="button" aria-label="Close">
         ×
       </button>
-      <div class="eyebrow">Forecast zone</div>
+      <div class="kicker">Forecast zone</div>
       <h2 id="drawer-title"></h2>
       <p class="scope-note" id="drawer-scope"></p>
       <div class="stats" id="drawer-stats"></div>
