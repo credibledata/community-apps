@@ -37,9 +37,31 @@ checks that the numbers it leads with are the ones the model returns, and says s
 
 ## Adding an app
 
-Add a folder under `packages/` with a `publisher.json` whose `name` is the folder's name, add it to
-`packages/publisher.config.json`, and list it in the table above. Data files ship in the package, so its
-README has to credit each source.
+Every app reaches Credible by pull request: merging one that changes a folder under `packages/` publishes that
+package to the community-apps environment. Credible checks each changed package on the pull request before it
+merges. A package over 20 MiB or 500 files cannot publish this way; FeederWatch is one, until its data moves into
+a database.
+
+- **With the agent.** In the community-apps environment in Credible, pick `app-builder` in a chat and ask for an
+  app on a topic. It builds the app in a new package and opens the pull request here. See
+  [`packages/studio`](packages/studio).
+- **By hand.** Add a folder under `packages/` with a `publisher.json` whose `name` is the folder's name, and open
+  a pull request. Data files ship in the package, so its README has to credit each source. To run it with the
+  others locally, add it to `packages/publisher.config.json` and to the table above.
+
+## Listing an app on community.credibledata.com
+
+An app with a `community-card.json` gets a card on the community site's Apps page:
+
+```json
+{ "name": "at most 40 characters", "blurb": "at most 60 words", "tag": "Explore" }
+```
+
+`tag` is `Explore`, `Analyse` or `Simulate`; an optional `accent` colour defaults to the app's `--accent`. When the
+card reaches `main`, the [community-card workflow](.github/workflows/community-card.yml) opens a pull request on
+credibledata/community adding the entry, with a card drawn from the name, tag and accent. Merge that one once the
+app is published and shared publicly: merging it deploys the site. `scripts/community_card.py` does the work and
+runs locally too; `python3 -m unittest tests/test_community_card.py` tests it.
 
 ## License
 

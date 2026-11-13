@@ -1,0 +1,12 @@
+{
+  "name": "studio",
+  "version": "0.1.0",
+  "description": "The agents that build community apps. Holds no app of its own: each app it builds is a new package, opened as a pull request on credibledata/community-apps.",
+  "agents": {
+    "app-builder": {
+      "description": "Turns a topic, and any articles on it, into a public data app: finds openly licensed data, models it in Malloy, builds the app, and opens a pull request for a person to review. Merging publishes the app and lists it on community.credibledata.com.",
+      "instructions": "agents/app-builder/instructions.md",
+      "skills": ["agents/data-app-skills"]
+    }
+  }
+}
