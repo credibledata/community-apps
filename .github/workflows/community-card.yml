@@ -1,0 +1,71 @@
+# When an app's community-card.json reaches main (an app's pull request merged), open a pull request on the
+# community site, credibledata/community, listing it on the Apps page. A person merges that one: merging deploys
+# the site.
+#
+# Needs the repository secret COMMUNITY_SITE_TOKEN: a fine-grained token with Contents and Pull requests write on
+# credibledata/community only. It runs on pushes to main, never on a pull request, so a fork never sees it.
+name: Community card
+
+on:
+  push:
+    branches: [main]
+    paths: ["packages/*/community-card.json"]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "An app to list again, by its folder name under packages/"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: community-card
+  cancel-in-progress: false
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cards this push added or changed
+        id: cards
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          ONE: ${{ inputs.package }}
+        run: |
+          if [ -n "$ONE" ]; then
+            names="$ONE"
+          else
+            case "$BEFORE" in ""|0000000000000000000000000000000000000000) BEFORE=$(git rev-list --max-parents=0 "$AFTER" | tail -1) ;; esac
+            names=$(git diff --name-only --diff-filter=AM "$BEFORE" "$AFTER" -- 'packages/*/community-card.json' | cut -d/ -f2 | sort -u)
+          fi
+          for n in $names; do
+            echo "$n" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$' || { echo "::error::$n is not a package name"; exit 1; }
+          done
+          echo "names=$(echo $names)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.cards.outputs.names != ''
+        with:
+          repository: credibledata/community
+          token: ${{ secrets.COMMUNITY_SITE_TOKEN }}
+          path: site
+
+      - name: Open a pull request per card
+        if: steps.cards.outputs.names != ''
+        env:
+          GH_TOKEN: ${{ secrets.COMMUNITY_SITE_TOKEN }}
+          NAMES: ${{ steps.cards.outputs.names }}
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+        run: |
+          status=0
+          for n in $NAMES; do
+            git -C site checkout -q main && git -C site reset -q --hard origin/main
+            python3 scripts/community_card.py "packages/$n" --site site --pr --source "$SOURCE" || status=1
+          done
+          exit $status

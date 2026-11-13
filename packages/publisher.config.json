@@ -4,11 +4,30 @@
     {
       "name": "community-apps",
       "packages": [
-        { "name": "midterms2026", "location": "./midterms2026" },
-        { "name": "wildfire-season-2026", "location": "./wildfire-season-2026" },
-        { "name": "ev-registrations-2026", "location": "./ev-registrations-2026" },
-        { "name": "avalanche", "location": "./avalanche" },
-        { "name": "feederwatch", "location": "./feederwatch" }
+        {
+          "name": "midterms2026",
+          "location": "./midterms2026"
+        },
+        {
+          "name": "wildfire-season-2026",
+          "location": "./wildfire-season-2026"
+        },
+        {
+          "name": "ev-registrations-2026",
+          "location": "./ev-registrations-2026"
+        },
+        {
+          "name": "avalanche",
+          "location": "./avalanche"
+        },
+        {
+          "name": "feederwatch",
+          "location": "./feederwatch"
+        },
+        {
+          "name": "studio",
+          "location": "./studio"
+        }
       ],
       "connections": []
     }
