@@ -6,6 +6,10 @@ import {
   hashToState,
   lit,
   scopeClauses,
+  sideQuery,
+  sideScopeNote,
+  timelinePick,
+  timelineQuery,
   stateToHash,
   TILES,
   tileQuery,
@@ -130,4 +134,38 @@ test('hash round-trips and rejects junk', () => {
   )
   assert.deepEqual(junk.state, DEFAULT_STATE)
   assert.deepEqual(hashToState('#from=2020&to=2012', known).state.from, 2012) // swapped
+})
+
+test('accident and snowpack tiles take only the season and zone scope', () => {
+  const st = { ...DEFAULT_STATE, zone: 'Aspen', trigger: 'Natural', people: true }
+  assert.equal(
+    sideQuery('storm', st, known),
+    "run: snow_days -> by_storm + { where: season >= 2011 and forecast_zone = 'Aspen' }"
+  )
+  assert.equal(
+    sideQuery('acc-rose', st, known),
+    "run: accident_avalanches -> by_aspect + { where: accident.season >= 2011 and accident.forecast_zone = 'Aspen' }"
+  )
+  assert.equal(sideScopeNote(st), 'Seasons and zone apply here; the trigger, people involved filters do not.')
+  assert.equal(sideScopeNote(DEFAULT_STATE), '')
+})
+
+test('the accident season chart keeps every reliable season, highlighting the scope instead', () => {
+  const st = { ...DEFAULT_STATE, from: 2018, to: 2020 }
+  assert.equal(
+    sideQuery('acc-seasons', st, known),
+    'run: accidents -> by_season + { where: season >= 2011 }'
+  )
+})
+
+test('the timeline shows the scoped zone and last season, or a default', () => {
+  assert.deepEqual(timelinePick(DEFAULT_STATE, known), { season: 2026, zone: 'Front Range' })
+  assert.deepEqual(timelinePick({ ...DEFAULT_STATE, zone: 'Aspen', to: 2019 }, known), {
+    season: 2019,
+    zone: 'Aspen',
+  })
+  assert.equal(
+    timelineQuery({ ...DEFAULT_STATE, zone: "x' or true" }, known),
+    "run: snow_days -> season_timeline + { where: season = 2026 and forecast_zone = 'Front Range' }"
+  )
 })

@@ -14,3 +14,7 @@ from.
 
 Vendored rather than loaded from a CDN so the app has no third-party runtime
 dependency and works with no network beyond its own origin.
+
+`../fonts/` — Barlow (400, 500, 600, 700) and Barlow Semi Condensed (600, 700), latin subset, SIL Open Font
+License 1.1 (`../fonts/Barlow-OFL.txt`), from Fontsource (`@fontsource/barlow@5.2.5`,
+`@fontsource/barlow-semi-condensed@5.2.5`), unmodified.

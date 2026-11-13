@@ -150,6 +150,79 @@ export function tileQuery(id, state, known) {
   return viewQuery(t.view, state, known, t.ignore)
 }
 
+// ---- Accident and snowpack tiles ------------------------------------------------------------
+// These sources share only the season and zone dimensions with the observations, so only those two
+// filters scope them. `path` reaches the fields through a join (accident_avalanches -> accident.).
+export const SIDE_TILES = {
+  'acc-kpis': { source: 'accidents', view: 'kpis' },
+  'acc-seasons': { source: 'accidents', view: 'by_season', ignore: ['season'] },
+  danger: { source: 'accidents', view: 'by_danger' },
+  'acc-activity': { source: 'accidents', view: 'by_activity' },
+  'acc-rose': { source: 'accident_avalanches', view: 'by_aspect', path: 'accident.' },
+  'acc-list': { source: 'accidents', view: 'accident_list' },
+  storm: { source: 'snow_days', view: 'by_storm' },
+  warming: { source: 'snow_days', view: 'by_warming' },
+}
+
+export function sideClauses(state, known, { path = '', ignore = [] } = {}) {
+  const out = []
+  const seasonOk = (n) =>
+    Number.isInteger(n) && n >= known.minSeason && n <= known.maxSeason
+  if (!ignore.includes('season')) {
+    if (seasonOk(state.from)) {
+      out.push(`${path}season >= ${state.from}`)
+    }
+    if (seasonOk(state.to)) {
+      out.push(`${path}season <= ${state.to}`)
+    }
+  }
+  if (state.zone && known.zones.includes(state.zone)) {
+    out.push(`${path}forecast_zone = ${lit(state.zone)}`)
+  }
+  return out
+}
+
+export function sideQuery(id, state, known) {
+  const t = SIDE_TILES[id]
+  if (!t) {
+    throw new Error(`Unknown tile: ${id}`)
+  }
+  // A tile that ignores the season scope still starts at the reliable era, unless the scope reaches earlier.
+  const extra = t.ignore?.includes('season')
+    ? `where: ${t.path ?? ''}season >= ${Math.min(state.from ?? RELIABLE_FROM, RELIABLE_FROM)}`
+    : ''
+  const clauses = sideClauses(state, known, t)
+  return `run: ${t.source} -> ${t.view}${refinement(clauses, extra)}`
+}
+
+/** The season and zone the day-by-day timeline shows: the scope's, or a default with good station cover. */
+export const TIMELINE_ZONE = 'Front Range'
+export function timelinePick(state, known) {
+  const season = Math.max(RELIABLE_FROM, state.to ?? known.maxSeason)
+  const zone =
+    state.zone && state.zone !== 'Unassigned' && known.zones.includes(state.zone)
+      ? state.zone
+      : TIMELINE_ZONE
+  return { season, zone }
+}
+export function timelineQuery(state, known) {
+  const { season, zone } = timelinePick(state, known)
+  return `run: snow_days -> season_timeline + { where: season = ${season} and forecast_zone = ${lit(zone)} }`
+}
+
+/** Which filters the side sections honour, for the hint above them. */
+export function sideScopeNote(state) {
+  const ignored = []
+  if (state.trigger) ignored.push('trigger')
+  if (state.problem) ignored.push('problem')
+  if (state.aspect || state.elevation) ignored.push('aspect and elevation')
+  if (state.people) ignored.push('people involved')
+  if (state.big) ignored.push('D2+')
+  return ignored.length
+    ? `Seasons and zone apply here; the ${ignored.join(', ')} filter${ignored.length > 1 ? 's do' : ' does'} not.`
+    : ''
+}
+
 // ---- Linkable state: #from=2015&to=2020&zone=Aspen&people=1 -------------------------------
 const KEYS = [
   'from',
