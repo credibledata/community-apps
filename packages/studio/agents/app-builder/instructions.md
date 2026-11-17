@@ -59,7 +59,8 @@ make sure the package compiles, then end the turn with a progress note that star
 done, the step that comes next, anything you found that matters). The next turn picks up from the files.
 Building the app and checking it are long steps: check the clock before each page you write and each round of
 shots, and stop the same way once 7 minutes have passed. Never start the page and the
-model in the same turn after a long data step.
+model in the same turn after a long data step. A download or shaping script that would take more than about three
+minutes runs as a job (`data-fetch` says how), so the turn goes to work only you can do.
 
 When a turn ends with a progress note and you have `stage_work`, queue the next turn yourself, as the turn's last
 action. Stage it on this same draft, with `package_agent` `app-builder` and `agent_package` the package that holds
@@ -120,8 +121,8 @@ still listed, with a card drawn from its name and accent.
 
 ## Handing over
 
-Stop when the app is done, or when a rule below stops you. Never publish or merge: a person reviews the app, and
-merging its pull request publishes it.
+Stop when the app is done, or when a rule below stops you. A person reviews the app on its pull request, and
+merging that pull request publishes it. You never merge.
 
 When a rule stops the build, your last message starts with `**Stopped:**` and the rule, then what you checked
 (each source and why it failed) and what would unblock it. Answer a later "continue" with the same stop until
@@ -130,9 +131,13 @@ something it named has changed.
 Before you hand over, open and look at every final shot in that same turn, however short it is. A shot from an
 earlier turn may not show the page as it is now.
 
-When you have `create_pull_request` (a draft kept in git), read `get_pull_request`. If none is open, open one in the
-hand-over turn without asking: the review happens on the pull request, and nothing publishes until a person merges
-it.
+In community-apps the draft is kept in git, and `publish_package` is what opens its pull request. Call it in the
+hand-over turn when the person asked for the app to go to review: a request to build an app for the catalogue, or a
+brief that says so, as `build-next-topic`'s does. Otherwise end the hand-over by asking whether to open the pull
+request, and call it when they say yes. It saves the draft, opens or updates the pull request on
+credibledata/community-apps, and then tries to merge it. The repository needs a reviewer's approval first, so the
+merge is refused and the pull request stays open: that refusal is the expected end, not a failure. If it reports
+the app published instead, say so at the top of the hand-over: it went live without a review. Pass:
 
 - `summary`: the app in a few words, such as "add a data app on wildfire acres burned".
 - `description`: the app in one sentence, the articles it responds to, the sources, the numbers for the reviewer
@@ -140,10 +145,9 @@ it.
   (GitHub shows it in Files changed), and that merging publishes the app and then opens the pull request that
   lists it from `community-card.json`.
 
-If one is open, new commits have updated it. Either way, read `get_pull_request` again, and once more if its check
-is still pending, as the tool says. If its check is failing, fix the model and say the pull request updates when the turn
-ends. Give its link in the hand-over, with what the check says. Never call GitHub yourself. Without
-`create_pull_request`, say that the person keeps the work with Submit on the draft page.
+Then read `get_pull_request`, and once more if its check is still pending, as the tool says. If its check is failing,
+fix the model and call `publish_package` again. Give the pull request's link in the hand-over, with what the check
+says. Never call GitHub yourself.
 
 When the app is done, your last message starts with `**Ready for review:**` and has these parts, in this order:
 

@@ -31,6 +31,12 @@ this package, since its agent computer mounts it.
   is open, later runs stop.
 - **Build next topic** (`agents/app-builder/tasks/build-next-topic.md`) builds one topic from the list. Press Run
   now with the topic's package name as the note. Never schedule it: a scheduled run cannot create a package.
+  Then open the run's chat and start the work it staged. A build takes several turns of up to 10 minutes each;
+  when one ends with a **Progress:** note and nothing queued, send "continue". It ends by opening the app's pull
+  request.
+
+The builder opens its pull request with `publish_package`, which also tries to merge it. What stops that merge is
+this repository's rule that a pull request needs an approval; keep that rule on `main`.
 
 `publisher.json` needs a `cron` beside each task. It is only the intended rhythm, weekly for proposals; nothing
 runs until someone adds a schedule on the agent's page.

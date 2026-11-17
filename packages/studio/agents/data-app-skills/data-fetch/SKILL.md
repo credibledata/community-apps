@@ -17,6 +17,12 @@ description: Download the shortlisted public datasets, shape them at record grai
   you will group by, and how many values are blank. A file that looks like an error page or a login form
   is a failed fetch.
 - An API that pages its results: fetch every page, and check the row count against the total it reports.
+- **Long fetches run as a job.** When downloading or shaping will take more than about three minutes (many files,
+  a paged API, one large file), write the script first, then run it with `start_job`, writing under the job's
+  own directory (`/workspace/jobs/<id>/work`), never into the checkout. End the turn with a progress note: the job
+  keeps running after the turn ends. In the next turn, read the job's log, check its output as you would any
+  fetch, and copy or shape it into `data/`. Its output is kept at least 30 minutes after it ends, so use it in
+  the next turn. One job runs at a time.
 
 ## Shape
 

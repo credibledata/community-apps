@@ -34,9 +34,9 @@ find more, so a turn that is stopped still leaves a list.
    `dataset-scout` far enough to name one dataset and confirm its license on the publisher's own page. Judge the
    size and fields from that page or the first rows; never download a whole dataset here.
 4. **Rank and write.** Put the person's topics first, then yours, best first. Write `topics.md` in the shape below.
-5. **Publish it** with `create_pull_request`: summary "propose topics for the week of <date>", description one
-   line per topic. None of the app-building steps in your instructions apply: no progress notes, no queued turns,
-   no **Ready for review:** hand-over. End with the pull request's link.
+5. **Publish it** with `publish_package`, which opens the pull request on `studio`: summary "propose topics for
+   the week of <date>", description one line per topic. None of the app-building steps in your instructions
+   apply: no progress notes, no queued turns, no **Ready for review:** hand-over. End with the pull request's link.
 
 ## topics.md
 
