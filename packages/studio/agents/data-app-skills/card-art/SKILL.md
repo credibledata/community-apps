@@ -41,7 +41,7 @@ Only drawing: `svg`, `g`, `defs`, `rect`, `circle`, `ellipse`, `line`, `polyline
 `fill-opacity`, `stroke-opacity` or `opacity` rather than in the colour; a gradient or clip referred to as
 `url(#its-id)`. The root is `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200">`.
 
-Nothing else is kept: no `text`, `image`, `use`, `a`, `style`, `script` or `foreignObject`; no `style` or `class`
+Anything else makes the whole file unusable, so the card is drawn without it: no `text`, `image`, `use`, `a`, `style`, `script` or `foreignObject`; no `style` or `class`
 attribute; no link or URL to anything outside the file; no DOCTYPE. Under 64 KB and 4,000 elements; most cards are under
 20 KB (merge shapes of one colour into one `path`).
 

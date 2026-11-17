@@ -27,9 +27,10 @@ ART_ELEMENTS = {
     "radialGradient": {"cx", "cy", "r", "fx", "fy", "gradientUnits", "gradientTransform"},
     "stop": {"offset", "stop-color", "stop-opacity"}, "clipPath": {"clipPathUnits"},
 }
-PLAIN = re.compile(r"[A-Za-z0-9#.,%\s+\-()]*")
+PLAIN = re.compile(r"[A-Za-z0-9_#.,%+\-() \t\n\r]*")
 LOCAL_URL = re.compile(r"url\(#[A-Za-z][\w-]*\)")
 ART_MAX_ELEMENTS = 4000
+ART_MAX_DEPTH = 32
 
 
 def clean_art(text: str) -> tuple[str | None, list[str]]:
@@ -49,8 +50,11 @@ def clean_art(text: str) -> tuple[str | None, list[str]]:
         ns, _, local = tag.rpartition("}")
         return local if ns in ("", "{" + SVG_NS) else None
 
-    def build(src: ET.Element) -> ET.Element | None:
+    def build(src: ET.Element, depth: int = 0) -> ET.Element | None:
         nonlocal count
+        if depth > ART_MAX_DEPTH:
+            problems.append(f"it nests deeper than {ART_MAX_DEPTH} levels")
+            return None
         name = name_of(src.tag)
         if name not in ART_ELEMENTS:
             problems.append(f"<{src.tag.rpartition('}')[2]}> is not a drawing element")
@@ -60,20 +64,23 @@ def clean_art(text: str) -> tuple[str | None, list[str]]:
         for key, value in src.attrib.items():
             if key.startswith("{") or key not in ART_ELEMENTS[name] | SHARED:
                 problems.append(f"{key.rpartition('}')[2]} on <{name}> is not allowed")
-            elif not PLAIN.fullmatch(LOCAL_URL.sub("", value)) or (key == "id" and not re.fullmatch(r"[A-Za-z][\w-]*", value)):
+            elif (not PLAIN.fullmatch(LOCAL_URL.sub("", value)) or re.search("url", LOCAL_URL.sub("", value), re.I)
+                  or (key == "id" and not re.fullmatch(r"[A-Za-z][\w-]*", value))):
                 problems.append(f"{key}={value[:40]!r} on <{name}> is not a plain value")
             else:
                 out.set(key, value)
         if (src.text or "").strip() or any((child.tail or "").strip() for child in src):
             problems.append(f"<{name}> holds text")
         for child in src:
-            built = build(child)
+            built = build(child, depth + 1)
             if built is not None:
                 out.append(built)
         return out
 
+    if name_of(root.tag) != "svg":
+        return None, ["its root is not <svg>"]
     clean = build(root)
-    if clean is not None and name_of(root.tag) == "svg" and root.get("viewBox", "").split() != ["0", "0", "320", "200"]:
+    if root.get("viewBox", "").split() != ["0", "0", "320", "200"]:
         problems.append("its viewBox is not 0 0 320 200")
     if count > ART_MAX_ELEMENTS:
         problems.append(f"it has over {ART_MAX_ELEMENTS} elements")

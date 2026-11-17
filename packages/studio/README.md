@@ -14,7 +14,8 @@ Merging that pull request publishes the app. The app's `community-card.json` the
 listing it. Merging that one deploys the site.
 
 - `agents/app-builder/instructions.md`: what the agent does and the rules it keeps.
-- `agents/data-app-skills/`: how it finds and fetches data and builds an app.
+- `agents/data-app-skills/`: how it finds and fetches data, builds an app, and draws its card art.
+- `scripts/card_art.py`: the check a card's art must pass, run by the agent and by the listing workflow.
 - `templates/data-app/`: the page, frame, chart module and styles each app starts from. The agent computer mounts
   this package read-only beside the app, and the skills copy from here.
 

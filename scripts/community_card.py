@@ -79,12 +79,13 @@ def _quoted(text: str) -> str:
 
 def entry(slug: str, card: dict, accent: str | None, art: bool = False) -> str:
     """The entry as apps.ts writes them: two-space indent, single quotes, no semicolons, linked with `credible()`."""
+    blurb = f"    blurb: {_quoted(card['blurb'])},"
     lines = [
         "  {",
         f"    slug: {_quoted(slug)},",
         f"    name: {_quoted(card['name'])},",
-        "    blurb:",
-        f"      {_quoted(card['blurb'])},",
+        # The site's formatter keeps a blurb on the key's line when it fits in 80 columns, and breaks it otherwise.
+        *([blurb] if len(blurb) <= 80 else ["    blurb:", f"      {_quoted(card['blurb'])},"]),
         f"    href: credible({_quoted(slug)}),",
         f"    tag: {_quoted(card['tag'])},",
     ]
@@ -142,7 +143,7 @@ def git(site: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=site, check=True, capture_output=True, text=True).stdout.strip()
 
 
-def open_pr(site: Path, slug: str, card: dict, source: str, art: bool = False) -> str:
+def open_pr(site: Path, slug: str, card: dict, source: str, art: bool = False, art_note: str = "") -> str:
     """Commit the entry (and its art) on community-apps/<slug>, push it and open (or reuse) a pull request; returns its
     link."""
     branch = f"community-apps/{slug}"
@@ -160,7 +161,7 @@ def open_pr(site: Path, slug: str, card: dict, source: str, art: bool = False) -
         f"> {' '.join(card['blurb'].split())}\n\n"
         f"The card links to {PACKAGE_URL.format(package=slug)}. "
         + ("Its art is the app's own card.svg, rebuilt from its drawing elements: look at it in Files changed. " if art
-           else "It is drawn from the app's name, tag and accent. ")
+           else "It is drawn from the app's name, tag and accent. " + (f"(Its card.svg was not used: {art_note}.) " if art_note else ""))
         + "Merging deploys the site: merge once that page opens the published app."
     )
     return subprocess.run(["gh", "pr", "create", "--head", branch, "--title", f"List {card['name']} on the Apps page",
@@ -183,22 +184,23 @@ def main(argv: list[str] | None = None) -> int:
     if listed(text, slug):
         print(f"Already listed: {slug} is in {APPS_TS}; change its entry on the site by hand")
         return 0
-    art = False
+    art, art_note = False, ""
     source_art = args.package / ART
     if source_art.is_file():
         clean, problems = (None, [f"the site's {APPS_TS} has no optional art"]) if not takes_art(text) else \
             clean_art(source_art.read_text(errors="replace"))
         if clean is None:
-            print(f"Card art not used, so the card is drawn instead: {'; '.join(problems[:5])}")
+            art_note = "; ".join(problems[:5])
+            print(f"Card art not used, so the card is drawn instead: {art_note}")
         else:
             (args.site / "public" / "thumbnails").mkdir(parents=True, exist_ok=True)
-            (args.site / "public" / "thumbnails" / f"{slug}.svg").write_text(clean)
+            (args.site / "public" / "thumbnails" / f"{slug}.svg").write_text(clean, encoding="utf-8")
             art = True
     apps.write_text(add_entry(text, entry(slug, card, accent, art)))
     if not args.pr:
         print(f"Wrote {slug}'s entry into {apps}" + (" and its art" if art else ""))
         return 0
-    print(f"Listed: {open_pr(args.site, slug, card, args.source, art)}")
+    print(f"Listed: {open_pr(args.site, slug, card, args.source, art, art_note)}")
     return 0
 
 

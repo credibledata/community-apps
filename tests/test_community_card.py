@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -85,6 +86,13 @@ class ArtTest(unittest.TestCase):
         self.assertIn('stroke="url(#g1)"', clean)
         self.assertTrue(clean.startswith('<svg xmlns="http://www.w3.org/2000/svg"'))
 
+    def test_size_and_ids_are_plain(self):
+        clean, problems = clean_art(ART.replace('viewBox="0 0 320 200"', 'viewBox="0 0 320 200" width="640" height="400"')
+                                    .replace('id="g1"', 'id="grad_1"').replace("url(#g1)", "url(#grad_1)"))
+        self.assertEqual(problems, [])
+        self.assertNotIn("width=\"640\"", clean)
+        self.assertIn('id="grad_1"', clean)
+
     def test_anything_but_drawing_is_refused(self):
         hostile = {
             "script": ART.replace("</svg>", "<script>alert(1)</script></svg>"),
@@ -106,6 +114,15 @@ class ArtTest(unittest.TestCase):
             "not svg": "<html/>",
             "broken": ART[:-6],
             "too big": ART.replace("</svg>", "<g/>" * 20000 + "</svg>"),
+            "relative url": ART.replace("url(#g1)", "url(evil.svg#g1)"),
+            "upper URL": ART.replace("url(#g1)", "URL(evil.svg)"),
+            "spaced url": ART.replace("url(#g1)", "url( evil )"),
+            "relative clip": ART.replace("<rect ", '<rect clip-path="url(a.svg)" '),
+            "root not svg": ART.replace("<svg ", "<g ").replace("</svg>", "</g>"),
+            "root g with a viewBox": '<g xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200"/></g>',
+            "too deep": ART.replace("</svg>", "<g>" * 1000 + "</g>" * 1000 + "</svg>"),
+            "too many elements": ART.replace("</svg>", "<g/>" * 4500 + "</svg>"),
+            "bad id": ART.replace("<rect ", '<rect id="1g" '),
             "too many bytes": ART.replace('d="M 10 190', 'd="M 10 190' + " L 1 1" * 12000),
         }
         for name, text in hostile.items():
@@ -176,6 +193,47 @@ class MainTest(unittest.TestCase):
                 self.assertIn("slug: 'coffee-prices-2026',", out)
                 self.assertNotIn("art:", out)
                 self.assertFalse((self.site / "public/thumbnails").exists())
+
+    def test_a_short_blurb_stays_on_the_key_line(self):
+        self.assertIn("    blurb: 'Short.',\n", entry("x", {**CARD, "blurb": "Short."}, None))
+        long = "word " * 20
+        self.assertIn("    blurb:\n      'word", entry("x", {**CARD, "blurb": long}, None))
+
+    def test_the_pull_request_commits_the_art_and_says_why_art_was_dropped(self):
+        import subprocess as sp
+        remote = self.tmp / "remote.git"
+        sp.run(["git", "init", "-q", "--bare", str(remote)], check=True)
+        sp.run(["git", "init", "-q", "-b", "main", str(self.site)], check=True)
+        apps = APPS_TS.replace("  accent?: string\n", "  accent?: string\n  art?: string\n")
+        (self.site / "src/content/apps.ts").write_text(apps)
+        for args in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base"],
+                     ["remote", "add", "origin", str(remote)], ["push", "-q", "origin", "main"]):
+            sp.run(["git", *args], cwd=self.site, check=True)
+        bin_dir = self.tmp / "bin"
+        bin_dir.mkdir()
+        log = self.tmp / "gh.log"
+        (bin_dir / "gh").write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" >> {log}\n[ "$2" = create ] && echo https://example.test/pr/1\nexit 0\n')
+        (bin_dir / "gh").chmod(0o755)
+        from unittest import mock
+        patch = mock.patch.dict(os.environ, {"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"})
+        patch.start()
+        self.addCleanup(patch.stop)
+        (self.pkg / "card.svg").write_text(ART)
+        self.assertEqual(main([str(self.pkg), "--site", str(self.site), "--pr"]), 0)
+        files = sp.run(["git", "show", "--name-only", "--format=", "community-apps/coffee-prices-2026"], cwd=self.site,
+                       capture_output=True, text=True, check=True).stdout.split()
+        self.assertEqual(sorted(files), ["public/thumbnails/coffee-prices-2026.svg", "src/content/apps.ts"])
+        self.assertIn("Its art is the app's own card.svg", log.read_text())
+
+        log.write_text("")
+        self.pkg = self.tmp / "packages" / "tea-prices"
+        (self.pkg / "public").mkdir(parents=True)
+        (self.pkg / "publisher.json").write_text(json.dumps({"name": "tea-prices", "version": "0.1.0"}))
+        (self.pkg / "community-card.json").write_text(json.dumps({**CARD, "name": "Tea"}))
+        (self.pkg / "card.svg").write_text(ART.replace("</svg>", "<script/></svg>"))
+        sp.run(["git", "checkout", "-q", "main"], cwd=self.site, check=True)
+        self.assertEqual(main([str(self.pkg), "--site", str(self.site), "--pr"]), 0)
+        self.assertIn("Its card.svg was not used: <script> is not a drawing element", log.read_text())
 
     def test_a_site_without_drawn_cards_is_left_alone(self):
         (self.site / "src/content/apps.ts").write_text(APPS_TS.replace("Thumb?:", "Thumb:"))
