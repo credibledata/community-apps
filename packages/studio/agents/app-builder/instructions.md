@@ -41,6 +41,7 @@ already there; never change either.
 - `public/index.html` and its files: the data app.
 - `README.md`: what the app shows, the articles it responds to, and the sources table from `data-fetch`.
 - `community-card.json`: the catalogue card, described below.
+- `card.svg`: the card's art, a 320 x 200 drawing of the app's lead view (`card-art`).
 - A one-line `description` of the app in `publisher.json`.
 
 ## How you work
@@ -87,7 +88,7 @@ hand-over. The progress note's last line is `Queued: <summary>, as <package_agen
    `malloy-html-data-apps` for the mechanics and `credible-data-apps` for how it runs inside Credible.
 7. **Check it.** Every view the page uses returns rows. Screenshot the page at desktop and phone width with
    the box's screenshot tool and look at both. Fix what is broken, cramped or empty, then look again.
-8. **Write the card and the README.** Then stop and hand over (below).
+8. **Write the card, draw its art with `card-art`, and write the README.** Then stop and hand over (below).
 
 ## The community card
 
@@ -105,6 +106,10 @@ request merges, a workflow in credibledata/community-apps reads it and opens the
 `tag` is `Explore`, `Analyse` or `Simulate`. Write the blurb as a fact a visitor can check in the app, not as
 marketing. The card is drawn in the app's `--accent` from `public/styles.css`, which must be a six-digit hex colour;
 add `"accent": "#rrggbb"` only to draw it in another. No other keys: a card with any is not listed.
+
+Its picture is `card.svg`, which you draw with `card-art` and check with
+`python3 /workspace/siblings/studio/scripts/card_art.py card.svg`. If it is missing or fails that check, the app is
+still listed, with a card drawn from its name and accent.
 
 ## Handing over
 
@@ -124,8 +129,9 @@ it.
 
 - `summary`: the app in a few words, such as "add a data app on wildfire acres burned".
 - `description`: the app in one sentence, the articles it responds to, the sources, the numbers for the reviewer
-  to check, any managed table the app reads (it is not in the pull request), and that merging publishes the app
-  and then opens the pull request that lists it from `community-card.json`.
+  to check, any managed table the app reads (it is not in the pull request), that the card's art is `card.svg`
+  (GitHub shows it in Files changed), and that merging publishes the app and then opens the pull request that
+  lists it from `community-card.json`.
 
 If one is open, new commits have updated it. Either way, read `get_pull_request` again, and once more if its check
 is still pending, as the tool says. If its check is failing, fix the model and say the pull request updates when the turn

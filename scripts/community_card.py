@@ -13,6 +13,11 @@ The card, written by whoever builds the app:
 
 `tag` is one of TAGS. `accent` is optional; without it the app's `--accent` in public/styles.css is used, and
 without that the site draws the card in grey.
+
+Card art, also optional, is the package's `card.svg`: a 320 x 200 drawing the builder makes of the app. The site never
+gets the file as written. It is parsed, and only drawing elements and attributes with plain values are written into a
+fresh SVG at public/thumbnails/<name>.svg on the site; anything else, and the card is drawn from its name, tag and
+accent instead. The site serves the file from its own domain, where a script in it would run.
 """
 from __future__ import annotations
 
@@ -22,6 +27,10 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "packages" / "studio" / "scripts"))
+from card_art import ART, clean_art  # noqa: E402  (one copy of the rules: the builder runs it too)
 
 APPS_TS = "src/content/apps.ts"
 TAGS = ("Explore", "Analyse", "Simulate")
@@ -68,7 +77,7 @@ def _quoted(text: str) -> str:
     return "'" + " ".join(text.split()).replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
-def entry(slug: str, card: dict, accent: str | None) -> str:
+def entry(slug: str, card: dict, accent: str | None, art: bool = False) -> str:
     """The entry as apps.ts writes them: two-space indent, single quotes, no semicolons, linked with `credible()`."""
     lines = [
         "  {",
@@ -81,6 +90,8 @@ def entry(slug: str, card: dict, accent: str | None) -> str:
     ]
     if accent:
         lines.append(f"    accent: {_quoted(accent.lower())},")
+    if art:
+        lines.append(f"    art: {_quoted(f'/thumbnails/{slug}.svg')},")
     lines.append("  },")
     return "\n".join(lines) + "\n"
 
@@ -122,15 +133,21 @@ def read_card(package: Path) -> tuple[str, dict, str | None]:
     return slug, card, accent
 
 
+def takes_art(apps_ts: str) -> bool:
+    """The site's entry type has an optional `art` path."""
+    return bool(re.search(r"^\s*art\?:", apps_ts, re.M))
+
+
 def git(site: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=site, check=True, capture_output=True, text=True).stdout.strip()
 
 
-def open_pr(site: Path, slug: str, card: dict, source: str) -> str:
-    """Commit the entry on community-apps/<slug>, push it and open (or reuse) a pull request; returns its link."""
+def open_pr(site: Path, slug: str, card: dict, source: str, art: bool = False) -> str:
+    """Commit the entry (and its art) on community-apps/<slug>, push it and open (or reuse) a pull request; returns its
+    link."""
     branch = f"community-apps/{slug}"
     git(site, "checkout", "-B", branch)
-    git(site, "add", APPS_TS)
+    git(site, "add", APPS_TS, *([f"public/thumbnails/{slug}.svg"] if art else []))
     git(site, "-c", "user.name=community-apps", "-c", "user.email=community-apps@users.noreply.github.com",
         "commit", "-m", f"List {card['name']} from community-apps")
     git(site, "push", "--force", "origin", branch)
@@ -141,8 +158,10 @@ def open_pr(site: Path, slug: str, card: dict, source: str) -> str:
     body = (
         f"Lists **{card['name']}** on the Apps page, from its card in credibledata/community-apps ({source}).\n\n"
         f"> {' '.join(card['blurb'].split())}\n\n"
-        f"The card links to {PACKAGE_URL.format(package=slug)} and is drawn from its name, tag and accent. "
-        "Merging deploys the site: merge once that page opens the published app."
+        f"The card links to {PACKAGE_URL.format(package=slug)}. "
+        + ("Its art is the app's own card.svg, rebuilt from its drawing elements: look at it in Files changed. " if art
+           else "It is drawn from the app's name, tag and accent. ")
+        + "Merging deploys the site: merge once that page opens the published app."
     )
     return subprocess.run(["gh", "pr", "create", "--head", branch, "--title", f"List {card['name']} on the Apps page",
                            "--body", body], cwd=site, check=True, capture_output=True, text=True).stdout.strip()
@@ -164,11 +183,22 @@ def main(argv: list[str] | None = None) -> int:
     if listed(text, slug):
         print(f"Already listed: {slug} is in {APPS_TS}; change its entry on the site by hand")
         return 0
-    apps.write_text(add_entry(text, entry(slug, card, accent)))
+    art = False
+    source_art = args.package / ART
+    if source_art.is_file():
+        clean, problems = (None, [f"the site's {APPS_TS} has no optional art"]) if not takes_art(text) else \
+            clean_art(source_art.read_text(errors="replace"))
+        if clean is None:
+            print(f"Card art not used, so the card is drawn instead: {'; '.join(problems[:5])}")
+        else:
+            (args.site / "public" / "thumbnails").mkdir(parents=True, exist_ok=True)
+            (args.site / "public" / "thumbnails" / f"{slug}.svg").write_text(clean)
+            art = True
+    apps.write_text(add_entry(text, entry(slug, card, accent, art)))
     if not args.pr:
-        print(f"Wrote {slug}'s entry into {apps}")
+        print(f"Wrote {slug}'s entry into {apps}" + (" and its art" if art else ""))
         return 0
-    print(f"Listed: {open_pr(args.site, slug, card, args.source)}")
+    print(f"Listed: {open_pr(args.site, slug, card, args.source, art)}")
     return 0
 
 

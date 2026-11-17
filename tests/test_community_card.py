@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-from community_card import accent_of, add_entry, card_problems, entry, listed, main, takes_drawn_cards  # noqa: E402
+from community_card import accent_of, add_entry, card_problems, clean_art, entry, listed, main, takes_drawn_cards  # noqa: E402
 
 APPS_TS = """import type { ComponentType } from 'react'
 
@@ -31,6 +31,10 @@ export const apps: CommunityApp[] = [
   },
 ]
 """
+ART = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid meet">'
+       '<defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a4520"/></linearGradient>'
+       '</defs><rect width="320" height="200" fill="#f4f1ec"/><path d="M 10 190 L 80 120 L 160 140 L 310 30" '
+       'stroke="url(#g1)" stroke-width="4" fill="none" transform="translate(0, -2)"/></svg>')
 CARD = {"name": "The price of coffee", "blurb": "A pound of coffee's price, since 1980.", "tag": "Explore"}
 
 
@@ -74,6 +78,43 @@ class CardTest(unittest.TestCase):
         self.assertFalse(listed(APPS_TS, "atla"))
 
 
+class ArtTest(unittest.TestCase):
+    def test_a_drawing_is_rebuilt_and_kept(self):
+        clean, problems = clean_art(ART)
+        self.assertEqual(problems, [])
+        self.assertIn('stroke="url(#g1)"', clean)
+        self.assertTrue(clean.startswith('<svg xmlns="http://www.w3.org/2000/svg"'))
+
+    def test_anything_but_drawing_is_refused(self):
+        hostile = {
+            "script": ART.replace("</svg>", "<script>alert(1)</script></svg>"),
+            "handler": ART.replace("<rect ", '<rect onload="alert(1)" '),
+            "foreign": ART.replace("</svg>", "<foreignObject><div/></foreignObject></svg>"),
+            "link": ART.replace("</svg>", '<a href="https://x.test"><rect width="1" height="1"/></a></svg>'),
+            "use": ART.replace("</svg>", '<use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#g1"/></svg>'),
+            "image": ART.replace("</svg>", '<image href="data:image/png;base64,AAAA"/></svg>'),
+            "style attr": ART.replace("<rect ", '<rect style="fill:red" '),
+            "style element": ART.replace("</svg>", "<style>rect{fill:url(https://x.test/a)}</style></svg>"),
+            "remote url": ART.replace("url(#g1)", "url(https://x.test/a#g1)"),
+            "javascript": ART.replace('fill="#f4f1ec"', 'fill="javascript:alert(1)"'),
+            "text": ART.replace("</svg>", '<text x="1" y="1">hi</text></svg>'),
+            "stray text": ART.replace("</svg>", "hello</svg>"),
+            "doctype": '<!DOCTYPE svg [<!ENTITY a "b">]>' + ART,
+            "stylesheet": '<?xml-stylesheet href="https://x.test/a.css"?>' + ART,
+            "other namespace": ART.replace("</svg>", '<x:rect xmlns:x="urn:x"/></svg>'),
+            "viewBox": ART.replace("0 0 320 200", "0 0 100 100"),
+            "not svg": "<html/>",
+            "broken": ART[:-6],
+            "too big": ART.replace("</svg>", "<g/>" * 20000 + "</svg>"),
+            "too many bytes": ART.replace('d="M 10 190', 'd="M 10 190' + " L 1 1" * 12000),
+        }
+        for name, text in hostile.items():
+            with self.subTest(name=name):
+                clean, problems = clean_art(text)
+                self.assertIsNone(clean)
+                self.assertTrue(problems)
+
+
 class MainTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
@@ -115,6 +156,26 @@ class MainTest(unittest.TestCase):
                     self.run_main()
                 self.assertIn(reason, str(e.exception))
                 self.assertEqual((self.site / "src/content/apps.ts").read_text(), APPS_TS)
+
+    def test_valid_art_goes_to_the_site_and_the_entry(self):
+        (self.site / "src/content/apps.ts").write_text(APPS_TS.replace("  accent?: string\n", "  accent?: string\n  art?: string\n"))
+        (self.pkg / "card.svg").write_text(ART)
+        self.assertEqual(self.run_main(), 0)
+        self.assertIn("    art: '/thumbnails/coffee-prices-2026.svg',\n", (self.site / "src/content/apps.ts").read_text())
+        self.assertEqual((self.site / "public/thumbnails/coffee-prices-2026.svg").read_text(), clean_art(ART)[0])
+
+    def test_bad_art_or_a_site_without_art_falls_back_to_the_drawn_card(self):
+        for site_has_art, art in ((True, ART.replace("</svg>", "<script/></svg>")), (False, ART)):
+            with self.subTest(site_has_art=site_has_art):
+                self.setUp()
+                apps = APPS_TS.replace("  accent?: string\n", "  accent?: string\n  art?: string\n") if site_has_art else APPS_TS
+                (self.site / "src/content/apps.ts").write_text(apps)
+                (self.pkg / "card.svg").write_text(art)
+                self.assertEqual(self.run_main(), 0)
+                out = (self.site / "src/content/apps.ts").read_text()
+                self.assertIn("slug: 'coffee-prices-2026',", out)
+                self.assertNotIn("art:", out)
+                self.assertFalse((self.site / "public/thumbnails").exists())
 
     def test_a_site_without_drawn_cards_is_left_alone(self):
         (self.site / "src/content/apps.ts").write_text(APPS_TS.replace("Thumb?:", "Thumb:"))
