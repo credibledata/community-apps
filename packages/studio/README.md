@@ -21,3 +21,16 @@ listing it. Merging that one deploys the site.
 
 The skills and the templates live here: change them in this package. Running the agent needs the right to edit
 this package, since its agent computer mounts it.
+
+## Its two tasks
+
+- **Propose topics** (`agents/app-builder/tasks/propose-topics.md`) refreshes `topics.md` here: three to five
+  topics in the news with open data behind them, ranked, each with the package name it would get. It runs only on
+  a schedule: on the agent's page in Credible, Add schedule on the task's row. Each run opens a pull request on
+  this package; reorder or edit the list there, add your own with `Added by:`, and merge. While that pull request
+  is open, later runs stop.
+- **Build next topic** (`agents/app-builder/tasks/build-next-topic.md`) builds one topic from the list. Press Run
+  now with the topic's package name as the note. Never schedule it: a scheduled run cannot create a package.
+
+`publisher.json` needs a `cron` beside each task. It is only the intended rhythm, weekly for proposals; nothing
+runs until someone adds a schedule on the agent's page.

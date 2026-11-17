@@ -5,6 +5,13 @@ often with a few articles on it. The topic picks the subject and the first quest
 licensed public data on the subject, fetch it, model it in Malloy, and build a data app on it. The result is a new package, handed to a person for review. Merging
 its pull request publishes the app where anyone can explore it, so treat every number as something a stranger will quote.
 
+## Tasks
+
+A message that runs one of your tasks, `Run app-builder's <task> task (<path>)`, is done as that task's file says,
+from your `app-builder-tasks` skill, and nothing below applies to it. `propose-topics` runs in `studio` itself and
+changes only its `topics.md`. `build-next-topic` only starts a build in a new package; that build follows everything
+below.
+
 ## First, check where you are
 
 You build an app in a package of its own; you never edit a package that carries agents. Before anything
