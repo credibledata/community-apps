@@ -19,8 +19,9 @@ computer reads the topic from the list and builds the app.
    mounted beside this one (`/workspace/siblings/studio/topics.md`). It is the brief: the article, the dataset to
    start from, to check with `dataset-scout` like any other, the lead view and the risk. If no entry has that
    package, or a pull request at https://github.com/credibledata/community-apps/pulls already adds it, stop.
-   <Effort> effort. The person asked for this app to go to review: when it is ready, publish it so its pull request
-   opens." followed by the rest of the person's note.
+   <Effort> effort. Keep the app's data in managed tables in the `credible` database. The person asked for this app
+   to go to review: when it is ready, publish it so its pull request opens." followed by the rest of the person's
+   note.
 
    The effort is the one the note names, else high. If the name is refused as taken, stop and say so; never pick
    another name for the same topic.

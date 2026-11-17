@@ -1,6 +1,6 @@
 ---
 name: data-fetch
-description: Download the shortlisted public datasets, shape them at record grain where they fit, and fit them into the package, or into a managed table when they do not. Use after dataset-scout and before modeling. Records where every row came from.
+description: Download the shortlisted public datasets, shape them at record grain, and load them into managed tables in the environment's `credible` database, or into the package when no database is offered. Use after dataset-scout and before modeling. Records where every row came from.
 ---
 
 # Data fetch
@@ -55,14 +55,34 @@ The package carries the scripts that made `data/`, so the data can be rebuilt an
 - `pipeline/fetch.sh` downloads every source with `curl` into a directory given as its first argument
   (default `/tmp/raw`). It never writes into the package.
 - `pipeline/shape_<name>.py`, one per output file or close family of files, reads the raw directory and writes
-  to `data/`. Its docstring says what it reads, what it writes, and the exact `uv run --with …` line to run it.
+  to an output directory given as its second argument: `/tmp/shaped` for a managed table, `data/` for a package file. Its docstring says what it reads, what it writes, and the exact `uv run --with …` line to run it.
 - Scripts take their paths as arguments, run from the package root, and need no network except `fetch.sh`.
-- Before you hand over, rerun the shaping scripts from a clean `/tmp/raw` and confirm they reproduce `data/`
-  byte for byte. Say so in the README's "Rebuild" section, with the commands in order.
+- Before you hand over, rerun the shaping scripts from a clean `/tmp/raw` and confirm they reproduce what you
+  loaded: the same row count and the same checksum of each output file. Say so in the README's "Rebuild" section,
+  with the commands in order.
 
 Scripts are text, so they save with the package. Raw downloads never do.
 
-## Fit the budget
+## Where the data goes: a managed table
+
+A community app keeps its data in the environment's `credible` database, one managed table per shaped file, not
+in the package. A table has no size limit, can be materialized, and leaves the package small enough for scheduled
+runs to work on. Asking for a community app asks for this.
+
+- Shape at record grain into `/tmp/shaped/` as Parquet, or CSV when a type has to be named. You do not have to cut
+  a table to fit; still drop the columns nobody would filter, group or check by, and code long repeated text
+  (step 2 below), since every query reads them.
+- Load each file with `create_database_table`, as your briefing describes, into database `credible`, named
+  `<package>__<table>`, such as `colorado-river-reservoirs__readings`. You cannot replace or delete a table, so load
+  it once the shape is final; if the name is taken, add `_v2`.
+- Read it in the model as `credible.table('<package>__<table>')`. A source over a managed table can be
+  materialized; read `credible-materialization` before adding a `#@ persist`.
+- Nothing loaded is in the package or its pull request. Name each table, its rows and the script that wrote its
+  file in the README's "Rebuild" section, and list them in the hand-over.
+
+When your briefing does not offer `create_database_table`, the data goes in the package, as below.
+
+## Without a database: fit the package
 
 Each file in `data/` is CSV or JSONL, UTF-8, under 1 MiB. The whole package stays under 20 MiB and 500
 files. These are what the sandbox box and git-backed publishing accept. Leave room for the app and the model:
@@ -89,20 +109,7 @@ loses any leading zero. Name its type when you read the files:
 
 Never sample rows to fit. A sample changes every total the app shows.
 
-## When it does not fit: a managed table
-
-Data that cannot be cut to fit without losing what the app needs belongs in a managed table, in one of the
-environment's Credible databases. When your briefing offers `create_database_table`, load the shaped file there as
-its description says, and read it in the model as `<database>.table('<table>')`. A source over a managed table can
-also be materialized; a source over files in the package never is.
-
-- Name the table `<package>_<dataset>`, so it is plain which app reads it. You cannot replace or delete a table, so
-  load it once, after the shape is final; if the name is taken, add `_v2`.
-- The table is not in the package or its pull request. Keep the shaping script in `pipeline/` as for any file, and
-  in the README's "Rebuild" section name the table and the command that writes the file it was loaded from.
-- Say in the hand-over which tables you created, with their row counts.
-
-When your briefing does not offer it, stop the build and report, for each dataset that does not fit:
+When data cannot be cut to fit without losing what the app needs, stop the build and report, for each dataset:
 
 - its name, source and license,
 - the shaped file's size and row count,

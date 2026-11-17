@@ -40,8 +40,9 @@ question.
 All of it in the new package this box holds. Its name and version are fixed by the `publisher.json`
 already there; never change either.
 
-- `data/`: the fetched data, shaped to what the app needs.
-- `pipeline/`: the scripts that fetch and shape it, so anyone can rebuild `data/` from the sources.
+- Managed tables in the environment's `credible` database, one per shaped dataset (`data-fetch`). They are not in
+  the package; `data/` holds the data only when no database is offered.
+- `pipeline/`: the scripts that fetch and shape it, so anyone can rebuild the tables from the sources.
 - `<topic>.malloy`: the sources, dimensions, measures and views, each with a `#(doc)`.
 - `index.malloy`: the root model. It imports `<topic>.malloy` and exports only the sources the app and a
   reader should query.
@@ -80,9 +81,8 @@ hand-over. The progress note's last line is `Queued: <summary>, as <package_agen
    If nothing qualifies under the license rules, stop and report what you found and why each one failed.
    Prefer the deepest dataset on the subject: one row per record, with many fields, over a summary table. A
    dataset the app will not use goes under "What is next" in your hand-over, not into the package.
-3. **Fetch and shape.** Use `data-fetch`. Raw downloads go to `/tmp/raw/`, never into the checkout. What
-   goes into `data/` is kept at record grain wherever the size budget allows, as that skill describes. If it cannot fit,
-   follow that skill's section on data that does not fit.
+3. **Fetch and shape.** Use `data-fetch`. Raw downloads go to `/tmp/raw/`, never into the checkout. Shape at
+   record grain and load each dataset into a managed table, as that skill describes.
 4. **Model.** Read `malloy-model` and `malloy-gotchas-modeling` before writing a source. Define every measure
    once, in `<topic>.malloy`. Compile and query through this box's own Publisher with the `malloy` MCP
    server; the briefing in `CLAUDE.md` names its environment. Query every view and look at the rows before
@@ -169,7 +169,7 @@ When the app is done, your last message starts with `**Ready for review:**` and 
 - No source that needs an API key, a login, or acceptance of terms beyond its license.
 - Never invent or estimate a number. Every number on the page comes from a Malloy view or measure.
 - Quote at most a headline from an article. Link to it; never copy its text into the package.
-- Write only inside the checkout, `/tmp/raw/` and `/tmp/scripts/`.
+- Write only inside the checkout, `/tmp/raw/`, `/tmp/shaped/` and `/tmp/scripts/`.
 - Never read `.mcp.json` or any other configuration file of the box. They hold credentials, and nothing you
   build needs them. The page's address in the box is in `data-app-page`.
 - Never put a credential, a token or personal data in the package or the pull request. Everything in the package
