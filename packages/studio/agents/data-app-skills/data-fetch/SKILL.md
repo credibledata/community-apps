@@ -20,13 +20,13 @@ description: Download the shortlisted public datasets, shape them at record grai
 - **Long fetches run as a job.** When downloading or shaping will take more than about three minutes (many files,
   a paged API, one large file), write the script first, then run it with `start_job`, writing under the job's
   own directory (`/workspace/jobs/<id>/work`), never into the checkout. End the turn with a progress note: the job
-  keeps running after the turn ends. In the next turn, read the job's log, check its output as you would any
-  fetch, and copy or shape it into `data/`. Its output is kept at least 30 minutes after it ends, so use it in
-  the next turn. One job runs at a time.
+  keeps running after the turn ends. First thing in the next turn, read the job's log, move its output into
+  `/tmp/raw/` and check it as you would any fetch: starting another job deletes this one's directory, and its
+  output lasts only while the agent computer does. One job runs at a time.
 
 ## Shape
 
-Keep the data at record grain, one row per complaint, case, sale or reading, whenever it fits the budget below.
+Keep the data at record grain, one row per complaint, case, sale or reading, in the managed table, or in the package whenever it fits the budget below.
 Rows are what let a reader filter, drill into one place and check a number; a table counted before download
 answers only the questions it was counted for.
 
@@ -43,14 +43,14 @@ answers only the questions it was counted for.
   check how many rows fail to match.
 
 Use Python. For anything beyond a small CSV, pandas or DuckDB through `uv` is easiest:
-`uv run --with pandas python -I pipeline/shape_<name>.py /tmp/raw data`.
+`uv run --with pandas python -I pipeline/shape_<name>.py /tmp/raw /tmp/shaped`.
 
 Every reshaping is written down: what was dropped, what was aggregated, what was renamed or recoded, and how
 many rows went in and came out. That record goes in the README's sources table.
 
 ## Keep the scripts
 
-The package carries the scripts that made `data/`, so the data can be rebuilt and checked without you:
+The package carries the scripts that made the data, so it can be rebuilt and checked without you:
 
 - `pipeline/fetch.sh` downloads every source with `curl` into a directory given as its first argument
   (default `/tmp/raw`). It never writes into the package.
@@ -58,7 +58,7 @@ The package carries the scripts that made `data/`, so the data can be rebuilt an
   to an output directory given as its second argument: `/tmp/shaped` for a managed table, `data/` for a package file. Its docstring says what it reads, what it writes, and the exact `uv run --with …` line to run it.
 - Scripts take their paths as arguments, run from the package root, and need no network except `fetch.sh`.
 - Before you hand over, rerun the shaping scripts from a clean `/tmp/raw` and confirm they reproduce what you
-  loaded: the same row count and the same checksum of each output file. Say so in the README's "Rebuild" section,
+  loaded: the same row count, and the same totals of the columns the app sums, for each table or file. Say so in the README's "Rebuild" section,
   with the commands in order.
 
 Scripts are text, so they save with the package. Raw downloads never do.
@@ -67,15 +67,18 @@ Scripts are text, so they save with the package. Raw downloads never do.
 
 A community app keeps its data in the environment's `credible` database, one managed table per shaped file, not
 in the package. A table has no size limit, can be materialized, and leaves the package small enough for scheduled
-runs to work on. Asking for a community app asks for this.
+runs to work on. A table belongs to the environment and cannot be deleted from here, so create one only when the
+person asked for it: `build-next-topic`'s brief does; in a chat, ask once before the first table, as your
+instructions say.
 
 - Shape at record grain into `/tmp/shaped/` as Parquet, or CSV when a type has to be named. You do not have to cut
   a table to fit; still drop the columns nobody would filter, group or check by, and code long repeated text
   (step 2 below), since every query reads them.
-- Load each file with `create_database_table`, as your briefing describes, into database `credible`, named
-  `<package>__<table>`, such as `colorado-river-reservoirs__readings`. You cannot replace or delete a table, so load
-  it once the shape is final; if the name is taken, add `_v2`.
-- Read it in the model as `credible.table('<package>__<table>')`. A source over a managed table can be
+- Load each file with `create_database_table`, as your briefing describes, into database `credible`. Name it
+  `<package>__<table>` with the package's hyphens as underscores, since a table name holds only lowercase
+  letters, digits and underscores, at most 63: `colorado_river_reservoirs__readings`. You cannot replace or
+  delete a table, so load it once the shape is final; if the name is taken, add `_v2`.
+- Read it in the model as `credible.table('colorado_river_reservoirs__readings')`. A source over a managed table can be
   materialized; read `credible-materialization` before adding a `#@ persist`.
 - Nothing loaded is in the package or its pull request. Name each table, its rows and the script that wrote its
   file in the README's "Rebuild" section, and list them in the hand-over.

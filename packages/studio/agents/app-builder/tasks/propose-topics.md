@@ -16,8 +16,8 @@ find more, so a turn that is stopped still leaves a list.
 ## What makes a good topic
 
 - **In the news now.** A story from the last two weeks that a curious reader would want to check for themselves.
-- **Open data behind it.** A dataset from the body that collects it, under a license `dataset-scout` accepts, small
-  enough for a package (see `data-fetch`). No API key, login or terms to accept.
+- **Open data behind it.** A dataset from the body that collects it, under a license `dataset-scout` accepts, that
+  a script can fetch in one go (see `data-fetch`). No API key, login or terms to accept.
 - **Something new for the catalogue.** A subject and a lead view that no listed app already has.
 
 ## Steps

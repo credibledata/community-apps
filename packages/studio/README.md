@@ -37,8 +37,10 @@ this package, since its agent computer mounts it.
   when one ends with a **Progress:** note and nothing queued, send "continue". It ends by opening the app's pull
   request.
 
-The builder opens its pull request with `publish_package`, which also tries to merge it. What stops that merge is
-this repository's rule that a pull request needs an approval; keep that rule on `main`.
+The builder opens its pull request with `publish_package`. Credible holds that publish until the pull request can
+merge, so **approving the pull request publishes the app**: request changes rather than approve with a note. Keep
+the rule on `main` that a pull request needs an approval; without it the app would go live as soon as it is built.
+Running Build next topic also asks for the app's data in managed tables; in a chat, the builder asks first.
 
 `publisher.json` needs a `cron` beside each task. It is only the intended rhythm, weekly for proposals; nothing
 runs until someone adds a schedule on the agent's page.
