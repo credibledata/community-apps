@@ -40,8 +40,9 @@ question.
 All of it in the new package this box holds. Its name and version are fixed by the `publisher.json`
 already there; never change either.
 
-- `data/`: the fetched data, shaped to what the app needs.
-- `pipeline/`: the scripts that fetch and shape it, so anyone can rebuild `data/` from the sources.
+- Managed tables in the environment's `community` database, one per shaped dataset (`data-fetch`). They are not in
+  the package; `data/` holds the data only when no database is offered.
+- `pipeline/`: the scripts that fetch and shape it, so anyone can rebuild the tables from the sources.
 - `<topic>.malloy`: the sources, dimensions, measures and views, each with a `#(doc)`.
 - `index.malloy`: the root model. It imports `<topic>.malloy` and exports only the sources the app and a
   reader should query.
@@ -59,7 +60,8 @@ make sure the package compiles, then end the turn with a progress note that star
 done, the step that comes next, anything you found that matters). The next turn picks up from the files.
 Building the app and checking it are long steps: check the clock before each page you write and each round of
 shots, and stop the same way once 7 minutes have passed. Never start the page and the
-model in the same turn after a long data step.
+model in the same turn after a long data step. A download or shaping script that would take more than about three
+minutes runs as a job (`data-fetch` says how), so the turn goes to work only you can do.
 
 When a turn ends with a progress note and you have `stage_work`, queue the next turn yourself, as the turn's last
 action. Stage it on this same draft, with `package_agent` `app-builder` and `agent_package` the package that holds
@@ -79,9 +81,10 @@ hand-over. The progress note's last line is `Queued: <summary>, as <package_agen
    If nothing qualifies under the license rules, stop and report what you found and why each one failed.
    Prefer the deepest dataset on the subject: one row per record, with many fields, over a summary table. A
    dataset the app will not use goes under "What is next" in your hand-over, not into the package.
-3. **Fetch and shape.** Use `data-fetch`. Raw downloads go to `/tmp/raw/`, never into the checkout. What
-   goes into `data/` is kept at record grain wherever the size budget allows, as that skill describes. If it cannot fit,
-   follow that skill's section on data that does not fit.
+3. **Fetch and shape.** Use `data-fetch`. Raw downloads go to `/tmp/raw/`, never into the checkout. Shape at
+   record grain and load each dataset into a managed table, as that skill describes. Unless the request or brief
+   already asks for managed tables and a pull request, first say in one message which tables you will create and
+   that the build ends by opening a pull request for review, and go on when the person agrees.
 4. **Model.** Read `malloy-model` and `malloy-gotchas-modeling` before writing a source. Define every measure
    once, in `<topic>.malloy`. Compile and query through this box's own Publisher with the `malloy` MCP
    server; the briefing in `CLAUDE.md` names its environment. Query every view and look at the rows before
@@ -120,8 +123,8 @@ still listed, with a card drawn from its name and accent.
 
 ## Handing over
 
-Stop when the app is done, or when a rule below stops you. Never publish or merge: a person reviews the app, and
-merging its pull request publishes it.
+Stop when the app is done, or when a rule below stops you. A person reviews the app on its pull request; once
+they approve it, Credible merges it and publishes the app.
 
 When a rule stops the build, your last message starts with `**Stopped:**` and the rule, then what you checked
 (each source and why it failed) and what would unblock it. Answer a later "continue" with the same stop until
@@ -130,20 +133,23 @@ something it named has changed.
 Before you hand over, open and look at every final shot in that same turn, however short it is. A shot from an
 earlier turn may not show the page as it is now.
 
-When you have `create_pull_request` (a draft kept in git), read `get_pull_request`. If none is open, open one in the
-hand-over turn without asking: the review happens on the pull request, and nothing publishes until a person merges
-it.
+In community-apps the draft is kept in git, and `publish_package` is what opens its pull request. Call it in the
+hand-over turn when the person asked for the pull request, as `build-next-topic`'s brief does or as they agreed
+before the first table; otherwise end the hand-over by asking whether to open it, and call it when they say yes.
+It saves the draft and opens or updates the pull request on credibledata/community-apps. The repository needs a
+reviewer's approval, so Credible holds the publish rather than merging: it merges and publishes the app as soon as
+a reviewer approves. That held publish is the expected end, not a failure. If it reports the app published
+instead, say so at the top of the hand-over: it went live without a review. Pass:
 
 - `summary`: the app in a few words, such as "add a data app on wildfire acres burned".
 - `description`: the app in one sentence, the articles it responds to, the sources, the numbers for the reviewer
   to check, any managed table the app reads (it is not in the pull request), that the card's art is `card.svg`
-  (GitHub shows it in Files changed), and that merging publishes the app and then opens the pull request that
+  (GitHub shows it in Files changed), and that approving publishes the app and then opens the pull request that
   lists it from `community-card.json`.
 
-If one is open, new commits have updated it. Either way, read `get_pull_request` again, and once more if its check
-is still pending, as the tool says. If its check is failing, fix the model and say the pull request updates when the turn
-ends. Give its link in the hand-over, with what the check says. Never call GitHub yourself. Without
-`create_pull_request`, say that the person keeps the work with Submit on the draft page.
+Then read `get_pull_request`, and once more if its check is still pending, as the tool says. If its check is failing,
+fix the model and call `publish_package` again. Give the pull request's link in the hand-over, with what the check
+says. Never call GitHub yourself.
 
 When the app is done, your last message starts with `**Ready for review:**` and has these parts, in this order:
 
@@ -154,7 +160,7 @@ When the app is done, your last message starts with `**Ready for review:**` and 
    from, so the reviewer can open the source and compare. Copy each from the final page or its headline check,
    never from memory. Name anything you trimmed or could not verify.
 4. **Screenshots**: the final ones, named as `data-app-page` says, one per state of the page.
-5. **What is next**: a missing dataset, a view you left out, or data that needs a managed table.
+5. **What is next**: a missing dataset, or a view you left out.
 
 ## Hard rules
 
@@ -165,7 +171,8 @@ When the app is done, your last message starts with `**Ready for review:**` and 
 - No source that needs an API key, a login, or acceptance of terms beyond its license.
 - Never invent or estimate a number. Every number on the page comes from a Malloy view or measure.
 - Quote at most a headline from an article. Link to it; never copy its text into the package.
-- Write only inside the checkout, `/tmp/raw/` and `/tmp/scripts/`.
+- Write only inside the checkout, `/tmp/raw/`, `/tmp/shaped/`, `/tmp/scripts/` and a job's own
+  `/workspace/jobs/<id>/work`.
 - Never read `.mcp.json` or any other configuration file of the box. They hold credentials, and nothing you
   build needs them. The page's address in the box is in `data-app-page`.
 - Never put a credential, a token or personal data in the package or the pull request. Everything in the package

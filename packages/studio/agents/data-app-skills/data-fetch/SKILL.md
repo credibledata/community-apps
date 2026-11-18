@@ -1,6 +1,6 @@
 ---
 name: data-fetch
-description: Download the shortlisted public datasets, shape them at record grain where they fit, and fit them into the package, or into a managed table when they do not. Use after dataset-scout and before modeling. Records where every row came from.
+description: Download the shortlisted public datasets, shape them at record grain, and load them into managed tables in the environment's `community` database, or into the package when no database is offered. Use after dataset-scout and before modeling. Records where every row came from.
 ---
 
 # Data fetch
@@ -17,12 +17,18 @@ description: Download the shortlisted public datasets, shape them at record grai
   you will group by, and how many values are blank. A file that looks like an error page or a login form
   is a failed fetch.
 - An API that pages its results: fetch every page, and check the row count against the total it reports.
+- **Long fetches run as a job.** When downloading or shaping will take more than about three minutes (many files,
+  a paged API, one large file), write the script first, then run it with `start_job`, writing under the job's
+  own directory (`/workspace/jobs/<id>/work`), never into the checkout. End the turn with a progress note: the job
+  keeps running after the turn ends. First thing in the next turn, read the job's log, move its output into
+  `/tmp/raw/` and check it as you would any fetch: starting another job deletes this one's directory, and its
+  output lasts only while the agent computer does. One job runs at a time.
 
 ## Shape
 
-Keep the data at record grain, one row per complaint, case, sale or reading, whenever it fits the budget below.
-Rows are what let a reader filter, drill into one place and check a number; a table counted before download
-answers only the questions it was counted for.
+Keep the data at record grain, one row per complaint, case, sale or reading, in the managed table, or in the package
+whenever it fits the budget below. Rows are what let a reader filter, drill into one place and check a number; a
+table counted before download answers only the questions it was counted for.
 
 - **Keep the columns a reader could filter, group or check by.** Name them in `snake_case`. Drop free text, internal
   ids nobody would look up, and columns that repeat another.
@@ -37,26 +43,51 @@ answers only the questions it was counted for.
   check how many rows fail to match.
 
 Use Python. For anything beyond a small CSV, pandas or DuckDB through `uv` is easiest:
-`uv run --with pandas python -I pipeline/shape_<name>.py /tmp/raw data`.
+`uv run --with pandas python -I pipeline/shape_<name>.py /tmp/raw /tmp/shaped`.
 
 Every reshaping is written down: what was dropped, what was aggregated, what was renamed or recoded, and how
 many rows went in and came out. That record goes in the README's sources table.
 
 ## Keep the scripts
 
-The package carries the scripts that made `data/`, so the data can be rebuilt and checked without you:
+The package carries the scripts that made the data, so it can be rebuilt and checked without you:
 
 - `pipeline/fetch.sh` downloads every source with `curl` into a directory given as its first argument
   (default `/tmp/raw`). It never writes into the package.
-- `pipeline/shape_<name>.py`, one per output file or close family of files, reads the raw directory and writes
-  to `data/`. Its docstring says what it reads, what it writes, and the exact `uv run --with …` line to run it.
+- `pipeline/shape_<name>.py`, one per output file or close family of files, reads the raw directory and writes to an
+  output directory given as its second argument: `/tmp/shaped` for a managed table, `data/` for a package file. Its
+  docstring says what it reads, what it writes, and the exact `uv run --with …` line to run it.
 - Scripts take their paths as arguments, run from the package root, and need no network except `fetch.sh`.
-- Before you hand over, rerun the shaping scripts from a clean `/tmp/raw` and confirm they reproduce `data/`
-  byte for byte. Say so in the README's "Rebuild" section, with the commands in order.
+- Before you hand over, rerun the shaping scripts from a clean `/tmp/raw` and confirm they reproduce what you
+  loaded: the same row count, and the same totals of the columns the app sums, for each table or file. Say so in the
+  README's "Rebuild" section, with the commands in order.
 
 Scripts are text, so they save with the package. Raw downloads never do.
 
-## Fit the budget
+## Where the data goes: a managed table
+
+A community app keeps its data in the environment's `community` database, one managed table per shaped file, not
+in the package. A table has no size limit, can be materialized, and leaves the package small enough for scheduled
+runs to work on. A table belongs to the environment and cannot be deleted from here, so create one only when the
+person asked for it: `build-next-topic`'s brief does; in a chat, ask once before the first table, as your
+instructions say.
+
+- Shape at record grain into `/tmp/shaped/` as Parquet, or CSV when a type has to be named. You do not have to cut
+  a table to fit; still drop the columns nobody would filter, group or check by, and code long repeated text
+  (step 2 below), since every query reads them.
+- Load each file with `create_database_table`, as your briefing describes, into database `community`, never the
+  default `credible` one. Name it `<package>__<table>` with the package's hyphens as underscores, since a table name
+  holds only lowercase letters, digits and underscores, at most 63: `colorado_river_reservoirs__readings`. You
+  cannot replace or delete a table, so load it once the shape is final; if the name is taken, add `_v2`.
+- Read it in the model as `community.table('colorado_river_reservoirs__readings')`. A source over a managed table can be
+  materialized; read `credible-materialization` before adding a `#@ persist`.
+- Nothing loaded is in the package or its pull request. Name each table, its rows and the script that wrote its
+  file in the README's "Rebuild" section, and list them in the hand-over.
+
+When your briefing does not offer `create_database_table`, the data goes in the package, as below. When it does but
+the `community` database is missing, stop and say so; never load into another database.
+
+## Without a database: fit the package
 
 Each file in `data/` is CSV or JSONL, UTF-8, under 1 MiB. The whole package stays under 20 MiB and 500
 files. These are what the sandbox box and git-backed publishing accept. Leave room for the app and the model:
@@ -83,20 +114,7 @@ loses any leading zero. Name its type when you read the files:
 
 Never sample rows to fit. A sample changes every total the app shows.
 
-## When it does not fit: a managed table
-
-Data that cannot be cut to fit without losing what the app needs belongs in a managed table, in one of the
-environment's Credible databases. When your briefing offers `create_database_table`, load the shaped file there as
-its description says, and read it in the model as `<database>.table('<table>')`. A source over a managed table can
-also be materialized; a source over files in the package never is.
-
-- Name the table `<package>_<dataset>`, so it is plain which app reads it. You cannot replace or delete a table, so
-  load it once, after the shape is final; if the name is taken, add `_v2`.
-- The table is not in the package or its pull request. Keep the shaping script in `pipeline/` as for any file, and
-  in the README's "Rebuild" section name the table and the command that writes the file it was loaded from.
-- Say in the hand-over which tables you created, with their row counts.
-
-When your briefing does not offer it, stop the build and report, for each dataset that does not fit:
+When data cannot be cut to fit without losing what the app needs, stop the build and report, for each dataset:
 
 - its name, source and license,
 - the shaped file's size and row count,

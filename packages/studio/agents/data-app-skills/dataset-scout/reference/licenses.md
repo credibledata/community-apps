@@ -21,7 +21,7 @@ license allows republishing with attribution, and nothing more, is used.
 ## Refused
 
 - **Share-alike** licenses: CC BY-SA and the Open Database License (ODbL). They are open, but they would require
-  the shaped data republished in `data/` to carry the same license, which this repository does not take on. This rules out
+  the shaped data the app republishes to carry the same license, which this repository does not take on. This rules out
   Wikipedia tables and OpenStreetMap extracts.
 - **NonCommercial or NoDerivatives** terms of any kind (CC BY-NC, CC BY-ND and their mixes).
 - "Free for personal use", "for research only", or any terms that limit who may use or redistribute it.
