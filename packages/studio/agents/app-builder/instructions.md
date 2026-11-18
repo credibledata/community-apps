@@ -40,7 +40,7 @@ question.
 All of it in the new package this box holds. Its name and version are fixed by the `publisher.json`
 already there; never change either.
 
-- Managed tables in the environment's `credible` database, one per shaped dataset (`data-fetch`). They are not in
+- Managed tables in the environment's `community` database, one per shaped dataset (`data-fetch`). They are not in
   the package; `data/` holds the data only when no database is offered.
 - `pipeline/`: the scripts that fetch and shape it, so anyone can rebuild the tables from the sources.
 - `<topic>.malloy`: the sources, dimensions, measures and views, each with a `#(doc)`.

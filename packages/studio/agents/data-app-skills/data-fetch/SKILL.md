@@ -1,6 +1,6 @@
 ---
 name: data-fetch
-description: Download the shortlisted public datasets, shape them at record grain, and load them into managed tables in the environment's `credible` database, or into the package when no database is offered. Use after dataset-scout and before modeling. Records where every row came from.
+description: Download the shortlisted public datasets, shape them at record grain, and load them into managed tables in the environment's `community` database, or into the package when no database is offered. Use after dataset-scout and before modeling. Records where every row came from.
 ---
 
 # Data fetch
@@ -26,9 +26,9 @@ description: Download the shortlisted public datasets, shape them at record grai
 
 ## Shape
 
-Keep the data at record grain, one row per complaint, case, sale or reading, in the managed table, or in the package whenever it fits the budget below.
-Rows are what let a reader filter, drill into one place and check a number; a table counted before download
-answers only the questions it was counted for.
+Keep the data at record grain, one row per complaint, case, sale or reading, in the managed table, or in the package
+whenever it fits the budget below. Rows are what let a reader filter, drill into one place and check a number; a
+table counted before download answers only the questions it was counted for.
 
 - **Keep the columns a reader could filter, group or check by.** Name them in `snake_case`. Drop free text, internal
   ids nobody would look up, and columns that repeat another.
@@ -54,18 +54,19 @@ The package carries the scripts that made the data, so it can be rebuilt and che
 
 - `pipeline/fetch.sh` downloads every source with `curl` into a directory given as its first argument
   (default `/tmp/raw`). It never writes into the package.
-- `pipeline/shape_<name>.py`, one per output file or close family of files, reads the raw directory and writes
-  to an output directory given as its second argument: `/tmp/shaped` for a managed table, `data/` for a package file. Its docstring says what it reads, what it writes, and the exact `uv run --with …` line to run it.
+- `pipeline/shape_<name>.py`, one per output file or close family of files, reads the raw directory and writes to an
+  output directory given as its second argument: `/tmp/shaped` for a managed table, `data/` for a package file. Its
+  docstring says what it reads, what it writes, and the exact `uv run --with …` line to run it.
 - Scripts take their paths as arguments, run from the package root, and need no network except `fetch.sh`.
 - Before you hand over, rerun the shaping scripts from a clean `/tmp/raw` and confirm they reproduce what you
-  loaded: the same row count, and the same totals of the columns the app sums, for each table or file. Say so in the README's "Rebuild" section,
-  with the commands in order.
+  loaded: the same row count, and the same totals of the columns the app sums, for each table or file. Say so in the
+  README's "Rebuild" section, with the commands in order.
 
 Scripts are text, so they save with the package. Raw downloads never do.
 
 ## Where the data goes: a managed table
 
-A community app keeps its data in the environment's `credible` database, one managed table per shaped file, not
+A community app keeps its data in the environment's `community` database, one managed table per shaped file, not
 in the package. A table has no size limit, can be materialized, and leaves the package small enough for scheduled
 runs to work on. A table belongs to the environment and cannot be deleted from here, so create one only when the
 person asked for it: `build-next-topic`'s brief does; in a chat, ask once before the first table, as your
@@ -74,16 +75,17 @@ instructions say.
 - Shape at record grain into `/tmp/shaped/` as Parquet, or CSV when a type has to be named. You do not have to cut
   a table to fit; still drop the columns nobody would filter, group or check by, and code long repeated text
   (step 2 below), since every query reads them.
-- Load each file with `create_database_table`, as your briefing describes, into database `credible`. Name it
-  `<package>__<table>` with the package's hyphens as underscores, since a table name holds only lowercase
-  letters, digits and underscores, at most 63: `colorado_river_reservoirs__readings`. You cannot replace or
-  delete a table, so load it once the shape is final; if the name is taken, add `_v2`.
-- Read it in the model as `credible.table('colorado_river_reservoirs__readings')`. A source over a managed table can be
+- Load each file with `create_database_table`, as your briefing describes, into database `community`, never the
+  default `credible` one. Name it `<package>__<table>` with the package's hyphens as underscores, since a table name
+  holds only lowercase letters, digits and underscores, at most 63: `colorado_river_reservoirs__readings`. You
+  cannot replace or delete a table, so load it once the shape is final; if the name is taken, add `_v2`.
+- Read it in the model as `community.table('colorado_river_reservoirs__readings')`. A source over a managed table can be
   materialized; read `credible-materialization` before adding a `#@ persist`.
 - Nothing loaded is in the package or its pull request. Name each table, its rows and the script that wrote its
   file in the README's "Rebuild" section, and list them in the hand-over.
 
-When your briefing does not offer `create_database_table`, the data goes in the package, as below.
+When your briefing does not offer `create_database_table`, the data goes in the package, as below. When it does but
+the `community` database is missing, stop and say so; never load into another database.
 
 ## Without a database: fit the package
 
