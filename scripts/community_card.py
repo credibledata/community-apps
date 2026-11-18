@@ -36,7 +36,7 @@ APPS_TS = "src/content/apps.ts"
 TAGS = ("Explore", "Analyse", "Simulate")
 HEX = re.compile(r"#[0-9a-fA-F]{6}")
 SLUG = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
-PACKAGE_URL = "https://community.app.credibledata.com/community-apps/{package}"
+APP_URL = "https://community.app.credibledata.com/community-apps/{package}/latest/data-apps/index.html"
 
 
 def card_problems(card: object) -> list[str]:
@@ -159,7 +159,7 @@ def open_pr(site: Path, slug: str, card: dict, source: str, art: bool = False, a
     body = (
         f"Lists **{card['name']}** on the Apps page, from its card in credibledata/community-apps ({source}).\n\n"
         f"> {' '.join(card['blurb'].split())}\n\n"
-        f"The card links to {PACKAGE_URL.format(package=slug)}. "
+        f"The card opens the data app at {APP_URL.format(package=slug)}. "
         + ("Its art is the app's own card.svg, rebuilt from its drawing elements: look at it in Files changed. " if art
            else "It is drawn from the app's name, tag and accent. " + (f"(Its card.svg was not used: {art_note}.) " if art_note else ""))
         + "Merging deploys the site: merge once that page opens the published app."
