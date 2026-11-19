@@ -1,0 +1,5 @@
+{
+  "name": "us-power-grid",
+  "version": "0.0.1",
+  "description": "How US electricity generation has changed since 2001, by state and energy source, from EIA monthly data: when wind and solar overtook coal."
+}
