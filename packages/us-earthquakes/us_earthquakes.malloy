@@ -1,0 +1,303 @@
+##! experimental.access_modifiers
+
+// The managed table loaded from pipeline/shape_events.py's events.parquet.
+source: events_table is community.table('us_earthquakes__events')
+
+#(doc) One row: the latest calendar year in the data, which the fetch cut off part way through.
+source: latest_year_l is events_table -> { aggregate: latest_year is max(year(event_time)) }
+
+#(doc) Earthquakes of magnitude 2.5 and up with an epicentre in the 48 contiguous states or DC, 2000-01-01 to the
+#(doc) latest fetch, from the USGS ComCat catalog (one row per earthquake). Explosions, quarry blasts, mine collapses
+#(doc) and other non-tectonic events are left out, as are offshore events and events in Canada or Mexico. The state
+#(doc) and county are where the epicentre falls on the Census Bureau's 2023 boundaries. Times are UTC. Magnitudes are
+#(doc) as ComCat reports them, in whichever magnitude type its preferred solution uses (see mag_type).
+source: earthquakes is events_table
+  extend { rename: raw_state is state, raw_county is county }
+  include {
+    public:
+      #(doc) ComCat event id; the event's page is https://earthquake.usgs.gov/earthquakes/eventpage/<event_id>
+      event_id
+      #(doc) Origin time of the earthquake, UTC, to the second.
+      event_time
+      #(doc) Epicentre latitude, degrees north, rounded to 4 decimals.
+      latitude
+      #(doc) Epicentre longitude, degrees east (negative is west), rounded to 4 decimals.
+      longitude
+      #(doc) Hypocentre depth below the surface, km, as ComCat reports it.
+      depth_km
+      #(doc) Preferred magnitude as ComCat reports it. Not every event uses the same magnitude type; see mag_type.
+      magnitude
+      #(doc) Magnitude type of the preferred solution, lowercased: ml local, md duration, mw moment, mb_lg Lg-wave, and others.
+      mag_type
+      #(index) #(doc) Full state name where the epicentre falls.
+      state_name
+      #(doc) Five-digit county FIPS code where the epicentre falls.
+      county_fips
+      #(doc) ComCat's own place description, such as "7 km S of Guthrie, Oklahoma".
+      place
+      #(doc) Seismic network that contributed the preferred solution (us, ci, nc, ok, tx, ...).
+      network
+      #(doc) ComCat review status: reviewed by an analyst, or automatic.
+      review_status
+    internal: raw_state, raw_county
+  }
+  extend {
+    primary_key: event_id
+    join_cross: latest_year_l
+
+    #(index) #(doc) Two-letter postal code of the state where the epicentre falls.
+    dimension: state is raw_state
+    #(index) #(doc) County where the epicentre falls, with its state, such as "Logan County, OK".
+    dimension: county is concat(raw_county, ', ', raw_state)
+
+    #(doc) Calendar year of the origin time (UTC).
+    dimension: event_year is year(event_time)
+    #(doc) Month of the origin time (UTC), truncated to the first of the month.
+    dimension: event_month is event_time.month
+    #(doc) Month of year of the origin time (UTC), 1–12.
+    dimension: month_of_year is month(event_time)
+    #(doc) Day of the origin time (UTC).
+    dimension: event_day is event_time::date
+    #(doc) True for the latest year in the data, which the fetch cut off part way through. Year-on-year comparisons
+    #(doc) stop at the year before it. The latest year is found from the data (see latest_year), not typed.
+    dimension: is_partial_year is event_year >= latest_year_l.latest_year
+
+    #(doc) The three periods of Oklahoma's story, by origin year: "2000–08 before" (the background rate),
+    #(doc) "2009–15 surge" (the rise that came with the growth of wastewater disposal into the Arbuckle formation), and
+    #(doc) "2016 on, after limits" (after the Oklahoma Corporation Commission's regional cuts to disposal volumes of
+    #(doc) February and March 2016, which followed narrower directives from March 2015). The break years are this
+    #(doc) model's choice: 2009 is the first year Oklahoma's count of M2.5+ earthquakes ran far above its 2000–08 level
+    #(doc) (33 against at most 9 a year before it), and 2016 is the first year under the regional volume cap.
+    dimension: period is
+      pick '2000–08 before' when event_year < 2009
+      pick '2009–15 surge' when event_year < 2016
+      else '2016 on, after limits'
+
+    #(doc) Magnitude class, following USGS's descriptive classes with the minor class split at 3.0:
+    #(doc) "2.5–2.9", "3.0–3.9 minor", "4.0–4.9 light", "5.0–5.9 moderate", "6.0+ strong".
+    dimension: magnitude_class is
+      pick '2.5–2.9' when magnitude < 3
+      pick '3.0–3.9 minor' when magnitude < 4
+      pick '4.0–4.9 light' when magnitude < 5
+      pick '5.0–5.9 moderate' when magnitude < 6
+      else '6.0+ strong'
+    #(doc) Sort key for magnitude_class, 1 (smallest) to 5.
+    dimension: magnitude_class_order is
+      pick 1 when magnitude < 3 pick 2 when magnitude < 4 pick 3 when magnitude < 5 pick 4 when magnitude < 6 else 5
+
+    #(doc) Depth class: "0–4.9 km", "5–9.9 km", "10–19.9 km", "20 km+". The bands are this model's choice. Many
+    #(doc) solutions without a well-constrained depth are fixed at 5 km (Oklahoma's often are), so the 5–9.9 km band
+    #(doc) holds those events.
+    dimension: depth_class is
+      pick '0–4.9 km' when depth_km < 5
+      pick '5–9.9 km' when depth_km < 10
+      pick '10–19.9 km' when depth_km < 20
+      else '20 km+'
+    #(doc) Sort key for depth_class, 1 (shallowest) to 4.
+    dimension: depth_class_order is
+      pick 1 when depth_km < 5 pick 2 when depth_km < 10 pick 3 when depth_km < 20 else 4
+
+    #(doc) Hour of day of the origin time, UTC (0–23).
+    dimension: hour_utc is hour(event_time)
+
+    #(doc) Seismic energy of the event relative to a magnitude 2.5 earthquake: 10^(1.5 × (magnitude − 2.5)), from the
+    #(doc) Gutenberg–Richter energy relation. A magnitude 4.5 releases 1,000 times the energy of a 2.5.
+    dimension: energy_vs_m25 is pow(10, 1.5 * (magnitude - 2.5))
+
+    #(doc) Number of earthquakes (M2.5+).
+    measure: quakes is count()
+    #(doc) Number of earthquakes of magnitude 3.0 and up.
+    measure: quakes_m3 is count() { where: magnitude >= 3 }
+    #(doc) Number of earthquakes of magnitude 4.0 and up, usually felt widely and able to cause light damage.
+    measure: quakes_m4 is count() { where: magnitude >= 4 }
+    #(doc) Number of earthquakes of magnitude 5.0 and up.
+    measure: quakes_m5 is count() { where: magnitude >= 5 }
+    #(doc) Largest magnitude among the earthquakes counted.
+    measure: max_magnitude is max(magnitude)
+    #(doc) Average depth of the earthquakes counted, km.
+    measure: avg_depth_km is avg(depth_km)
+    #(doc) Share of the earthquakes counted that were shallower than 5 km: quakes under 5 km ÷ all quakes with a depth.
+    measure: shallow_share is count() { where: depth_km < 5 } / nullif(count() { where: depth_km is not null }, 0)
+    #(doc) Total seismic energy, in multiples of one magnitude 2.5 earthquake (sum of energy_vs_m25). Dominated by the
+    #(doc) largest events: one M7.1 counts as about 7.9 million M2.5s.
+    measure: energy_m25 is energy_vs_m25.sum()
+    #(doc) Number of distinct counties with at least one earthquake counted.
+    measure: counties_hit is count(county_fips)
+    #(doc) Number of distinct years with at least one earthquake counted.
+    measure: years_active is count(event_year)
+    #(doc) Origin time of the most recent earthquake counted, UTC.
+    measure: latest_quake is max(event_time)
+    #(doc) Origin time of the earliest earthquake counted, UTC.
+    measure: first_quake is min(event_time)
+    #(doc) Earthquakes in Oklahoma.
+    measure: ok_quakes is count() { where: raw_state = 'OK' }
+    #(doc) Earthquakes in California.
+    measure: ca_quakes is count() { where: raw_state = 'CA' }
+    #(doc) Earthquakes in Texas.
+    measure: tx_quakes is count() { where: raw_state = 'TX' }
+    #(doc) Earthquakes in Kansas.
+    measure: ks_quakes is count() { where: raw_state = 'KS' }
+
+    #(doc) Earthquakes per year, 2000 to the latest (partial) year.
+    view: by_year is {
+      group_by: event_year, is_partial_year
+      aggregate: quakes, quakes_m4, max_magnitude
+      order_by: event_year
+    }
+    #(doc) Earthquakes per month, in order.
+    view: by_month is {
+      group_by: event_month
+      aggregate: quakes, quakes_m4, max_magnitude
+      order_by: event_month
+    }
+    #(doc) Earthquakes by state, most first.
+    view: by_state is {
+      group_by: state, state_name
+      aggregate: quakes, quakes_m4, max_magnitude, shallow_share
+      order_by: quakes desc
+    }
+    #(doc) Earthquakes by county, most first.
+    view: by_county is {
+      group_by: county, county_fips, state
+      aggregate: quakes, quakes_m4, max_magnitude
+      order_by: quakes desc
+    }
+    #(doc) Earthquakes by magnitude class, smallest first.
+    view: by_magnitude is {
+      group_by: magnitude_class, magnitude_class_order
+      aggregate: quakes
+      order_by: magnitude_class_order
+    }
+    #(doc) Earthquakes by depth class, shallowest first.
+    view: by_depth is {
+      group_by: depth_class, depth_class_order
+      aggregate: quakes
+      order_by: depth_class_order
+    }
+    #(doc) Earthquakes by the three periods of Oklahoma's story, with the number of years in each that have an earthquake.
+    view: by_period is {
+      group_by: period
+      aggregate: quakes, quakes_m4, years_active, max_magnitude
+      order_by: period
+    }
+    #(doc) Earthquakes by year for Oklahoma, California, Texas and Kansas side by side.
+    view: states_by_year is {
+      group_by: event_year, is_partial_year
+      aggregate: ok_quakes, ca_quakes, tx_quakes, ks_quakes, quakes
+      order_by: event_year
+    }
+    #(doc) Earthquakes by state, most first, each with its count per year as a nested trend.
+    view: state_ranking is {
+      group_by: state, state_name
+      aggregate: quakes, quakes_m4, max_magnitude
+      nest: trend is { group_by: event_year; aggregate: quakes; order_by: event_year }
+      order_by: quakes desc
+    }
+    #(doc) Earthquakes by state and depth class, for comparing how deep each state's earthquakes are.
+    view: depth_by_state is {
+      group_by: state, depth_class, depth_class_order
+      aggregate: quakes
+      order_by: state, depth_class_order
+    }
+    #(doc) Earthquakes per 0.1° cell of latitude and longitude (lat, lon are the cell's centre), for a map.
+    view: by_location is {
+      group_by:
+        lat is floor(latitude * 10) / 10 + 0.05
+        lon is floor(longitude * 10) / 10 + 0.05
+      aggregate: quakes
+      order_by: quakes desc
+      limit: 50000
+    }
+    #(doc) Earthquakes by year and month of year, for a calendar grid.
+    view: year_month_grid is {
+      group_by: event_year, month_of_year
+      aggregate: quakes
+      order_by: event_year, month_of_year
+    }
+    #(doc) Every earthquake as a point, for a map: location, magnitude and date, largest drawn last.
+    view: points is {
+      select: event_id, latitude, longitude, magnitude, event_day, state
+      order_by: magnitude
+    }
+    #(doc) The largest earthquakes, biggest first.
+    view: largest is {
+      select: event_id, event_time, magnitude, mag_type, depth_km, place, state, county
+      order_by: magnitude desc, event_time desc
+      limit: 25
+    }
+    #(doc) Earthquakes per state and year, for comparing states side by side.
+    view: by_state_year is {
+      group_by: state, state_name, event_year
+      aggregate: quakes
+      order_by: state, event_year
+    }
+    #(doc) Earthquakes newest first, with the fields a reader would check.
+    view: records is {
+      select: event_id, event_time, magnitude, mag_type, depth_km, place, state, county, network, review_status
+      order_by: event_time desc
+    }
+    #(doc) Every headline number for the rows in scope.
+    view: kpis is {
+      aggregate: quakes, quakes_m4, quakes_m5, max_magnitude, avg_depth_km, shallow_share, counties_hit, first_quake, latest_quake
+    }
+  }
+
+#(doc) The app's headline question: Oklahoma's surge of earthquakes after 2009 and its fall after the 2015–2016
+#(doc) wastewater-disposal limits, against California's steady record. Earthquakes in Oklahoma and California only,
+#(doc) with every field and view of earthquakes. Views that compare years use whole years only (2000 to the year
+#(doc) before the latest, partial one).
+source: oklahoma_vs_california is earthquakes extend {
+  where: raw_state = 'OK' or raw_state = 'CA'
+
+  #(doc) Oklahoma's and California's earthquakes by year, whole years only.
+  view: ok_ca_by_year is {
+    where: is_partial_year = false
+    group_by: event_year
+    aggregate: ok_quakes, ca_quakes, ok_m4 is quakes_m4 { where: raw_state = 'OK' }, ca_m4 is quakes_m4 { where: raw_state = 'CA' }
+    order_by: event_year
+  }
+  #(doc) Oklahoma's and California's earthquakes by period, whole years only, with the years in each period;
+  #(doc) count ÷ years is the yearly rate.
+  view: ok_ca_by_period is {
+    where: is_partial_year = false
+    group_by: period
+    aggregate: ok_quakes, ca_quakes, years_active
+    aggregate: ok_per_year is ok_quakes / nullif(years_active, 0), ca_per_year is ca_quakes / nullif(years_active, 0)
+    order_by: period
+  }
+  #(doc) The headline numbers, whole years only: each state's count and yearly rate (count ÷ years in the period) in
+  #(doc) each period, each state's count in the last whole year, Oklahoma's M4+ count and largest magnitude, and the
+  #(doc) first and last whole years.
+  view: headline is {
+    where: is_partial_year = false
+    aggregate:
+      ok_before is ok_quakes { where: period = '2000–08 before' }
+      ok_surge is ok_quakes { where: period = '2009–15 surge' }
+      ok_after is ok_quakes { where: period = '2016 on, after limits' }
+      ca_before is ca_quakes { where: period = '2000–08 before' }
+      ca_surge is ca_quakes { where: period = '2009–15 surge' }
+      ca_after is ca_quakes { where: period = '2016 on, after limits' }
+      years_before is years_active { where: period = '2000–08 before' }
+      years_surge is years_active { where: period = '2009–15 surge' }
+      years_after is years_active { where: period = '2016 on, after limits' }
+      ok_per_year_before is ok_quakes { where: period = '2000–08 before' } / nullif(years_active { where: period = '2000–08 before' }, 0)
+      ok_per_year_surge is ok_quakes { where: period = '2009–15 surge' } / nullif(years_active { where: period = '2009–15 surge' }, 0)
+      ok_per_year_after is ok_quakes { where: period = '2016 on, after limits' } / nullif(years_active { where: period = '2016 on, after limits' }, 0)
+      ca_per_year_before is ca_quakes { where: period = '2000–08 before' } / nullif(years_active { where: period = '2000–08 before' }, 0)
+      ca_per_year_surge is ca_quakes { where: period = '2009–15 surge' } / nullif(years_active { where: period = '2009–15 surge' }, 0)
+      ca_per_year_after is ca_quakes { where: period = '2016 on, after limits' } / nullif(years_active { where: period = '2016 on, after limits' }, 0)
+      ok_last_full_year is ok_quakes { where: event_year = latest_year_l.latest_year - 1 }
+      ca_last_full_year is ca_quakes { where: event_year = latest_year_l.latest_year - 1 }
+      ok_m4 is quakes_m4 { where: raw_state = 'OK' }
+      ok_max is max_magnitude { where: raw_state = 'OK' }
+      first_year is min(event_year)
+      last_full_year is max(event_year)
+  }
+  #(doc) Each state's peak year (most earthquakes) and its count, whole years only.
+  view: peaks is {
+    where: is_partial_year = false
+    group_by: state
+    nest: peak is { group_by: event_year; aggregate: quakes; order_by: quakes desc; limit: 1 }
+    nest: last_year is { where: event_year = latest_year_l.latest_year - 1; aggregate: quakes }
+  }
+}
