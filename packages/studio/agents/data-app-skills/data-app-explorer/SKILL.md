@@ -93,7 +93,9 @@ entity; a scope bar; one view at a time at its own address; a footer. Its views:
   compare". Reached from search, every ranked list, the records and the overview.
 - **Compare** (`#/compare?ids=a,b`), when the domain has entities people compare: up to four side by side. It has
   a link in the header, which counts what is picked, and every ranked list of entities passes `inCompare` and
-  `onCompare: toggleCompare`, so its + adds there. An app with no entities to compare drops the link, the +, "Add to
+  `onCompare: toggleCompare`, so its + adds there. The frame declares `picked`, `inCompare`, `goCompare` and
+  `toggleCompare`; never declare them again in the views, as earlier apps did, or the module stops with a
+  SyntaxError and the page is blank. An app with no entities to compare drops the link, the +, "Add to
   compare", and `compare` from `VIEWS` in `scope.js`, which leaves `#/compare` unreachable; keep the `compare()`
   function, which the frame names.
 - **Records** (`#/records`): the rows in scope, 50 more at a time, each linking to its entity.
