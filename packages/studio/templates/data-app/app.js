@@ -415,8 +415,7 @@ function keepInView(anchor, ms = 1600) {
 
 let shown = null
 function render({ toTop = false } = {}) {
-  // The picks are part of the Compare view's identity: a change to them draws it again, chips and all.
-  const here = `${route.view}|${route.id ?? ''}|${route.compare.join(',')}`
+  const here = `${route.view}|${route.id ?? ''}`
   const same = shown === here
   const first = shown === null
   shown = here
@@ -452,6 +451,8 @@ function paint(toTop, same) {
       if (old.__loaded) old.__update(c.__spec)
       else old.__respec(c.__spec)
     }
+    // Parts of a view that are not cards but follow the address, such as Compare's picks, marked data-redraw.
+    for (const el of next.querySelectorAll('[data-redraw]')) $(`#main [data-redraw="${el.dataset.redraw}"]`)?.replaceWith(el)
     if (anchor) {
       scrollBy(0, anchor.getBoundingClientRect().top - want)
       keepInView(anchor)
@@ -605,7 +606,8 @@ function compare() {
       } }))))
   return h('div', { class: 'view wrap' },
     ...viewHead('Compare', `Up to ${S.COMPARE_MAX} ZIP codes side by side. Add one with the + on a ranked list, or from its page.`),
-    ids.length ? chips : h('p', { class: 'lede', text: 'Nothing picked yet.' }),
+    // data-redraw: the frame swaps this in place when the picks change, while the cards update where they are.
+    h('div', { 'data-redraw': 'picks' }, ids.length ? chips : h('p', { class: 'lede', text: 'Nothing picked yet.' })),
     // ADAPT: a tile per comparison, each query from S.compareQuery(view, ids, scope, known), one series per id.
   )
 }

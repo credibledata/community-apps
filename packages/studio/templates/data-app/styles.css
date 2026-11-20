@@ -239,7 +239,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) {
   .wrap { padding: 0 var(--sp-4); }
   /* Five views do not fit across a phone: the links wrap to a second line rather than run off its edge. */
-  .app-nav { order: 3; flex-basis: 100%; flex-wrap: wrap; row-gap: var(--sp-1); }
+  .app-nav { order: 3; flex-basis: 100%; flex-wrap: wrap; }
   .app-nav a { white-space: nowrap; }
   .search, .search input { width: 100%; }
   .scope { position: static; }
