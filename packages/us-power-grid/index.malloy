@@ -1,0 +1,4 @@
+// Root model: the sources the app and a reader should query.
+import "us-power-grid.malloy"
+
+export { generation, crossover }

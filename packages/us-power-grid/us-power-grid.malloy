@@ -1,0 +1,359 @@
+##! experimental.access_modifiers
+
+// US net electricity generation, monthly, by state, type of producer and energy source.
+// One row per month x state x producer x energy source, from EIA's generation_monthly.xlsx
+// (forms EIA-906, EIA-920 and EIA-923), shaped by pipeline/shape_generation.py.
+
+#(doc) The latest month in the data, as a one-row source, so "latest" and "complete year" are read from the data rather than typed.
+source: data_span is community.table('us_power_grid__generation') -> {
+  aggregate:
+    latest_month is max(`month`)
+    first_month is min(`month`)
+}
+
+#(doc) US net electricity generation, one row per month, state (50 states and DC), type of producer and energy source, January 2001 to the latest month EIA has published. Source: U.S. Energy Information Administration, Net Generation by State by Type of Producer by Energy Source (EIA-906, EIA-920 and EIA-923). Net generation is gross generation minus the plants' own use, in megawatt-hours; pumped storage is negative because those plants use more power than they return. Rows for the latest year are preliminary and EIA revises them. EIA's US-total, all-producer and all-source rows were dropped because they are sums of these rows; the kept rows add up to EIA's US totals to within 0.0001% in every month.
+source: generation is community.table('us_power_grid__generation')
+  extend { rename: energy_code is `source`, gen_month is `month`, gen_year is `year` }
+  include {
+    public:
+      #(doc) State's two-letter postal code (DC included).
+      state
+      #(doc) Energy source code as shaped: coal, gas, nuclear, hydro, wind, solar, geothermal, wood, other_biomass, petroleum, other_gases, pumped_storage, other.
+      energy_code
+      #(doc) Type of producer code: utility, ipp (independent power producer), chp_electric, chp_commercial, chp_industrial (combined heat and power plants by sector).
+      producer
+      #(doc) Net generation in megawatt-hours for this month, state, producer and energy source.
+      mwh
+      #(doc) True when EIA marks the year final; false for the latest, preliminary year, which EIA still revises.
+      final
+      #(doc) First day of the month the generation happened in.
+      gen_month
+      #(doc) Calendar year of the generation.
+      gen_year
+  }
+  extend {
+    join_cross: span is data_span
+
+    dimension:
+      #(doc) Month of the generation, first day of the month.
+      `month` is gen_month
+      #(doc) Calendar year of the generation.
+      `year` is gen_year
+      #(doc) Month of the year, 1 to 12, for seasonal patterns.
+      month_of_year is month(gen_month)
+      #(doc) True for years with all twelve months in the data. The latest year is partial until EIA publishes December; compare it with earlier years only month for month (see is_year_to_date).
+      is_complete_year is gen_year < year(span.latest_month) or month(span.latest_month) = 12
+      #(doc) True for months of any year up to the latest month of the year in the data (January to August when the data ends in August), so a partial latest year can be compared like for like with the same months of earlier years.
+      is_year_to_date is month(gen_month) <= month(span.latest_month)
+
+      #(doc) State name.
+      #(index)
+      state_name is state ?
+        pick 'Alabama' when 'AL'
+        pick 'Alaska' when 'AK'
+        pick 'Arizona' when 'AZ'
+        pick 'Arkansas' when 'AR'
+        pick 'California' when 'CA'
+        pick 'Colorado' when 'CO'
+        pick 'Connecticut' when 'CT'
+        pick 'Delaware' when 'DE'
+        pick 'District of Columbia' when 'DC'
+        pick 'Florida' when 'FL'
+        pick 'Georgia' when 'GA'
+        pick 'Hawaii' when 'HI'
+        pick 'Idaho' when 'ID'
+        pick 'Illinois' when 'IL'
+        pick 'Indiana' when 'IN'
+        pick 'Iowa' when 'IA'
+        pick 'Kansas' when 'KS'
+        pick 'Kentucky' when 'KY'
+        pick 'Louisiana' when 'LA'
+        pick 'Maine' when 'ME'
+        pick 'Maryland' when 'MD'
+        pick 'Massachusetts' when 'MA'
+        pick 'Michigan' when 'MI'
+        pick 'Minnesota' when 'MN'
+        pick 'Mississippi' when 'MS'
+        pick 'Missouri' when 'MO'
+        pick 'Montana' when 'MT'
+        pick 'Nebraska' when 'NE'
+        pick 'Nevada' when 'NV'
+        pick 'New Hampshire' when 'NH'
+        pick 'New Jersey' when 'NJ'
+        pick 'New Mexico' when 'NM'
+        pick 'New York' when 'NY'
+        pick 'North Carolina' when 'NC'
+        pick 'North Dakota' when 'ND'
+        pick 'Ohio' when 'OH'
+        pick 'Oklahoma' when 'OK'
+        pick 'Oregon' when 'OR'
+        pick 'Pennsylvania' when 'PA'
+        pick 'Rhode Island' when 'RI'
+        pick 'South Carolina' when 'SC'
+        pick 'South Dakota' when 'SD'
+        pick 'Tennessee' when 'TN'
+        pick 'Texas' when 'TX'
+        pick 'Utah' when 'UT'
+        pick 'Vermont' when 'VT'
+        pick 'Virginia' when 'VA'
+        pick 'Washington' when 'WA'
+        pick 'West Virginia' when 'WV'
+        pick 'Wisconsin' when 'WI'
+        pick 'Wyoming' when 'WY'
+        else state
+
+      #(doc) Energy source as EIA names it, shortened: Coal, Natural gas, Nuclear, Hydro, Wind, Solar (solar thermal and photovoltaic, utility-scale plants of 1 MW or more; rooftop solar is not in this data), Geothermal, Wood, Other biomass, Petroleum, Other gases, Pumped storage, Other.
+      #(index)
+      energy_source is energy_code ?
+        pick 'Coal' when 'coal'
+        pick 'Natural gas' when 'gas'
+        pick 'Nuclear' when 'nuclear'
+        pick 'Hydro' when 'hydro'
+        pick 'Wind' when 'wind'
+        pick 'Solar' when 'solar'
+        pick 'Geothermal' when 'geothermal'
+        pick 'Wood' when 'wood'
+        pick 'Other biomass' when 'other_biomass'
+        pick 'Petroleum' when 'petroleum'
+        pick 'Other gases' when 'other_gases'
+        pick 'Pumped storage' when 'pumped_storage'
+        else 'Other'
+
+      #(doc) Energy source grouped for charts, six groups: Coal; Natural gas; Nuclear; Wind and solar; Hydro and other renewables (hydro, geothermal, wood, other biomass); Oil and other (petroleum, other gases, pumped storage, other). This grouping is this model's choice.
+      fuel_group is energy_code ?
+        pick 'Coal' when 'coal'
+        pick 'Natural gas' when 'gas'
+        pick 'Nuclear' when 'nuclear'
+        pick 'Wind and solar' when 'wind' | 'solar'
+        pick 'Hydro and other renewables' when 'hydro' | 'geothermal' | 'wood' | 'other_biomass'
+        else 'Oil and other'
+
+      #(doc) True for wind and solar, the two sources the app compares with coal.
+      is_wind_solar is energy_code = 'wind' or energy_code = 'solar'
+      #(doc) True for renewable sources: hydro, wind, solar, geothermal, wood and other biomass. Pumped storage is not counted.
+      is_renewable is energy_code ? 'hydro' | 'wind' | 'solar' | 'geothermal' | 'wood' | 'other_biomass'
+      #(doc) True for sources that emit no carbon when generating: nuclear plus the renewables except wood and other biomass.
+      is_carbon_free is energy_code ? 'nuclear' | 'hydro' | 'wind' | 'solar' | 'geothermal'
+
+      #(doc) Type of producer: Electric utility; Independent power producer; Combined heat and power (CHP) plants in the electric, commercial or industrial sector.
+      producer_type is producer ?
+        pick 'Electric utility' when 'utility'
+        pick 'Independent power producer' when 'ipp'
+        pick 'CHP, electric power' when 'chp_electric'
+        pick 'CHP, commercial' when 'chp_commercial'
+        pick 'CHP, industrial' when 'chp_industrial'
+        else producer
+
+    measure:
+      #(doc) Net generation in terawatt-hours (millions of MWh), all sources. Includes pumped storage, which is negative.
+      net_twh is mwh.sum() / 1000000.0
+      #(doc) Net generation from coal, TWh.
+      coal_twh is mwh.sum() { where: energy_code = 'coal' } / 1000000.0
+      #(doc) Net generation from natural gas, TWh.
+      gas_twh is mwh.sum() { where: energy_code = 'gas' } / 1000000.0
+      #(doc) Net generation from nuclear, TWh.
+      nuclear_twh is mwh.sum() { where: energy_code = 'nuclear' } / 1000000.0
+      #(doc) Net generation from wind, TWh.
+      wind_twh is mwh.sum() { where: energy_code = 'wind' } / 1000000.0
+      #(doc) Net generation from utility-scale solar (thermal and photovoltaic), TWh. Rooftop solar is not in this data.
+      solar_twh is mwh.sum() { where: energy_code = 'solar' } / 1000000.0
+      #(doc) Net generation from wind and solar together, TWh.
+      wind_solar_twh is mwh.sum() { where: is_wind_solar } / 1000000.0
+      #(doc) Net generation from conventional hydro, TWh.
+      hydro_twh is mwh.sum() { where: energy_code = 'hydro' } / 1000000.0
+      #(doc) Net generation from all renewables (see is_renewable), TWh.
+      renewable_twh is mwh.sum() { where: is_renewable } / 1000000.0
+      #(doc) Wind and solar minus coal, TWh. Positive when wind and solar generated more than coal.
+      wind_solar_minus_coal_twh is wind_solar_twh - coal_twh
+
+      #(doc) Coal's share of net generation: coal TWh over all-source net TWh.
+      # percent
+      coal_share is coal_twh / nullif(net_twh, 0)
+      #(doc) Natural gas's share of net generation: gas TWh over all-source net TWh.
+      # percent
+      gas_share is gas_twh / nullif(net_twh, 0)
+      #(doc) Nuclear's share of net generation: nuclear TWh over all-source net TWh.
+      # percent
+      nuclear_share is nuclear_twh / nullif(net_twh, 0)
+      #(doc) Wind and solar's share of net generation: wind plus solar TWh over all-source net TWh.
+      # percent
+      wind_solar_share is wind_solar_twh / nullif(net_twh, 0)
+      #(doc) Renewables' share of net generation: renewable TWh over all-source net TWh.
+      # percent
+      renewable_share is renewable_twh / nullif(net_twh, 0)
+      #(doc) Share of net generation from the filtered rows out of all rows in the query's other groupings, for shares by energy source: net TWh over net TWh with energy source ungrouped.
+      # percent
+      share_of_total is net_twh / nullif(all(net_twh, `year`, state, state_name, `month`), 0)
+      #(doc) Number of months in the rows, for checking a period is complete.
+      month_count is count(gen_month)
+      #(doc) The latest month in the rows.
+      latest_month is max(gen_month)
+      #(doc) Number of rows (month x state x producer x energy source).
+      row_count is count()
+
+    #(doc) The app's headline numbers for whatever rows are in scope: coal, wind and solar and their shares for the latest complete year in the rows.
+    view: kpis is {
+      where: is_complete_year
+      aggregate: latest_full_year is max(gen_year)
+      nest: latest is {
+        where: is_complete_year
+        group_by: `year`
+        aggregate: net_twh, coal_twh, wind_solar_twh, wind_twh, solar_twh, gas_twh, nuclear_twh, coal_share, wind_solar_share, gas_share, renewable_share
+        order_by: `year` desc
+        limit: 1
+      }
+    }
+
+    #(doc) One row per year: generation by group, TWh, and the wind-and-solar-minus-coal gap. The latest year is partial: month_count is below 12.
+    view: by_year is {
+      group_by: `year`
+      aggregate:
+        month_count,
+        net_twh, coal_twh, gas_twh, nuclear_twh, wind_twh, solar_twh, wind_solar_twh, hydro_twh, renewable_twh,
+        wind_solar_minus_coal_twh, coal_share, wind_solar_share, gas_share, renewable_share
+      order_by: `year`
+    }
+
+    #(doc) One row per complete calendar year (all 12 months reported): coal, natural gas, wind and solar, TWh and shares. Leaves out the latest, partial year so annual totals compare like for like.
+    view: annual is {
+      where: is_complete_year
+      group_by: `year`
+      aggregate: net_twh, coal_twh, gas_twh, nuclear_twh, wind_solar_twh, wind_solar_minus_coal_twh, coal_share, wind_solar_share, gas_share
+      order_by: `year`
+    }
+
+    #(doc) The first complete year in which wind and solar together generated more than coal across the rows in scope (nationally when unfiltered), with both totals that year.
+    view: overtake is {
+      where: is_complete_year
+      group_by: first_year_ahead is `year`
+      aggregate: coal_in_year is coal_twh, wind_solar_in_year is wind_solar_twh
+      having: wind_solar_twh > coal_twh
+      order_by: first_year_ahead
+      limit: 1
+    }
+
+    #(doc) The headline question in Texas: the first complete year in which Texas's wind and solar generated more than its coal, with both totals that year.
+    view: texas_overtake is overtake + { where: state = 'TX' }
+
+    #(doc) Texas's headline numbers: the kpis view for Texas only.
+    view: texas_kpis is kpis + { where: state = 'TX' }
+
+    #(doc) Texas, one row per complete year: coal, natural gas, wind and solar, TWh and shares.
+    view: texas_annual is annual + { where: state = 'TX' }
+
+    #(doc) One row per month: coal, wind, solar and total, TWh.
+    view: by_month is {
+      group_by: `month`
+      aggregate: net_twh, coal_twh, gas_twh, nuclear_twh, wind_twh, solar_twh, wind_solar_twh, wind_solar_minus_coal_twh
+      order_by: `month`
+    }
+
+    #(doc) Complete years only: each fuel group's net TWh and its share of that year's net generation, for a shares-over-time chart.
+    view: fuel_mix_by_year is {
+      where: is_complete_year
+      group_by: `year`, fuel_group
+      aggregate: net_twh
+      # percent
+      #(doc) The fuel group's share of that year's net generation: its net TWh over all net TWh that year.
+      aggregate: share_of_year is net_twh / nullif(all(net_twh, `year`), 0)
+      order_by: `year`, fuel_group
+    }
+
+    #(doc) Net generation by energy source, largest first, with share of the total.
+    view: by_energy_source is {
+      group_by: energy_source
+      aggregate: net_twh, share_of_total
+      order_by: net_twh desc
+    }
+
+    #(doc) Net generation by type of producer, largest first.
+    view: by_producer is {
+      group_by: producer_type
+      aggregate: net_twh, coal_twh, wind_solar_twh
+      order_by: net_twh desc
+    }
+
+    #(doc) One row per state: total, coal, wind and solar, TWh, and their shares, largest total first.
+    view: by_state is {
+      group_by: state, state_name
+      aggregate: net_twh, coal_twh, wind_solar_twh, wind_twh, solar_twh, gas_twh, wind_solar_minus_coal_twh, coal_share, wind_solar_share
+      order_by: net_twh desc
+    }
+
+    #(doc) One row per state and year: wind and solar's share of net generation, for a state-by-year trend.
+    view: state_trend is {
+      group_by: state_name, `year`
+      aggregate: wind_solar_share, coal_share
+      order_by: state_name, `year`
+    }
+
+    #(doc) Wind and solar's share of net generation, one row per year and month of year, for a calendar heatmap.
+    view: share_calendar is {
+      group_by: `year`, month_of_year
+      aggregate: wind_solar_share, coal_share
+      order_by: `year`, month_of_year
+    }
+
+    #(doc) Average monthly net generation by month of year, for seasonality; months over all years in scope.
+    view: by_month_of_year is {
+      group_by: month_of_year
+      aggregate:
+        wind_avg_twh is wind_twh / nullif(count(gen_year), 0)
+        solar_avg_twh is solar_twh / nullif(count(gen_year), 0)
+        coal_avg_twh is coal_twh / nullif(count(gen_year), 0)
+      order_by: month_of_year
+    }
+
+    #(doc) The rows: month, state, producer, energy source and MWh, newest first.
+    view: records is {
+      select: `month`, state, state_name, producer_type, energy_source, mwh, final
+      order_by: `month` desc, mwh desc
+    }
+
+    #(doc) How many rows are in scope (month x state x producer x energy source), for the records list.
+    view: row_total is {
+      aggregate: row_count
+    }
+
+    #(doc) Distinct states, for the app's search box and to check values from the address.
+    view: states_list is {
+      group_by: state, state_name
+      aggregate: net_twh
+      order_by: state_name
+    }
+  }
+
+#(doc) The lead question's source: the years in which wind and solar together generated more than coal, nationally and by state. One row per state per year, with coal and wind-and-solar TWh; the latest year is partial and flagged.
+source: crossover is generation -> {
+  group_by: state, state_name, `year`
+  aggregate:
+    n_months is count(gen_month),
+    coal_twh, wind_solar_twh, net_twh
+} extend {
+  dimension:
+    #(doc) True when wind and solar generated more than coal in the year in this state.
+    wind_solar_ahead is wind_solar_twh > coal_twh
+  measure:
+    #(doc) Coal TWh summed across the rows in scope.
+    coal is coal_twh.sum()
+    #(doc) Wind and solar TWh summed across the rows in scope.
+    wind_solar is wind_solar_twh.sum()
+    #(doc) Number of states in which wind and solar out-generated coal, counted per year.
+    states_ahead is count(state) { where: wind_solar_ahead }
+    #(doc) Number of states in the rows.
+    state_count is count(state)
+
+  #(doc) Number of states where wind and solar out-generated coal, each year (the latest year is partial).
+  view: states_ahead_by_year is {
+    group_by: `year`
+    aggregate: states_ahead, state_count
+    order_by: `year`
+  }
+  #(doc) For each state, the first year wind and solar generated more than coal over the year, and the number of years they did (not necessarily in a row; the latest year counts though it is partial). States where they never have are left out.
+  view: first_year_ahead is {
+    where: wind_solar_ahead
+    group_by: state, state_name
+    aggregate: first_year is min(`year`), years_ahead is count(`year`)
+    order_by: first_year
+  }
+}
