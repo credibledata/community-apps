@@ -238,7 +238,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 @media (max-width: 640px) {
   .wrap { padding: 0 var(--sp-4); }
-  .app-nav { order: 3; flex-basis: 100%; overflow-x: auto; }
+  /* Five views do not fit across a phone: the links wrap to a second line rather than run off its edge. */
+  .app-nav { order: 3; flex-basis: 100%; flex-wrap: wrap; row-gap: var(--sp-1); }
   .app-nav a { white-space: nowrap; }
   .search, .search input { width: 100%; }
   .scope { position: static; }
@@ -341,7 +342,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 [data-lede="dropcap"] .lede::first-letter { float: left; margin: 0.08em 0.1em 0 0; font: 600 3.3em/0.8 var(--font-display); color: var(--accent); }
 @media (max-width: 640px) {
   [data-masthead="light"] .app-name__title { font-size: 34px; }
-  [data-masthead="light"] .app-nav { flex-wrap: nowrap; overflow-x: auto; }
+  [data-masthead="light"] .app-nav { flex-wrap: wrap; }
   [data-masthead="bar"] .app-nav { justify-content: flex-start; }
   .app-nav { gap: 14px !important; }
   [data-numbers="rules"] .kpis { gap: var(--sp-4) 0; }

@@ -52,32 +52,34 @@ export function query(q) {
 
 // ---- Navigation ----
 
-function go(nextRoute, nextScope = scope, { push = true } = {}) {
+function go(nextRoute, nextScope = scope, { push = true, toTop = push } = {}) {
   route = nextRoute
   scope = nextScope
   const hash = S.buildHash(route, scope)
   if (hash !== location.hash) history[push ? 'pushState' : 'replaceState'](null, '', hash)
-  render({ toTop: push })
+  render({ toTop })
 }
 const setScope = (patch) => go(route, { ...scope, ...patch }, { push: false })
 const toggleScope = (key, value) => setScope({ [key]: scope[key] === value ? S.DEFAULT_SCOPE[key] : value })
 const openEntity = (id) => go({ view: S.ENTITY.view, id, compare: [] })
 const linkTo = (view, id = null, compare = []) => S.buildHash({ view, id, compare }, scope)
 
-// ---- Compare: the entities picked to set side by side. The Compare view's address holds them; elsewhere they are
-// kept until the page reloads, and the header's Compare link carries and counts them, so a + on a ranked list shows
-// where it went. Pass `inCompare` and `onCompare: toggleCompare` to every ranked list of entities. ----
+// ---- Compare: the entities picked to set side by side. On the Compare view the address says what is picked, so
+// Back and Forward show each step; elsewhere they are kept until the page reloads, and the header's Compare link
+// carries and counts them, so a + on a ranked list shows where it went. Pass `inCompare` and
+// `onCompare: toggleCompare` to every ranked list of entities. ----
 
 let picked = []
 const inCompare = (id) => picked.some((x) => String(x) === String(id))
-/** Open Compare with `ids`; past the limit the oldest picks go, as with the +. */
-function goCompare(ids) {
+/** Open Compare with `ids`; past the limit the oldest picks go, as with the +. Changing the picks on Compare itself
+ *  keeps the reader's place (`toTop: false`). */
+function goCompare(ids, { toTop = true } = {}) {
   picked = ids.slice(-S.COMPARE_MAX)
-  go({ view: 'compare', id: null, compare: picked })
+  go({ view: 'compare', id: null, compare: picked }, scope, { toTop })
 }
 function toggleCompare(id) {
   const ids = inCompare(id) ? picked.filter((x) => String(x) !== String(id)) : [...picked, id]
-  if (route.view === 'compare') goCompare(ids)
+  if (route.view === 'compare') goCompare(ids, { toTop: false })
   else {
     picked = ids.slice(-S.COMPARE_MAX)
     showPicked()
@@ -421,7 +423,7 @@ function render({ toTop = false } = {}) {
 function paint(toTop, same) {
   epoch++
   io.disconnect()
-  if (route.view === 'compare' && route.compare.length) picked = [...route.compare]
+  if (route.view === 'compare') picked = [...route.compare]
   for (const a of document.querySelectorAll('.app-nav a')) {
     a.href = linkTo(a.dataset.view)
     const on = a.dataset.view === route.view || (a.dataset.view === 'explore' && route.view === S.ENTITY.view)
@@ -572,7 +574,7 @@ function entity() {
   const id = route.id
   return h('div', { class: 'view wrap' },
     ...viewHead(S.ENTITY.label(id), null, [h('a', { href: linkTo('explore'), text: 'Explore' }), ` / ${S.ENTITY.label(id)}`]),
-    h('p', {}, h('button', { class: 'btn', type: 'button', text: inCompare(id) ? 'Open compare' : 'Add to compare', onclick: () => goCompare([...picked.filter((x) => String(x) !== String(id)), id]) })),
+    h('p', {}, h('button', { class: 'btn', type: 'button', text: inCompare(id) ? 'Open compare' : 'Add to compare', onclick: () => goCompare(inCompare(id) ? picked : [...picked, id]) })),
     h('div', { class: 'grid-2' },
       tile({
         title: 'Complaints per month', cls: 'span-2',
@@ -587,11 +589,9 @@ function records() {
 }
 function compare() {
   const ids = picked
-  // Opened bare, with picks kept from elsewhere: put them in the address, so a copied link holds them.
-  if (!route.compare.length && ids.length) setTimeout(() => go({ ...route, compare: ids }, scope, { push: false }))
   const chips = h('div', { class: 'chips' },
     ...ids.map((id) => h('span', { class: 'chip' }, S.ENTITY.label(id),
-      h('button', { type: 'button', 'aria-label': `Remove ${S.ENTITY.label(id)}`, text: '×', onclick: () => goCompare(ids.filter((x) => x !== id)) }))))
+      h('button', { type: 'button', 'aria-label': `Remove ${S.ENTITY.label(id)}`, text: '×', onclick: () => goCompare(ids.filter((x) => x !== id), { toTop: false }) }))))
   return h('div', { class: 'view wrap' },
     ...viewHead('Compare', `Up to ${S.COMPARE_MAX} ZIP codes side by side. Add one with the + on a ranked list, or from its page.`),
     ids.length ? chips : h('p', { class: 'lede', text: 'Nothing picked yet.' }),
