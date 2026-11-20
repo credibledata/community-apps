@@ -19,10 +19,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: community-card
-  cancel-in-progress: false
-
 jobs:
   list:
     runs-on: ubuntu-latest
