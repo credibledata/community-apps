@@ -1,0 +1,5 @@
+{
+  "name": "us-earthquakes",
+  "version": "0.0.1",
+  "description": "Shaken: every M2.5+ earthquake in the contiguous US since 2000 (USGS ComCat), led by Oklahoma's induced surge and fall against California."
+}
