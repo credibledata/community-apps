@@ -1,0 +1,304 @@
+##! experimental.access_modifiers
+
+#|(doc)
+  One row per US tornado, 1950 through 2025, from NOAA's Storm Prediction Center Severe Weather Database
+  (the "actual tornadoes" file: one whole-track record per tornado). Times are local Central Standard Time as SPC
+  publishes them. Regions are this model's grouping of states, defined in `region`. Counts of all tornadoes rise over
+  the decades partly because weak (F0/EF0) tornadoes are reported far more often since the 1990s; compare decades with
+  the (E)F1-and-stronger measures, which are steadier.
+|#
+source: tornadoes is community.table('us_tornadoes__tornadoes') include {
+  public:
+    #(doc) SPC's tornado number, prefixed with the year (year-om). Unique per tornado.
+    tornado_id
+    #(doc) Date the tornado began (local CST).
+    event_date
+    #(doc) Calendar year the tornado began.
+    `year`
+    #(doc) Month the tornado began, 1 to 12.
+    `month`
+    #(doc) Hour of day the tornado began, 0 to 23, local Central Standard Time.
+    hour_local
+    #(doc) Two-letter postal code of the state the tornado began in (SPC's `st`). Includes PR, VI and DC.
+    #(index)
+    state
+    #(doc) Five-digit FIPS code of the first county on the track, null when SPC lists none.
+    county_fips
+    #|(doc)
+      F-scale (before 2007-02-01) or EF-scale rating, 0 to 5; null where SPC records it as unknown (-9),
+      which happens almost only since 2016.
+    |#
+    magnitude
+    #(doc) True where SPC flags the rating as estimated (its `fc` field).
+    rating_estimated
+    #(doc) People injured by this tornado.
+    injuries
+    #(doc) People killed by this tornado.
+    fatalities
+    #(doc) Latitude where the tornado touched down, degrees.
+    start_lat
+    #(doc) Longitude where the tornado touched down, degrees (negative is west).
+    start_lon
+    #(doc) Latitude where the tornado lifted, degrees; null where SPC records none (common before the 1990s).
+    end_lat
+    #(doc) Longitude where the tornado lifted, degrees; null where SPC records none.
+    end_lon
+    #(doc) Track length in miles.
+    length_mi
+    #(doc) Track width in yards (mean width before 1995, greatest width since).
+    width_yd
+    #(doc) Number of states the track crossed (1 to 3).
+    states_crossed
+  internal:
+    state_fips
+}
+extend {
+  primary_key: tornado_id
+
+  dimension:
+    #|(doc)
+      Decade the tornado began in, as its first year (1950, 1960, ... 2020). The 2020s hold 2020 to 2025 only,
+      six years, so compare decades with the per-year measures.
+    |#
+    decade is `year` - `year` % 10
+
+    #(doc) Label for `decade`, such as "1950s".
+    decade_label is concat((`year` - `year` % 10) :: string, 's')
+
+    #|(doc)
+      This model's grouping of states into regions. Great Plains: TX, OK, KS, NE, SD, ND. Southeast: AR, LA,
+      MS, AL, TN, KY, GA (the states often called "Dixie Alley"; Florida is grouped with the
+      Atlantic coast, a choice of this model). Midwest: IA, MO, MN, WI, IL, IN, MI, OH. Atlantic coast:
+      FL, SC, NC, VA, WV, MD, DE, DC. Northeast: PA, NJ, NY, CT, RI, MA, VT, NH, ME. West: every other state and
+      territory. The region is the state the tornado began in.
+    |#
+    #(index)
+    region is
+      pick 'Great Plains' when state = 'TX' or state = 'OK' or state = 'KS' or state = 'NE' or state = 'SD' or state = 'ND'
+      pick 'Southeast' when state = 'AR' or state = 'LA' or state = 'MS' or state = 'AL' or state = 'TN' or state = 'KY' or state = 'GA'
+      pick 'Midwest' when state = 'IA' or state = 'MO' or state = 'MN' or state = 'WI' or state = 'IL' or state = 'IN' or state = 'MI' or state = 'OH'
+      pick 'Atlantic coast' when state = 'FL' or state = 'SC' or state = 'NC' or state = 'VA' or state = 'WV' or state = 'MD' or state = 'DE' or state = 'DC'
+      pick 'Northeast' when state = 'PA' or state = 'NJ' or state = 'NY' or state = 'CT' or state = 'RI' or state = 'MA' or state = 'VT' or state = 'NH' or state = 'ME'
+      else 'West'
+
+    #|(doc)
+      Rating as text: "EF3" from 2007-02-01 (the Enhanced Fujita scale's start), "F3" before, "Unknown" where
+      SPC has no rating.
+    |#
+    rating is
+      pick 'Unknown' when magnitude is null
+      pick concat('EF', magnitude :: string) when event_date >= @2007-02-01
+      else concat('F', magnitude :: string)
+
+    #(doc) Rating class across both scales: "0" to "5", or "Unknown". Use it to group F and EF ratings together.
+    rating_class is magnitude :: string ?? 'Unknown'
+
+    #|(doc)
+      True for tornadoes rated (E)F1 or stronger. Their reporting has been far steadier since 1950 than
+      that of (E)F0 tornadoes, so this is the fair basis for comparing decades.
+    |#
+    is_ef1_plus is magnitude >= 1
+
+    #(doc) True for tornadoes rated (E)F3 or stronger ("significant-severe", "intense").
+    is_intense is magnitude >= 3
+
+    #(doc) True when the tornado killed at least one person.
+    is_killer is fatalities > 0
+
+    #|(doc)
+      Meteorological season of the start month: Winter (Dec-Feb), Spring (Mar-May), Summer (Jun-Aug),
+      Fall (Sep-Nov).
+    |#
+    season is
+      pick 'Winter' when `month` = 12 or `month` <= 2
+      pick 'Spring' when `month` <= 5
+      pick 'Summer' when `month` <= 8
+      else 'Fall'
+
+    #(doc) Time of day the tornado began, local CST: Night (0-5), Morning (6-11), Afternoon (12-17), Evening (18-23).
+    day_part is
+      pick 'Night' when hour_local < 6
+      pick 'Morning' when hour_local < 12
+      pick 'Afternoon' when hour_local < 18
+      else 'Evening'
+
+    #(doc) Touch-down point rounded to a 1-degree grid cell, latitude of the cell's south edge.
+    lat_cell is floor(start_lat)
+    #(doc) Touch-down point rounded to a 1-degree grid cell, longitude of the cell's west edge.
+    lon_cell is floor(start_lon)
+
+  measure:
+    #(doc) Number of tornadoes.
+    tornado_count is count()
+
+    #(doc) Number of tornadoes rated (E)F1 or stronger. The steadier basis for comparing decades.
+    ef1_plus_count is count() { where: magnitude >= 1 }
+
+    #(doc) Number of tornadoes rated (E)F3 or stronger.
+    intense_count is count() { where: magnitude >= 3 }
+
+    #(doc) Number of tornadoes rated (E)F4 or (E)F5.
+    violent_count is count() { where: magnitude >= 4 }
+
+    #(doc) Number of tornadoes that killed at least one person.
+    killer_count is count() { where: fatalities > 0 }
+
+    #(doc) People killed by tornadoes.
+    deaths is fatalities.sum()
+
+    #(doc) People injured by tornadoes.
+    injured is injuries.sum()
+
+    #(doc) Distinct calendar years in the rows, the denominator of the per-year measures.
+    year_count is count(`year`)
+
+    #(doc) Tornadoes per year: tornado_count / distinct years in the rows.
+    tornadoes_per_year is tornado_count / nullif(count(`year`), 0)
+
+    #(doc) (E)F1+ tornadoes per year: ef1_plus_count / distinct years in the rows.
+    ef1_plus_per_year is ef1_plus_count / nullif(count(`year`), 0)
+
+    #(doc) Deaths per year: deaths / distinct years in the rows.
+    deaths_per_year is fatalities.sum() / nullif(count(`year`), 0)
+
+    #(doc) Share of all tornadoes in the rows that began in the Great Plains (see `region`).
+    plains_share is count() { where: region = 'Great Plains' } / nullif(count(), 0)
+
+    #(doc) Share of all tornadoes in the rows that began in the Southeast (see `region`).
+    southeast_share is count() { where: region = 'Southeast' } / nullif(count(), 0)
+
+    #(doc) Share of (E)F1+ tornadoes in the rows that began in the Great Plains: (E)F1+ Plains / all (E)F1+.
+    plains_share_ef1 is count() { where: region = 'Great Plains' and magnitude >= 1 } / nullif(count() { where: magnitude >= 1 }, 0)
+
+    #(doc) Share of (E)F1+ tornadoes in the rows that began in the Southeast: (E)F1+ Southeast / all (E)F1+.
+    southeast_share_ef1 is count() { where: region = 'Southeast' and magnitude >= 1 } / nullif(count() { where: magnitude >= 1 }, 0)
+
+    #(doc) Share of tornado deaths in the rows that happened in Southeast tornadoes: Southeast deaths / all deaths.
+    southeast_death_share is fatalities.sum() { where: region = 'Southeast' } / nullif(fatalities.sum(), 0)
+
+    #|(doc)
+      Mean touch-down longitude of (E)F1+ tornadoes in the contiguous US (24-50 N, 125-66 W), degrees. Moving
+      toward zero means activity moving east.
+    |#
+    mean_lon_ef1 is avg(start_lon) { where: magnitude >= 1 and start_lat >= 24 and start_lat <= 50 and start_lon >= -125 and start_lon <= -66 }
+
+    #(doc) Mean touch-down latitude of (E)F1+ tornadoes in the contiguous US (24-50 N, 125-66 W), degrees.
+    mean_lat_ef1 is avg(start_lat) { where: magnitude >= 1 and start_lat >= 24 and start_lat <= 50 and start_lon >= -125 and start_lon <= -66 }
+
+    #(doc) Share of tornadoes in the rows that began at night (0-5 local CST).
+    night_share is count() { where: hour_local < 6 } / nullif(count(), 0)
+
+    #(doc) Share of tornadoes in the rows that began in the cool season, November to March.
+    cool_season_share is count() { where: `month` >= 11 or `month` <= 3 } / nullif(count(), 0)
+
+    #(doc) Mean track length in miles.
+    avg_length_mi is length_mi.avg()
+
+    #(doc) Total track length in miles.
+    path_miles is length_mi.sum()
+
+    #(doc) Latest tornado date in the rows.
+    latest_date is max(event_date)
+
+    #(doc) Earliest tornado date in the rows.
+    earliest_date is min(event_date)
+
+  view:
+    #(doc) Headline numbers for the whole record.
+    kpis is {
+      aggregate: tornado_count, ef1_plus_count, intense_count, deaths, injured, tornadoes_per_year,
+        plains_share_ef1, southeast_share_ef1, southeast_death_share, earliest_date, latest_date
+    }
+
+    #|(doc)
+      The lead question: per decade, (E)F1+ tornadoes per year and shares in the Great Plains and Southeast,
+      with the mean touch-down point.
+    |#
+    by_decade is {
+      group_by: decade, decade_label
+      aggregate: tornado_count, ef1_plus_count, ef1_plus_per_year, plains_share_ef1, southeast_share_ef1,
+        plains_share, southeast_share, southeast_death_share, deaths, deaths_per_year, mean_lon_ef1, mean_lat_ef1,
+        year_count
+      order_by: decade
+    }
+
+    #(doc) (E)F1+ tornadoes per year by region and decade.
+    region_by_decade is {
+      group_by: region, decade, decade_label
+      aggregate: ef1_plus_count, ef1_plus_per_year, tornado_count, deaths, intense_count, year_count
+      order_by: region, decade
+    }
+
+    #(doc) Tornadoes by year, all ratings and (E)F1+.
+    by_year is {
+      group_by: `year`
+      aggregate: tornado_count, ef1_plus_count, intense_count, deaths, plains_share_ef1, southeast_share_ef1
+      order_by: `year`
+    }
+
+    #(doc) Tornadoes by region for the rows in scope.
+    by_region is {
+      group_by: region
+      aggregate: tornado_count, ef1_plus_count, intense_count, deaths, injured, night_share
+      order_by: ef1_plus_count desc
+    }
+
+    #(doc) Tornadoes by start state, ranked by (E)F1+ count.
+    by_state is {
+      group_by: state, region
+      aggregate: tornado_count, ef1_plus_count, intense_count, killer_count, deaths, injured
+      nest: trend is {
+        group_by: decade
+        aggregate: ef1_plus_per_year
+        order_by: decade
+      }
+      order_by: ef1_plus_count desc
+      limit: 60
+    }
+
+    #(doc) Tornadoes by rating class.
+    by_rating is {
+      group_by: rating_class
+      aggregate: tornado_count, deaths, injured
+      order_by: rating_class
+    }
+
+    #(doc) Tornadoes by start month, 1 to 12.
+    by_month is {
+      group_by: `month`
+      aggregate: tornado_count, ef1_plus_count, deaths
+      order_by: `month`
+    }
+
+    #(doc) Tornadoes by start month and hour (local CST), for the calendar-clock grid.
+    month_hour is {
+      group_by: `month`, hour_local
+      aggregate: tornado_count, ef1_plus_count
+      order_by: `month`, hour_local
+      limit: 400
+    }
+
+    #(doc) (E)F1+ tornadoes by 1-degree grid cell of their touch-down point, contiguous US only.
+    by_cell is {
+      where: start_lat >= 24 and start_lat <= 50 and start_lon >= -125 and start_lon <= -66
+      group_by: lat_cell, lon_cell
+      aggregate: tornado_count, ef1_plus_count, deaths
+      limit: 2000
+    }
+
+    #(doc) The deadliest tornadoes in the rows.
+    deadliest is {
+      where: fatalities > 0
+      group_by: tornado_id, event_date, state, rating, fatalities, injuries, length_mi, width_yd
+      order_by: fatalities desc
+      limit: 25
+    }
+
+    #(doc) Tornado records, newest first.
+    records is {
+      group_by: tornado_id, event_date, hour_local, state, region, rating, fatalities, injuries, length_mi,
+        width_yd, start_lat, start_lon, end_lat, end_lon
+      order_by: event_date desc, tornado_id desc
+      limit: 50
+    }
+}
