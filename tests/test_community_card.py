@@ -143,10 +143,9 @@ class MainTest(unittest.TestCase):
         self.assertEqual((self.site / "src/content/apps.ts").read_text(), APPS_TS)
 
     def test_an_app_already_on_the_site_is_left_alone(self):
-        self.run_main()
-        first = self.listed.read_text()
-        self.run_main()
-        self.assertEqual(self.listed.read_text(), first)
+        self.listed.write_text("as the site has it\n")
+        self.assertEqual(self.run_main(), 0)
+        self.assertEqual(self.listed.read_text(), "as the site has it\n")
         self.assertTrue(listed(self.site, "atlas"))  # written by hand in apps.ts
         self.assertFalse(listed(self.site, "atla"))
 

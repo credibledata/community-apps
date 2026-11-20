@@ -59,7 +59,8 @@ An app with a `community-card.json` gets a card on the community site's Apps pag
 
 `tag` is `Explore`, `Analyse` or `Simulate`; an optional `accent` colour defaults to the app's `--accent`. When the
 card reaches `main`, the [community-card workflow](.github/workflows/community-card.yml) opens a pull request on
-credibledata/community adding the app's own file, `src/content/listed/<name>.json`, so two of them never conflict. The card's picture is the package's `card.svg`, a 320 x 200 drawing of
+credibledata/community adding the app's own file, `src/content/listed/<name>.json`, so two of them never conflict.
+The card's picture is the package's `card.svg`, a 320 x 200 drawing of
 the app (the app builder draws one; see `packages/studio/agents/data-app-skills/card-art`), checked and rebuilt from
 its drawing elements alone by `packages/studio/scripts/card_art.py`; without one, or if it fails that check, the card
 is drawn from the name, tag and accent. Merge that one once the app is published and shared publicly: merging it
