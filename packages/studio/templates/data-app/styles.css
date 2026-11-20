@@ -93,6 +93,7 @@ strong { color: var(--text-strong); font-weight: 650; }
 .app-nav a { color: var(--band-text); padding: var(--sp-1) 0; border-bottom: 2px solid transparent; font-weight: 400; }
 .app-nav a:hover { text-decoration: none; border-bottom-color: currentColor; }
 .app-nav a[aria-current="page"] { font-weight: 600; border-bottom-color: currentColor; }
+.app-nav a[data-count]::after { content: " · " attr(data-count); }
 .search { position: relative; }
 .search input { width: 240px; padding: var(--sp-2) var(--sp-3); border-radius: 999px; border: 1px solid rgb(255 255 255 / 0.3); background: rgb(255 255 255 / 0.08); color: var(--band-text); font: inherit; }
 .search input::placeholder { color: rgb(255 255 255 / 0.6); }
