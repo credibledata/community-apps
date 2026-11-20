@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: "An app to list again, by its folder name under packages/"
+        description: "Apps to list again, by folder name under packages/, separated by spaces"
         required: true
 
 permissions:

@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-from community_card import accent_of, add_entry, card_problems, clean_art, entry, listed, main, takes_drawn_cards  # noqa: E402
+from community_card import accent_of, card_problems, clean_art, listed, listing, main  # noqa: E402
 
 APPS_TS = """import type { ComponentType } from 'react'
 
@@ -57,26 +57,13 @@ class CardTest(unittest.TestCase):
         self.assertIsNone(accent_of(":root { --accent: var(--c1); }"))
         self.assertEqual(accent_of(":root { --accent: #2f6b9a; }\n/* --accent: #000000; */\n:root { --accent: #7a4520; }"), "#7a4520")
 
-    def test_the_entry_goes_last_links_with_credible_and_escapes_quotes(self):
-        card = {**CARD, "name": "Coffee's\nprice"}
-        out = add_entry(APPS_TS, entry("coffee-prices-2026", card, "#7A4520"))
-        self.assertTrue(out.startswith(APPS_TS.rsplit("]\n", 1)[0]))
-        self.assertTrue(out.endswith("    accent: '#7a4520',\n  },\n]\n"))
-        self.assertIn("    name: 'Coffee\\'s price',\n", out)
-        self.assertIn("    href: credible('coffee-prices-2026'),\n", out)
-        self.assertNotIn("Thumb", out.split("coffee-prices-2026")[1])
-
-    def test_a_backslash_cannot_end_the_literal(self):
-        self.assertIn("name: 'C:\\\\data\\'s',", entry("x", {**CARD, "name": "C:\\data's"}, None))
-
-    def test_only_a_site_that_draws_cards_takes_an_entry(self):
-        self.assertTrue(takes_drawn_cards(APPS_TS))
-        self.assertFalse(takes_drawn_cards(APPS_TS.replace("Thumb?:", "Thumb:")))
-        self.assertFalse(takes_drawn_cards(APPS_TS.replace("  accent?: string\n", "")))
-
-    def test_a_listed_slug_is_found(self):
-        self.assertTrue(listed(APPS_TS, "atlas"))
-        self.assertFalse(listed(APPS_TS, "atla"))
+    def test_the_listing_is_one_line_per_field_with_a_lowercase_accent(self):
+        out = json.loads(listing("coffee-prices-2026", {**CARD, "name": "Coffee's\nprice"}, "#7A4520", True,
+                                 "2026-11-20T18:04:00Z"))
+        self.assertEqual(out, {"name": "Coffee's price", "blurb": CARD["blurb"], "tag": "Explore", "accent": "#7a4520",
+                               "art": "/thumbnails/coffee-prices-2026.svg", "listedAt": "2026-11-20T18:04:00Z"})
+        self.assertNotIn("accent", json.loads(listing("x", CARD, None, False, "2026-11-20T18:04:00Z")))
+        self.assertNotIn("art", json.loads(listing("x", CARD, None, False, "2026-11-20T18:04:00Z")))
 
 
 class ArtTest(unittest.TestCase):
@@ -136,8 +123,9 @@ class MainTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.site = self.tmp / "site"
-        (self.site / "src/content").mkdir(parents=True)
+        (self.site / "src/content/listed").mkdir(parents=True)
         (self.site / "src/content/apps.ts").write_text(APPS_TS)
+        self.listed = self.site / "src/content/listed/coffee-prices-2026.json"
         self.pkg = self.tmp / "packages" / "coffee-prices-2026"
         (self.pkg / "public").mkdir(parents=True)
         (self.pkg / "publisher.json").write_text(json.dumps({"name": "coffee-prices-2026", "version": "0.1.0"}))
@@ -147,16 +135,20 @@ class MainTest(unittest.TestCase):
     def run_main(self):
         return main([str(self.pkg), "--site", str(self.site)])
 
-    def test_a_card_becomes_an_entry_with_the_stylesheet_accent(self):
+    def test_a_card_becomes_a_listing_file_with_the_stylesheet_accent(self):
         self.assertEqual(self.run_main(), 0)
-        out = (self.site / "src/content/apps.ts").read_text()
-        self.assertIn("slug: 'coffee-prices-2026',", out)
-        self.assertIn("accent: '#7a4520',", out)
+        out = json.loads(self.listed.read_text())
+        self.assertEqual(out["accent"], "#7a4520")
+        self.assertRegex(out["listedAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+        self.assertEqual((self.site / "src/content/apps.ts").read_text(), APPS_TS)
 
-    def test_listing_twice_adds_one_entry(self):
+    def test_an_app_already_on_the_site_is_left_alone(self):
         self.run_main()
+        first = self.listed.read_text()
         self.run_main()
-        self.assertEqual((self.site / "src/content/apps.ts").read_text().count("coffee-prices-2026"), 2)  # slug and href
+        self.assertEqual(self.listed.read_text(), first)
+        self.assertTrue(listed(self.site, "atlas"))  # written by hand in apps.ts
+        self.assertFalse(listed(self.site, "atla"))
 
     def test_refusals_name_their_reason(self):
         cases = [
@@ -172,40 +164,26 @@ class MainTest(unittest.TestCase):
                 with self.assertRaises(SystemExit) as e:
                     self.run_main()
                 self.assertIn(reason, str(e.exception))
-                self.assertEqual((self.site / "src/content/apps.ts").read_text(), APPS_TS)
+                self.assertFalse(self.listed.exists())
 
-    def test_valid_art_goes_to_the_site_and_the_entry(self):
-        (self.site / "src/content/apps.ts").write_text(APPS_TS.replace("  accent?: string\n", "  accent?: string\n  art?: string\n"))
+    def test_valid_art_goes_to_the_site_and_the_listing(self):
         (self.pkg / "card.svg").write_text(ART)
         self.assertEqual(self.run_main(), 0)
-        self.assertIn("    art: '/thumbnails/coffee-prices-2026.svg',\n", (self.site / "src/content/apps.ts").read_text())
+        self.assertEqual(json.loads(self.listed.read_text())["art"], "/thumbnails/coffee-prices-2026.svg")
         self.assertEqual((self.site / "public/thumbnails/coffee-prices-2026.svg").read_text(), clean_art(ART)[0])
 
-    def test_bad_art_or_a_site_without_art_falls_back_to_the_drawn_card(self):
-        for site_has_art, art in ((True, ART.replace("</svg>", "<script/></svg>")), (False, ART)):
-            with self.subTest(site_has_art=site_has_art):
-                self.setUp()
-                apps = APPS_TS.replace("  accent?: string\n", "  accent?: string\n  art?: string\n") if site_has_art else APPS_TS
-                (self.site / "src/content/apps.ts").write_text(apps)
-                (self.pkg / "card.svg").write_text(art)
-                self.assertEqual(self.run_main(), 0)
-                out = (self.site / "src/content/apps.ts").read_text()
-                self.assertIn("slug: 'coffee-prices-2026',", out)
-                self.assertNotIn("art:", out)
-                self.assertFalse((self.site / "public/thumbnails").exists())
-
-    def test_a_short_blurb_stays_on_the_key_line(self):
-        self.assertIn("    blurb: 'Short.',\n", entry("x", {**CARD, "blurb": "Short."}, None))
-        long = "word " * 20
-        self.assertIn("    blurb:\n      'word", entry("x", {**CARD, "blurb": long}, None))
+    def test_bad_art_falls_back_to_the_drawn_card(self):
+        (self.pkg / "card.svg").write_text(ART.replace("</svg>", "<script/></svg>"))
+        self.assertEqual(self.run_main(), 0)
+        self.assertNotIn("art", json.loads(self.listed.read_text()))
+        self.assertFalse((self.site / "public/thumbnails").exists())
 
     def test_the_pull_request_commits_the_art_and_says_why_art_was_dropped(self):
         import subprocess as sp
         remote = self.tmp / "remote.git"
         sp.run(["git", "init", "-q", "--bare", str(remote)], check=True)
         sp.run(["git", "init", "-q", "-b", "main", str(self.site)], check=True)
-        apps = APPS_TS.replace("  accent?: string\n", "  accent?: string\n  art?: string\n")
-        (self.site / "src/content/apps.ts").write_text(apps)
+        (self.site / "src/content/listed/README.md").write_text("listed apps\n")
         for args in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base"],
                      ["remote", "add", "origin", str(remote)], ["push", "-q", "origin", "main"]):
             sp.run(["git", *args], cwd=self.site, check=True)
@@ -222,7 +200,7 @@ class MainTest(unittest.TestCase):
         self.assertEqual(main([str(self.pkg), "--site", str(self.site), "--pr"]), 0)
         files = sp.run(["git", "show", "--name-only", "--format=", "community-apps/coffee-prices-2026"], cwd=self.site,
                        capture_output=True, text=True, check=True).stdout.split()
-        self.assertEqual(sorted(files), ["public/thumbnails/coffee-prices-2026.svg", "src/content/apps.ts"])
+        self.assertEqual(sorted(files), ["public/thumbnails/coffee-prices-2026.svg", "src/content/listed/coffee-prices-2026.json"])
         self.assertIn("Its art is the app's own card.svg", log.read_text())
 
         log.write_text("")
@@ -235,11 +213,21 @@ class MainTest(unittest.TestCase):
         self.assertEqual(main([str(self.pkg), "--site", str(self.site), "--pr"]), 0)
         self.assertIn("Its card.svg was not used: <script> is not a drawing element", log.read_text())
 
-    def test_a_site_without_drawn_cards_is_left_alone(self):
-        (self.site / "src/content/apps.ts").write_text(APPS_TS.replace("Thumb?:", "Thumb:"))
+        # Both were opened from the same main, as the workflow opens them. Merged one after the other, neither conflicts.
+        sp.run(["git", "checkout", "-q", "main"], cwd=self.site, check=True)
+        for branch in ("community-apps/coffee-prices-2026", "community-apps/tea-prices"):
+            merged = sp.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "merge", "-q", "--no-edit", branch],
+                            cwd=self.site, capture_output=True, text=True)
+            self.assertEqual(merged.returncode, 0, merged.stdout + merged.stderr)
+        self.assertEqual(sorted(p.name for p in (self.site / "src/content/listed").glob("*.json")),
+                         ["coffee-prices-2026.json", "tea-prices.json"])
+
+    def test_a_site_without_listing_files_is_left_alone(self):
+        (self.site / "src/content/listed").rmdir()
         with self.assertRaises(SystemExit) as e:
             self.run_main()
-        self.assertIn("no optional Thumb", str(e.exception))
+        self.assertIn("has no src/content/listed/", str(e.exception))
+        self.assertEqual((self.site / "src/content/apps.ts").read_text(), APPS_TS)
 
 
 if __name__ == "__main__":
