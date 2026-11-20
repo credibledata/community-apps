@@ -1,0 +1,195 @@
+##! experimental.access_modifiers
+
+#(doc) One row per Colorado River reservoir that Reclamation's Upper Colorado HydroData site publishes daily: 8 in the Upper Basin, 3 on the lower main stem. Source: US Bureau of Reclamation.
+source: reservoirs is community.table('colorado_river_reservoirs__reservoirs') extend {
+  primary_key: site_id
+  dimension:
+    #(doc) Upper or Lower Colorado River Basin, split at Lee Ferry just below Glen Canyon Dam.
+    #(index)
+    basin_name is basin
+}
+
+#(doc) One row per reservoir per day from Reclamation's daily HydroData series: end-of-day pool elevation, storage, inflow, total release and evaporation. Lake Mead runs from 1935, Lake Powell from 1963 (it began filling that year); all series to 2026-11-16. Reclamation calls recent data provisional. Inflow and evaporation are not published for Mead, Mohave or Havasu.
+source: readings_base is community.table('colorado_river_reservoirs__readings') extend {
+  rename: reading_date is `date`
+}
+
+#(doc) The latest reading date of each reservoir, so "now" comes from the data rather than a typed date.
+source: latest_reading is readings_base -> { group_by: site_id aggregate: latest_date is max(reading_date) }
+
+#(doc) One row per reservoir per day from Reclamation's daily HydroData series: end-of-day pool elevation (ft), storage (acre-feet), daily mean inflow and total release (cfs), and evaporation (acre-feet). Lake Mead runs from 1934, Lake Powell from 1963; every series to 2026-11-16. Reclamation calls recent data provisional. Inflow and evaporation are not published for Mead, Mohave or Havasu.
+source: readings is readings_base extend {
+  join_one: reservoir is reservoirs on site_id = reservoir.site_id
+  join_one: latest is latest_reading on site_id = latest.site_id
+  dimension:
+    #(doc) Calendar year of the reading.
+    yr is year(reading_date)
+    #(doc) Water year, October through September, named for the year it ends in, as Reclamation reports runoff and releases.
+    water_year is year(reading_date) + (pick 1 when month(reading_date) >= 10 else 0)
+    #(doc) Month number, 1 to 12.
+    month_num is month(reading_date)
+    #(doc) Reservoir name, as Reclamation names it.
+    #(index)
+    reservoir_name is reservoir.name
+    #(doc) Reservoir id as text (Reclamation's HydroData site number), the key of a reservoir's page.
+    reservoir_id is site_id::string
+    #(doc) Short name, such as Powell or Mead.
+    short_name is reservoir.short_name
+    #(doc) Upper or Lower Basin.
+    basin is reservoir.basin
+    #(doc) River the reservoir sits on.
+    river is reservoir.river
+    #(doc) True on the reservoir's latest reading date in the data.
+    is_latest is reading_date = latest.latest_date
+    #(doc) True on the date one year (365 days) before the reservoir's latest reading, for a year-on-year change.
+    is_year_ago is reading_date = latest.latest_date - 365 days
+    #(doc) Lake Powell, Lake Mead, or the other reservoirs of the Upper or Lower Basin: the parts of the stacked storage view.
+    system_part is pick 'Lake Powell' when site_id = 919 pick 'Lake Mead' when site_id = 921 pick 'Other Upper Basin' when reservoir.basin = 'Upper' else 'Other Lower Basin'
+    #(doc) True for water years that ended by the reservoir's latest reading, so a partial year (the one under way) is left out of yearly totals.
+    is_full_water_year is water_year < year(latest.latest_date) + (pick 1 when month(latest.latest_date) >= 10 else 0)
+    #(doc) True on September 30, the last day of a water year, when Reclamation's end-of-year storage is read.
+    is_wy_end is month(reading_date) = 9 and day(reading_date) = 30
+    #(doc) Day of the water year, 1 on October 1, for drawing one water year over another.
+    water_year_day is days(concat((year(reading_date) - (pick 0 when month(reading_date) >= 10 else 1))::string, '-10-01')::date to reading_date) + 1
+  measure:
+    #(doc) Storage on September 30, the end of the water year, acre-feet. Summed over reservoirs it is their combined end-of-year storage.
+    wy_end_storage_af is sum(storage_af) { where: is_wy_end }
+    #(doc) Number of reservoir-days with any reading.
+    reading_days is count()
+    #(doc) Average end-of-day pool elevation, feet above sea level.
+    avg_elevation_ft is avg(elevation_ft)
+    #(doc) Lowest end-of-day pool elevation, feet.
+    min_elevation_ft is min(elevation_ft)
+    #(doc) Highest end-of-day pool elevation, feet.
+    max_elevation_ft is max(elevation_ft)
+    #(doc) Average end-of-day storage, acre-feet.
+    avg_storage_af is avg(storage_af)
+    #(doc) Water released, acre-feet: daily mean release in cubic feet per second times 1.9835 (one cfs for a day is 1.9835 acre-feet).
+    release_af is sum(release_cfs) * 1.98347
+    #(doc) Water flowing in, acre-feet, from daily mean inflow in cfs times 1.9835. Not published for Mead, Mohave or Havasu, where it is null rather than zero.
+    inflow_af is pick sum(inflow_cfs) * 1.98347 when sum(pick 1 when inflow_cfs is not null else 0) > 0 else null
+    #(doc) Water lost to evaporation, acre-feet, as Reclamation estimates it. Not published for Mead, Mohave or Havasu.
+    evaporation_total_af is pick sum(evaporation_af) when sum(pick 1 when evaporation_af is not null else 0) > 0 else null
+    #(doc) Most recent date with a reading.
+    last_date is max(reading_date)
+    #(doc) First date with a reading.
+    first_date is min(reading_date)
+    #(doc) Elevation on each reservoir's latest reading date, feet. Over several reservoirs it averages them, so use it per reservoir.
+    latest_elevation_ft is avg(elevation_ft) { where: is_latest }
+    #(doc) Storage on the latest reading date, acre-feet.
+    latest_storage_af is sum(storage_af) { where: is_latest }
+    #(doc) Elevation 365 days before the latest reading, feet.
+    year_ago_elevation_ft is avg(elevation_ft) { where: is_year_ago }
+    #(doc) Storage 365 days before the latest reading, acre-feet.
+    year_ago_storage_af is sum(storage_af) { where: is_year_ago }
+    #(doc) Change in elevation over the last 365 days, feet: latest minus a year earlier.
+    elevation_change_1y_ft is latest_elevation_ft - year_ago_elevation_ft
+    #(doc) Change in storage over the last 365 days, acre-feet.
+    storage_change_1y_af is latest_storage_af - year_ago_storage_af
+    #(doc) Highest end-of-day storage on record, acre-feet. Not the reservoir's design capacity, which is not in the data.
+    max_storage_af is max(storage_af)
+    #(doc) Latest storage as a share of the highest storage on record (latest storage / record-high storage). This model's yardstick in place of design capacity, which Reclamation's files do not carry.
+    pct_of_record_storage is latest_storage_af / nullif(max(storage_af), 0)
+  view:
+    #(doc) Monthly average, lowest and highest elevation per reservoir.
+    by_month is { group_by: reservoir_name, m is reading_date.month aggregate: avg_elevation_ft, min_elevation_ft, max_elevation_ft order_by: m }
+    #(doc) Weekly average elevation per reservoir over the whole record, for the long line.
+    by_week is { group_by: reservoir_id, short_name, wk is reading_date.week aggregate: avg_elevation_ft order_by: wk }
+    #(doc) Daily elevation, storage and flows, for a reservoir's page or a recent window.
+    daily is { group_by: reservoir_id, short_name, d is reading_date aggregate: avg_elevation_ft, avg_storage_af, release_af, inflow_af order_by: d }
+    #(doc) Each reservoir's latest level and storage, the change over a year, and storage against its record high.
+    current_levels is {
+      group_by: reservoir_id, reservoir_name, short_name, basin, river
+      aggregate: last_date, latest_elevation_ft, year_ago_elevation_ft, elevation_change_1y_ft, latest_storage_af, storage_change_1y_af, max_storage_af, pct_of_record_storage
+      order_by: latest_storage_af desc
+    }
+    #(doc) Per water year: lowest, highest and average elevation, and the water released, flowing in and evaporated.
+    by_water_year is {
+      group_by: reservoir_id, short_name, water_year
+      aggregate: min_elevation_ft, max_elevation_ft, avg_elevation_ft, release_af, inflow_af, evaporation_total_af, reading_days
+      order_by: water_year
+    }
+    #(doc) Average elevation by day of the water year, one line per water year, for a seasonal overlay.
+    seasonal is { group_by: reservoir_id, water_year, water_year_day aggregate: avg_elevation_ft order_by: water_year, water_year_day }
+    #(doc) Average elevation by week of the water year (week 1 is October 1-7; week 53 holds the last day or two), one line per water year: the seasonal overlay at a seventh of the rows.
+    seasonal_weekly is {
+      group_by: reservoir_id, short_name, water_year, wy_week is floor((water_year_day - 1) / 7) + 1
+      aggregate: avg_elevation_ft
+      order_by: water_year, wy_week
+      limit: 6000
+    }
+    #(doc) Daily readings, newest first.
+    records is {
+      group_by: reading_date, reservoir_id, reservoir_name, elevation_ft, storage_af, inflow_cfs, release_cfs, evaporation_af
+      order_by: reading_date desc, reservoir_name
+    }
+    #(doc) Storage on September 30 of each water year, by part of the system (Powell, Mead, the other Upper and Lower Basin reservoirs), for a stacked view of the system. Water years before a reservoir existed have no row.
+    storage_by_water_year is {
+      where: is_wy_end and storage_af is not null
+      group_by: water_year, system_part
+      aggregate: wy_end_storage_af
+      order_by: water_year, system_part
+      limit: 3000
+    }
+    #(doc) Each reservoir's lowest end-of-day elevation per water year, and that low in feet below the highest end-of-day elevation the reservoir reached in the years in scope (zero is its top; more negative is a deeper drawdown), so reservoirs of different heights draw on comparable panels.
+    yearly_drawdown is {
+      group_by: reservoir_id, short_name, water_year
+      aggregate:
+        min_elevation_ft
+        low_below_top_ft is min_elevation_ft - all(max_elevation_ft, reservoir_id)
+      order_by: water_year
+      limit: 3000
+    }
+    #(doc) Distinct reservoirs with their span of data, for the app's pickers.
+    reservoir_list is { group_by: reservoir_id, reservoir_name, short_name, basin, river aggregate: first_date, last_date, reading_days order_by: reservoir_id }
+}
+
+#(doc) The brief's question: Lake Powell and Lake Mead, the river's two big reservoirs, which the 2007 Interim Guidelines operate together. Its views are the app's headline.
+source: powell_mead is readings extend {
+  where: site_id = 919 or site_id = 921
+  #(doc) First line in the thresholds table below the full-release range: Mead's Level 1 shortage at 1,075 ft (ROD 2.D.1.a), Powell's Mid-Elevation Release tier at 3,575 ft (ROD 6.C).
+  dimension: first_line_ft is pick 1075 when site_id = 921 else 3575
+  #(doc) Second line: Mead's Level 2 shortage at 1,050 ft (ROD 2.D.1.b), Powell's Lower Elevation Balancing tier at 3,525 ft (ROD 6.D).
+  dimension: second_line_ft is pick 1050 when site_id = 921 else 3525
+  #(doc) Days with an end-of-day elevation below the first line.
+  measure: days_below_first is count() { where: elevation_ft < first_line_ft }
+  #(doc) Days with an end-of-day elevation below the second line.
+  measure: days_below_second is count() { where: elevation_ft < second_line_ft }
+  view:
+    #(doc) Per water year, how many days each lake spent below its first and second operating lines, with its low.
+    days_below_lines is {
+      group_by: reservoir_id, short_name, water_year
+      aggregate: reading_days, days_below_first, days_below_second, min_elevation_ft
+      order_by: water_year, reservoir_id
+    }
+    #(doc) Latest elevation and storage of Powell and Mead, the change over a year, and the record-high storage yardstick.
+    kpis is current_levels
+    #(doc) Monthly average and lowest end-of-day elevation, and average storage, of Powell and Mead since each began filling.
+    long_line is {
+      group_by: reservoir_id, short_name, m is reading_date.month
+      aggregate: avg_elevation_ft, min_elevation_ft, avg_storage_af
+      order_by: m
+      limit: 3000
+    }
+}
+
+#(doc) Each reservoir's elevation on its latest reading date, used to measure how far it sits from each threshold.
+source: latest_level is readings -> { where: is_latest group_by: site_id aggregate: level_ft is avg(elevation_ft), level_date is max(reading_date) }
+
+#(doc) Operating elevations from Reclamation's 2007 Interim Guidelines Record of Decision, with each lake's latest level beside them. Lake Mead's are the January 1 shortage tiers (Sec. 2.D.1); Lake Powell's are its release tiers (Sec. 6). Cited from the document, not from Reclamation's data files. The guidelines govern operations through 2026.
+source: thresholds is community.table('colorado_river_reservoirs__thresholds') extend {
+  join_one: now_level is latest_level on site_id = now_level.site_id
+  dimension:
+    #(doc) Threshold elevation, feet above sea level.
+    threshold_ft is elevation_ft
+    #(doc) Reservoir id as text, matching readings.reservoir_id.
+    reservoir_id is site_id::string
+    #(doc) Feet the lake's latest level sits above this threshold; negative when below it.
+    feet_above is now_level.level_ft - elevation_ft
+  view:
+    #(doc) Every threshold with its meaning, its source section, and the latest level against it.
+    against_now is {
+      group_by: reservoir_id, threshold_ft, label, meaning, rod_section, level_ft is now_level.level_ft, level_date is now_level.level_date, feet_above
+      order_by: reservoir_id, threshold_ft desc
+    }
+}
