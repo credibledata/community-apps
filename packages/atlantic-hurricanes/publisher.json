@@ -1,0 +1,5 @@
+{
+  "name": "atlantic-hurricanes",
+  "version": "0.0.1",
+  "description": "Atlantic hurricanes since 1851 from NOAA's HURDAT2 best track: storm tracks, landfalls, and whether major hurricanes have become more common in the satellite era."
+}

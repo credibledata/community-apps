@@ -1,0 +1,355 @@
+##! experimental.access_modifiers
+
+// Atlantic hurricanes, 1851-2025, from NOAA NHC's HURDAT2 best track.
+// Tables are built by pipeline/shape_hurdat2.py and loaded into the community database.
+
+#(doc) One row per Atlantic tropical or subtropical cyclone in NOAA's HURDAT2 best track, 1851-2025, with its peak strength, energy and landfalls summarised from its track points. Strength thresholds follow the Saffir-Simpson scale: tropical storm 34 kt, hurricane 64 kt, major hurricane (category 3+) 96 kt. Records before 1966, when weather satellites began to watch the whole basin, likely miss storms that stayed away from land and ships, so compare counts across that line with care.
+source: storms is community.table('atlantic_hurricanes__storms') include {
+  public:
+    #(doc) HURDAT2 storm identifier: basin AL, the storm's number in its season, and the season year, such as AL052025.
+    storm_id
+    #(doc) Name NHC gave the storm, upper case; UNNAMED for storms before names were used (1950) and for unnamed depressions.
+    storm_name
+    #(doc) Hurricane season (calendar year) the storm formed in.
+    season
+    #(doc) Time of the storm's first best-track entry (UTC).
+    started_at
+    #(doc) Time of the storm's last best-track entry (UTC).
+    ended_at
+    #(doc) Number of best-track entries for the storm (six-hourly fixes plus special entries such as landfalls).
+    track_points
+    #(doc) Highest maximum sustained wind (1-minute, 10 m) at any point in the storm's track, in knots, whatever its status.
+    peak_wind_kt
+    #(doc) Lowest central pressure in the storm's track, in millibars. Null when none was recorded, which is common before the 1970s.
+    min_pressure_mb
+    #(doc) Highest Saffir-Simpson category the storm reached while classed a hurricane (status HU): 1 at 64-82 kt, 2 at 83-95, 3 at 96-112, 4 at 113-136, 5 at 137+. Null for storms that never became hurricanes.
+    peak_category
+    #(doc) Highest maximum sustained wind, in knots, while the storm was tropical or subtropical (status TS, HU or SS). Null for storms that stayed depressions or lows. This is the wind the storm counts drop to TS/hurricane strength on.
+    peak_tropical_wind_kt
+    #(doc) Accumulated Cyclone Energy of the storm, in 10^4 kt^2: the sum of the squared maximum wind over its 00, 06, 12 and 18 UTC fixes while tropical or subtropical at 35 kt or more, NHC's definition.
+    ace
+    #(doc) Number of landfall entries (HURDAT2 record identifier L) in the storm's track: each time its centre crossed a coastline, including islands.
+    landfalls
+    #(doc) Number of the storm's landfall entries placed in the United States (by Natural Earth country boundaries).
+    us_landfalls
+    #(doc) Highest maximum sustained wind at any of the storm's landfalls, in knots. Null for storms with no landfall.
+    max_landfall_wind_kt
+  internal:
+    first_lat, first_lon
+} extend {
+  primary_key: storm_id
+
+  dimension:
+    #(doc) Storm name with its season, such as "MELISSA 2025", the name a reader searches for.
+    #(index)
+    storm_label is concat(storm_name, ' ', season::string)
+    #(doc) Decade the season falls in, as its first year (1850, 1860, ... 2020). The 2020s hold 2020-2025 only.
+    decade is floor(season / 10) * 10
+    #(doc) Observation era: "Pre-satellite (1851-1965)" or "Satellite (1966-2025)". 1966 is the first season with routine weather-satellite coverage of the whole Atlantic basin, after which storms far from land and ships are no longer missed. This model's split year, written only here.
+    era is pick 'Satellite (1966-2025)' when season >= 1966 else 'Pre-satellite (1851-1965)'
+    #(doc) True from the 1966 season on, the satellite era (see era).
+    is_satellite_era is season >= 1966
+    #(doc) Halves of the satellite era with 30 seasons each: "1966-1995" and "1996-2025". Null before 1966. This model's choice of split, so both halves are the same length; it is not a claim about when anything changed.
+    satellite_half is pick '1966-1995' when season >= 1966 and season <= 1995 pick '1996-2025' when season >= 1996 else null
+    #(doc) True when the storm reached tropical-storm strength (34 kt or more) while tropical or subtropical, the storms that are named today.
+    reached_storm is peak_tropical_wind_kt >= 34
+    #(doc) True when the storm reached hurricane strength (status HU, 64 kt or more).
+    reached_hurricane is peak_category >= 1
+    #(doc) True when the storm reached major-hurricane strength: category 3 or more (status HU, 96 kt or more).
+    reached_major is peak_category >= 3
+    #(doc) Strongest stage the storm reached, as a label: "Category 5" down to "Category 1", "Tropical storm" (34-63 kt), or "Depression" (below 34 kt while tropical or subtropical, or never tropical).
+    peak_class is pick 'Category 5' when peak_category = 5
+      pick 'Category 4' when peak_category = 4
+      pick 'Category 3' when peak_category = 3
+      pick 'Category 2' when peak_category = 2
+      pick 'Category 1' when peak_category = 1
+      pick 'Tropical storm' when peak_tropical_wind_kt >= 34
+      else 'Depression'
+    #(doc) Sort key for peak_class, 0 (depression) to 7 (category 5).
+    peak_class_rank is pick 7 when peak_category = 5 pick 6 when peak_category = 4 pick 5 when peak_category = 3
+      pick 4 when peak_category = 2 pick 3 when peak_category = 1 pick 1 when peak_tropical_wind_kt >= 34 else 0
+    #(doc) True when the storm made at least one landfall.
+    made_landfall is landfalls > 0
+    #(doc) True when the storm made at least one US landfall.
+    hit_us is us_landfalls > 0
+    #(doc) The strength group the storm peaked in: "Major hurricane" (category 3-5, 96 kt+), "Hurricane" (category 1-2, 64-95 kt), "Tropical storm" (34-63 kt while tropical or subtropical) or "Depression" (below that). The app's strength filter.
+    peak_group is
+      pick 'Major hurricane' when peak_category >= 3
+      pick 'Hurricane' when peak_category >= 1
+      pick 'Tropical storm' when peak_tropical_wind_kt >= 34
+      else 'Depression'
+    #(doc) Sort order of peak_group, strongest first (4 = major hurricane).
+    peak_group_rank is
+      pick 4 when peak_category >= 3
+      pick 3 when peak_category >= 1
+      pick 2 when peak_tropical_wind_kt >= 34
+      else 1
+    #(doc) Calendar month the storm formed in (1-12), from its first track entry.
+    start_month is month(started_at)
+    #(doc) Name of the month the storm formed in, such as "September". Sort by start_month.
+    start_month_name is
+      pick 'January' when start_month = 1
+      pick 'February' when start_month = 2
+      pick 'March' when start_month = 3
+      pick 'April' when start_month = 4
+      pick 'May' when start_month = 5
+      pick 'June' when start_month = 6
+      pick 'July' when start_month = 7
+      pick 'August' when start_month = 8
+      pick 'September' when start_month = 9
+      pick 'October' when start_month = 10
+      pick 'November' when start_month = 11
+      else 'December'
+    #(doc) Days from the storm's first to its last best-track entry.
+    duration_days is hours(started_at to ended_at) / 24.0
+
+  measure:
+    #(doc) Number of storms in HURDAT2, any strength, depressions included.
+    storm_count is count()
+    #(doc) Storms that reached tropical-storm strength (34 kt+) while tropical or subtropical: "named storms" in NOAA's season counts.
+    named_storms is count() { where: reached_storm }
+    #(doc) Storms that reached hurricane strength (64 kt+).
+    hurricanes is count() { where: reached_hurricane }
+    #(doc) Storms that reached major-hurricane strength (category 3+, 96 kt+).
+    major_hurricanes is count() { where: reached_major }
+    #(doc) Storms that reached category 5 (137 kt+).
+    cat5_hurricanes is count() { where: peak_category = 5 }
+    #(doc) Number of distinct seasons in scope. Every season 1851-2025 has at least one storm, so this is the number of seasons.
+    seasons is count(season)
+    #(doc) Named storms per season: named_storms / seasons.
+    named_storms_per_season is named_storms / nullif(seasons, 0)
+    #(doc) Hurricanes per season: hurricanes / seasons.
+    hurricanes_per_season is hurricanes / nullif(seasons, 0)
+    #(doc) Major hurricanes per season: major_hurricanes / seasons. The app's lead measure.
+    majors_per_season is major_hurricanes / nullif(seasons, 0)
+    #(doc) Share of hurricanes that became major: major_hurricanes / hurricanes.
+    major_share_of_hurricanes is major_hurricanes / nullif(hurricanes, 0)
+    #(doc) Total Accumulated Cyclone Energy of the storms in scope, in 10^4 kt^2.
+    total_ace is ace.sum()
+    #(doc) Accumulated Cyclone Energy per season: total_ace / seasons.
+    ace_per_season is total_ace / nullif(seasons, 0)
+    #(doc) Storms with at least one landfall.
+    landfalling_storms is count() { where: made_landfall }
+    #(doc) Storms with at least one US landfall.
+    us_landfalling_storms is count() { where: hit_us }
+    #(doc) Major hurricanes (category 3+ at peak) that made at least one landfall, at whatever strength they came ashore. See major_landfalls on landfalls for strength at landfall.
+    landfalling_majors is count() { where: reached_major and made_landfall }
+    #(doc) Highest maximum sustained wind among the storms in scope, in knots.
+    max_wind_kt is peak_wind_kt.max()
+    #(doc) Lowest central pressure among the storms in scope, in millibars.
+    lowest_pressure_mb is min_pressure_mb.min()
+    #(doc) First season in scope.
+    first_season is season.min()
+    #(doc) Last season in scope.
+    last_season is season.max()
+
+  view:
+    #(doc) Headline numbers for the storms in scope.
+    kpis is {
+      aggregate: storm_count, named_storms, hurricanes, major_hurricanes, cat5_hurricanes, seasons,
+        majors_per_season, hurricanes_per_season, named_storms_per_season, major_share_of_hurricanes,
+        ace_per_season, landfalling_storms, us_landfalling_storms, first_season, last_season
+    }
+    #(doc) One row per season: storm counts by strength, energy and landfalling storms, oldest first.
+    by_season is {
+      group_by: season, era
+      aggregate: named_storms, hurricanes, major_hurricanes, cat5_hurricanes, total_ace, landfalling_storms, us_landfalling_storms
+      order_by: season
+      limit: 200
+    }
+    #(doc) One row per decade: seasons, storms by strength per season, and the share of hurricanes that became major.
+    by_decade is {
+      group_by: decade
+      aggregate: seasons, named_storms, hurricanes, major_hurricanes, majors_per_season, hurricanes_per_season, named_storms_per_season, major_share_of_hurricanes, ace_per_season
+      order_by: decade
+    }
+    #(doc) The two observation eras side by side.
+    by_era is {
+      group_by: era
+      aggregate: seasons, named_storms_per_season, hurricanes_per_season, majors_per_season, major_share_of_hurricanes, ace_per_season
+      order_by: era
+    }
+    #(doc) The satellite era's two 30-season halves side by side, the app's lead comparison. Only satellite-era storms.
+    by_satellite_half is {
+      where: is_satellite_era
+      group_by: satellite_half
+      aggregate: seasons, named_storms, hurricanes, major_hurricanes, majors_per_season, hurricanes_per_season, named_storms_per_season, major_share_of_hurricanes, ace_per_season, cat5_hurricanes
+      order_by: satellite_half
+    }
+    #(doc) Storms by the strongest stage they reached, depression to category 5.
+    by_peak_class is {
+      group_by: peak_class, peak_class_rank
+      aggregate: storm_count
+      order_by: peak_class_rank desc
+    }
+    #(doc) Storms by the month they formed in.
+    by_start_month is {
+      group_by: start_month, start_month_name
+      aggregate: named_storms, hurricanes, major_hurricanes
+      order_by: start_month
+    }
+    #(doc) Storms per decade by the strength group they peaked in, for shares of each decade's storms.
+    by_decade_group is {
+      group_by: decade, peak_group, peak_group_rank
+      aggregate: storm_count
+      order_by: decade, peak_group_rank desc
+    }
+    #(doc) Storms by the month they formed in, in each 30-season half of the satellite era (1966-1995 against 1996-2025). Seasons outside 1966-2025 are left out.
+    by_month_halves is {
+      where: satellite_half is not null
+      group_by: start_month, start_month_name
+      aggregate:
+        early is storm_count { where: satellite_half = '1966-1995' }
+        late is storm_count { where: satellite_half = '1996-2025' }
+      order_by: start_month
+    }
+    #(doc) The strongest storms by peak wind, then lowest pressure.
+    strongest is {
+      group_by: storm_id, storm_label, season, peak_class, peak_wind_kt, min_pressure_mb, ace, landfalls
+      order_by: peak_wind_kt desc, min_pressure_mb
+      limit: 25
+    }
+    #(doc) Storms with the most Accumulated Cyclone Energy.
+    most_energetic is {
+      group_by: storm_id, storm_label, season, peak_class, peak_wind_kt, ace, duration_days
+      order_by: ace desc
+      limit: 25
+    }
+    #(doc) Storm list, newest first, with the fields a reader would check.
+    records is {
+      group_by: storm_id, storm_label, season, started_at, peak_class, peak_wind_kt, min_pressure_mb, ace, landfalls, us_landfalls, max_landfall_wind_kt
+      order_by: started_at desc
+      limit: 50
+    }
+}
+
+#(doc) One row per HURDAT2 best-track entry, 1851-2025: a storm's position, maximum sustained wind, central pressure and status every six hours (00, 06, 12, 18 UTC), plus special entries such as landfalls and peak intensity. Joined to its storm.
+source: track_points is community.table('atlantic_hurricanes__track_points') include {
+  public:
+    #(doc) HURDAT2 storm identifier, joining to storms.
+    storm_id
+    #(doc) Hurricane season (year) of the storm.
+    season
+    #(doc) Time of the entry (UTC).
+    observed_at
+    #(doc) HURDAT2 record identifier for special entries: L landfall, P minimum pressure, I intensity peak, W maximum wind, C closest approach, S status change, G genesis, T additional detail, R rapid-change detail. Null for an ordinary six-hourly fix.
+    record_id
+    #(doc) Status code at the entry: HU hurricane, TS tropical storm, TD tropical depression, EX extratropical, SD subtropical depression, SS subtropical storm, LO low, WV tropical wave, DB disturbance.
+    status
+    #(doc) Latitude of the storm's centre, decimal degrees north.
+    lat
+    #(doc) Longitude of the storm's centre, decimal degrees (west negative).
+    lon
+    #(doc) Maximum sustained wind (1-minute, 10 m) at the entry, in knots.
+    wind_kt
+    #(doc) Central pressure at the entry, in millibars. Null when none was recorded.
+    pressure_mb
+    #(doc) Saffir-Simpson category at the entry for hurricane-status entries (1-5); null otherwise.
+    category
+    #(doc) For landfall entries, the country whose coast the centre crossed, from Natural Earth 1:10m boundaries (nearest within 0.5 degrees when the point falls just offshore of the generalised coastline). Territories are their own country (Puerto Rico, Bermuda). Null for other entries, and for 6 landfalls no boundary placed.
+    landfall_country
+    #(doc) For landfall entries, the state or province (Natural Earth 1:50m), when one was found in the landfall country. Null otherwise.
+    landfall_admin1
+} extend {
+  join_one: storms on storm_id = storms.storm_id
+
+  dimension:
+    #(doc) True for a landfall entry (record identifier L).
+    is_landfall is record_id = 'L'
+    #(doc) Strength at the entry, as a label: Category 5 to Category 1 for hurricanes, Tropical storm (34-63 kt while tropical or subtropical), Depression, or Non-tropical (extratropical, low, wave, disturbance).
+    strength_class is pick 'Category 5' when category = 5 pick 'Category 4' when category = 4
+      pick 'Category 3' when category = 3 pick 'Category 2' when category = 2 pick 'Category 1' when category = 1
+      pick 'Tropical storm' when status = 'TS' or status = 'SS'
+      pick 'Depression' when status = 'TD' or status = 'SD'
+      else 'Non-tropical'
+    #(doc) Sort key for strength_class, 0 (non-tropical) to 7 (category 5).
+    strength_rank is pick 7 when category = 5 pick 6 when category = 4 pick 5 when category = 3
+      pick 4 when category = 2 pick 3 when category = 1 pick 2 when status = 'TS' or status = 'SS'
+      pick 1 when status = 'TD' or status = 'SD' else 0
+    #(doc) Landfall country, "Unplaced" for the few landfall entries no boundary placed. Null for other entries.
+    #(index)
+    landfall_place is pick landfall_country ?? 'Unplaced' when record_id = 'L' else null
+    #(doc) Latitude rounded to a 2-degree cell's lower edge, for density maps.
+    lat_cell is floor(lat / 2) * 2
+    #(doc) Longitude rounded to a 2-degree cell's lower edge, for density maps.
+    lon_cell is floor(lon / 2) * 2
+    #(doc) Hour of the entry (UTC).
+    hour_utc is hour(observed_at)
+
+  measure:
+    #(doc) Number of best-track entries.
+    point_count is count()
+    #(doc) Number of landfall entries (record identifier L). A storm that crosses several coasts counts once per crossing.
+    landfall_count is count() { where: record_id = 'L' }
+    #(doc) Landfall entries at hurricane strength (category 1+ at landfall).
+    hurricane_landfalls is count() { where: record_id = 'L' and category >= 1 }
+    #(doc) Landfall entries at major-hurricane strength (category 3+ at landfall).
+    major_landfalls is count() { where: record_id = 'L' and category >= 3 }
+    #(doc) Distinct storms with an entry in scope.
+    storms_in_scope is count(storm_id)
+    #(doc) Highest maximum sustained wind among the entries in scope, in knots.
+    top_wind_kt is wind_kt.max()
+
+  view:
+    #(doc) Landfall counts by country, most first.
+    landfalls_by_country is {
+      where: record_id = 'L'
+      group_by: landfall_place
+      aggregate: landfall_count, hurricane_landfalls, major_landfalls, storms_in_scope
+      order_by: landfall_count desc
+      limit: 60
+    }
+    #(doc) US landfalls by state, most first.
+    us_landfalls_by_state is {
+      where: record_id = 'L' and landfall_country = 'United States'
+      group_by: state is landfall_admin1
+      aggregate: landfall_count, hurricane_landfalls, major_landfalls
+      order_by: landfall_count desc
+      limit: 60
+    }
+    #(doc) Landfalls per decade, by strength at landfall.
+    landfalls_by_decade is {
+      where: record_id = 'L'
+      group_by: decade is floor(season / 10) * 10
+      aggregate: landfall_count, hurricane_landfalls, major_landfalls
+      order_by: decade
+    }
+    #(doc) Every landfall point with its storm, place and strength, for the map. Newest first.
+    landfall_points is {
+      where: record_id = 'L'
+      group_by: storm_id, storms.storm_label, observed_at, lat, lon, wind_kt, pressure_mb, category, strength_class, landfall_place, landfall_admin1
+      order_by: observed_at desc
+      limit: 2000
+    }
+    #(doc) Track density: best-track entries per 2-degree cell, for a heat map of where storms travel.
+    density is {
+      group_by: lat_cell, lon_cell
+      aggregate: point_count, storms_in_scope
+      limit: 5000
+    }
+    #(doc) One storm's best track in time order, for its page: filter by storm_id. Each entry's position, wind, pressure, status and strength.
+    track is {
+      group_by: observed_at, record_id, status, lat, lon, wind_kt, pressure_mb, category, strength_class, landfall_place, landfall_admin1
+      order_by: observed_at
+      limit: 400
+    }
+    #(doc) The tracks of every storm in scope, thinned to the synoptic fixes (00, 06, 12 and 18 UTC) plus landfalls, in storm and time order, for drawing many tracks at once. Filter first, such as to major hurricanes or a decade.
+    tracks is {
+      where: hour_utc % 6 = 0 or record_id = 'L'
+      group_by: storm_id, observed_at, lat, lon, category
+      order_by: storm_id, observed_at
+      limit: 30000
+    }
+}
+
+#(doc) The lead question's source: storms of the satellite era, 1966-2025, when every Atlantic storm was seen. Its kpis view compares the first and last 30 seasons of the era (satellite_half). Use this source for "have major hurricanes become more common?"
+source: satellite_era_storms is storms extend {
+  where: is_satellite_era
+  view:
+    #(doc) Headline: major hurricanes per season and the share of hurricanes that became major, in each 30-season half of the satellite era.
+    lead_kpis is {
+      group_by: satellite_half
+      aggregate: seasons, major_hurricanes, majors_per_season, hurricanes_per_season, named_storms_per_season, major_share_of_hurricanes, ace_per_season
+      order_by: satellite_half
+    }
+}
