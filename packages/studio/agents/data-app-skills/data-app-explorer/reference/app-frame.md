@@ -38,7 +38,8 @@ Read it once. Everything above `// ---- Views` is the frame; keep it as it is:
   numbers count.
 - **`chartBox()`**, the scope bar, search.
 - **`paint()` and `keepInView()`**: a new scope never takes a card out of the page, and the card the reader clicked
-  keeps its place on screen; another view fades in.
+  keeps its place on screen; another view fades in. A part of a view that is not a card but follows the address,
+  such as Compare's picks, is marked `data-redraw="<name>"` and swapped in place.
 - **`selfCheck()`**: open the app at `?check=1#/` and the page says whether every number in its answer and headline
   card is a value bare views of the model return.
 
