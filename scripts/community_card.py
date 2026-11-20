@@ -43,7 +43,7 @@ APP_URL = "https://community.app.credibledata.com/community-apps/{package}/lates
 
 
 def card_problems(card: object) -> list[str]:
-    """What keeps a card from becoming an entry."""
+    """What keeps a card from being listed."""
     if not isinstance(card, dict):
         return ["the card is not a JSON object"]
     problems = []
