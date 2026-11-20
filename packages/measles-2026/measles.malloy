@@ -1,0 +1,332 @@
+// Measles in the United States: CDC's confirmed case counts and its kindergarten MMR coverage and exemptions.
+// Every table is a managed table in the environment's `community` database, written by pipeline/shape_measles.py.
+
+#(doc) Confirmed US measles cases by calendar year, 1985 to the current year, as CDC's measles page publishes them. One row per year. The latest year is partial: it runs to CDC's latest weekly update.
+source: yearly_cases is community.table('measles_2026__yearly_cases') extend {
+  primary_key: `year`
+
+  dimension:
+    #(doc) Calendar year of the cases.
+    case_year is `year`
+    #(doc) True for the current year, which CDC counts only to its latest weekly update.
+    partial_year is is_partial_year
+    #(doc) "Before elimination" for 1985-1999, "Since elimination" from 2000, the year CDC declared endemic measles eliminated from the US.
+    era is pick 'Since elimination' when `year` >= 2000 else 'Before elimination'
+    #(doc) True for years from 2000, when measles was declared eliminated in the US, through the current year.
+    since_elimination is `year` >= 2000
+
+  measure:
+    #(doc) Confirmed measles cases reported to CDC (sum over years).
+    total_cases is cases.sum()
+    #(doc) Number of calendar years in the rows.
+    year_count is count()
+    #(doc) The most cases in any one year among the rows.
+    max_year_cases is max(cases)
+    #(doc) Average confirmed cases per year among the rows.
+    avg_year_cases is avg(cases)
+    #(doc) Cases in the latest (current, partial) year.
+    latest_year_cases is cases.sum() { where: is_partial_year }
+    #(doc) The latest year itself.
+    latest_year is max(`year`)
+    #(doc) The most cases in any full year since elimination (2000 up to, not including, the current year): the record the current year is compared with.
+    prior_record_since_2000 is max(cases) { where: `year` >= 2000 and not is_partial_year }
+    #(doc) Full years since elimination (2000 to the year before the current one).
+    full_years_since_2000 is count() { where: `year` >= 2000 and not is_partial_year }
+    #(doc) Total cases across the full years 2000 to the year before the current one.
+    cases_2000_to_prior is cases.sum() { where: `year` >= 2000 and not is_partial_year }
+    #(doc) Average cases per full year from 2000 to the year before the current one.
+    avg_2000_to_prior is avg(cases) { where: `year` >= 2000 and not is_partial_year }
+    #(doc) The current year's cases so far as a multiple of the most in any full year since 2000.
+    times_prior_record is cases.sum() { where: is_partial_year } / nullif(max(cases) { where: `year` >= 2000 and not is_partial_year }, 0)
+    #(doc) The current year's cases so far as a share of all cases in the full years 2000 to the year before (1 = as many as all of them together).
+    share_of_2000_to_prior is cases.sum() { where: is_partial_year } / nullif(cases.sum() { where: `year` >= 2000 and not is_partial_year }, 0)
+
+  #(doc) The app's headline numbers: the current year's cases so far, the most in any full year since elimination in 2000, how many full years that covers, and their average.
+  view: kpis is {
+    aggregate: latest_year, latest_year_cases, prior_record_since_2000, times_prior_record, full_years_since_2000, avg_2000_to_prior, cases_2000_to_prior, share_of_2000_to_prior
+  }
+
+  #(doc) Cases by year, every year 1985 onward.
+  view: by_year is {
+    group_by: case_year, era, partial_year
+    aggregate: total_cases
+    order_by: case_year
+  }
+
+  #(doc) Cases by year since elimination (2000 onward), the brief's comparison.
+  view: since_2000 is {
+    where: since_elimination
+    group_by: case_year, partial_year
+    aggregate: total_cases
+    order_by: case_year
+  }
+
+  #(doc) Years since 2000 ranked by cases, most first.
+  view: ranked_since_2000 is {
+    where: since_elimination
+    group_by: case_year, partial_year
+    aggregate: total_cases
+    order_by: total_cases desc
+  }
+
+  #(doc) Totals before and since elimination.
+  view: by_era is {
+    group_by: era
+    aggregate: total_cases, year_count, avg_year_cases, max_year_cases
+    order_by: era
+  }
+}
+
+#(doc) Confirmed US measles cases by week of rash onset, from January 2022, as CDC's measles page charts them. One row per week (Sunday to Saturday). The latest weeks are incomplete: cases are added as they are confirmed.
+source: weekly_cases is community.table('measles_2026__weekly_cases') extend {
+  primary_key: week_start
+
+  dimension:
+    #(doc) First day (Sunday) of the rash-onset week.
+    onset_week is week_start
+    #(doc) Last day (Saturday) of the rash-onset week.
+    week_ending is week_end
+    #(doc) Calendar year of the week's first day.
+    onset_year is `year`
+    #(doc) Calendar month of the week's first day.
+    onset_month is week_start.month
+    #(doc) Week number within its year, counted from the year's first Sunday-start week (1 = the first week starting in January).
+    week_of_year is floor(day_of_year(week_start) / 7.0 + 0.9)::number
+
+  measure:
+    #(doc) Confirmed measles cases with rash onset in the weeks in the rows.
+    weekly_total is cases.sum()
+    #(doc) Number of weeks in the rows.
+    week_count is count()
+    #(doc) The most cases with rash onset in any one week among the rows.
+    peak_week_cases is max(cases)
+    #(doc) Latest rash-onset week in the rows.
+    latest_week is max(week_start)
+
+  #(doc) The epidemic curve: cases by week of rash onset since 2022.
+  view: epi_curve is {
+    group_by: onset_week, week_ending, onset_year
+    aggregate: weekly_total
+    order_by: onset_week
+  }
+
+  #(doc) Cases by year and week of year, with the running total within each year, to lay years over each other.
+  view: cumulative_by_year is {
+    group_by: onset_year, week_of_year, onset_week
+    aggregate: weekly_total
+    calculate: running_total is sum_cumulative(weekly_total) { partition_by: onset_year order_by: week_of_year }
+    order_by: onset_year, week_of_year
+  }
+
+  #(doc) Cases by month of rash onset.
+  view: by_month is {
+    group_by: onset_month
+    aggregate: weekly_total
+    order_by: onset_month
+  }
+
+  #(doc) The week with the most cases in each year.
+  view: peak_by_year is {
+    group_by: onset_year
+    aggregate: weekly_total, peak_week_cases, week_count
+    order_by: onset_year
+  }
+}
+
+#(doc) Confirmed measles cases among US residents by reporting jurisdiction and year, 2024 to the current year, as CDC's map publishes them. New York City reports separately from New York State, so "New York" here is the state outside the city. One row per jurisdiction and year. Cases not yet assigned to a jurisdiction are left out, so jurisdictions sum to slightly less than the national total.
+source: state_cases is community.table('measles_2026__state_cases') extend {
+  dimension:
+    #(doc) Reporting jurisdiction: a state, the District of Columbia, or New York City.
+    #(index)
+    state_name is jurisdiction
+    #(doc) Two-letter postal code of the state; NYC for New York City.
+    code is state_code
+    #(doc) Calendar year of the cases.
+    case_year is `year`
+
+  measure:
+    #(doc) Confirmed measles cases reported by the jurisdictions in the rows.
+    state_total is cases.sum()
+    #(doc) Jurisdictions that reported at least one case.
+    jurisdictions_with_cases is count(jurisdiction) { where: cases > 0 }
+    #(doc) Cases in 2024.
+    cases_2024 is cases.sum() { where: `year` = 2024 }
+    #(doc) Cases in 2025.
+    cases_2025 is cases.sum() { where: `year` = 2025 }
+    #(doc) Cases in 2026, to CDC's latest weekly update.
+    cases_2026 is cases.sum() { where: `year` = 2026 }
+
+  #(doc) Jurisdictions ranked by cases in 2026, with 2024 and 2025 beside them.
+  view: by_state is {
+    group_by: state_name, code
+    aggregate: cases_2026, cases_2025, cases_2024
+    order_by: cases_2026 desc
+  }
+
+  #(doc) Cases by year across all jurisdictions, and how many reported any.
+  view: by_year is {
+    group_by: case_year
+    aggregate: state_total, jurisdictions_with_cases
+    order_by: case_year
+  }
+}
+
+#(doc) Kindergarten MMR vaccination coverage and vaccine exemptions by state and school year, 2009-10 to 2025-26, from CDC's SchoolVaxView (School Vaccination Assessment Program). One row per geography and school year. Geographies are the 50 states and DC ("State"), New York City and Houston reported on their own ("Sub-state"), and two national rows ("National"): "United States" (all kindergartners) and "U.S. Median" (the median state). Coverage is the share of kindergartners with two doses of MMR as states report it; methods differ by state (census, sample or voluntary response) and some states report no exemptions some years, so blanks stay blank.
+source: kindergarten is community.table('measles_2026__kindergarten') extend {
+  dimension:
+    #(doc) State, sub-state area or national row.
+    #(index)
+    place is geography
+    #(doc) "State" (50 states and DC), "Sub-state" (New York City, Houston) or "National" (United States, U.S. Median).
+    place_type is geography_type
+    #(doc) Two-letter postal code of the state; blank for national and sub-state rows.
+    code is state_code
+    #(doc) School year, such as 2025-26.
+    year_label is school_year
+    #(doc) Calendar year the school year starts in (2025 for 2025-26).
+    year_start is school_year_start
+    #(doc) Share of kindergartners with 2 doses of MMR, in percent, as CDC reports it for this place and school year.
+    coverage_pct is mmr_coverage_pct
+    #(doc) Share of kindergartners with any vaccine exemption, in percent, as CDC reports it.
+    exemption_pct is any_exemption_pct
+    #(doc) Share with a non-medical (religious or philosophical) exemption, in percent.
+    nonmedical_pct is non_medical_exemption_pct
+    #(doc) Share with a medical exemption, in percent.
+    medical_pct is medical_exemption_pct
+    #(doc) Coverage band: 95% or more is CDC's Healthy People target for kindergarten MMR coverage, the level needed to keep measles from spreading.
+    coverage_band is pick '95% or more' when mmr_coverage_pct >= 95
+      pick '90-94.9%' when mmr_coverage_pct >= 90
+      pick 'Below 90%' when mmr_coverage_pct < 90
+      else 'Not reported'
+    #(doc) How the state counted its kindergartners: census, sample or voluntary response, as CDC records it.
+    method is survey_type
+
+  measure:
+    #(doc) Places with a coverage estimate in the rows.
+    places_reporting is count() { where: mmr_coverage_pct is not null }
+    #(doc) Kindergartners counted in the coverage survey (CDC's population or sample size).
+    kindergartners is kindergarten_population.sum()
+    #(doc) Estimated kindergartners with 2 MMR doses: each place's coverage times its kindergartners, summed.
+    vaccinated is sum(mmr_coverage_pct * kindergarten_population / 100)
+    #(doc) MMR coverage, in percent: estimated vaccinated kindergartners / kindergartners counted, over places with both. On one place and year it equals CDC's estimate (to rounding).
+    coverage is sum(mmr_coverage_pct * kindergarten_population / 100) / nullif(kindergarten_population.sum() { where: mmr_coverage_pct is not null }, 0) * 100
+    #(doc) Coverage as CDC reports it, averaged over the rows. Use on one place and year, where it is CDC's own figure.
+    reported_coverage is avg(mmr_coverage_pct)
+    #(doc) Kindergartners with any vaccine exemption.
+    exemptions is any_exemptions.sum()
+    #(doc) Kindergartners with a non-medical exemption.
+    nonmedical_exemptions is non_medical_exemptions.sum()
+    #(doc) Kindergartners with a medical exemption.
+    medical_exemptions_n is medical_exemptions.sum()
+    #(doc) Exemption rate, in percent: kindergartners with any exemption / kindergartners counted in the exemption survey, over places reporting both.
+    exemption_rate is any_exemptions.sum() / nullif(exemption_population.sum() { where: any_exemptions is not null }, 0) * 100
+    #(doc) Exemption rate as CDC reports it, averaged over the rows. Use on one place and year.
+    reported_exemption_pct is avg(any_exemption_pct)
+    #(doc) Non-medical exemption rate as CDC reports it, averaged over the rows.
+    reported_nonmedical_pct is avg(non_medical_exemption_pct)
+    #(doc) States (and DC) at or above the 95% coverage target.
+    states_at_target is count() { where: geography_type = 'State' and mmr_coverage_pct >= 95 }
+    #(doc) States (and DC) below 90% coverage.
+    states_below_90 is count() { where: geography_type = 'State' and mmr_coverage_pct < 90 }
+    #(doc) States (and DC) with a coverage estimate.
+    states_reporting is count() { where: geography_type = 'State' and mmr_coverage_pct is not null }
+    #(doc) Latest school year start in the rows.
+    latest_year_start is max(school_year_start)
+
+  #(doc) The national picture by school year: CDC's all-kindergartner US coverage and exemption rate, the median state, and how many states meet 95%.
+  view: national_trend is {
+    group_by: year_label, year_start
+    aggregate:
+      us_coverage is reported_coverage { where: geography = 'United States' }
+      median_state_coverage is reported_coverage { where: geography = 'U.S. Median' }
+      us_exemption_pct is reported_exemption_pct { where: geography = 'United States' }
+      us_nonmedical_pct is reported_nonmedical_pct { where: geography = 'United States' }
+      us_exemptions is exemptions { where: geography = 'United States' }
+      states_at_target
+      states_below_90
+      states_reporting
+    order_by: year_start
+  }
+
+  #(doc) Every state's coverage and exemption rate by school year (states and DC only).
+  view: state_year is {
+    where: geography_type = 'State'
+    group_by: place, code, year_label, year_start
+    aggregate: reported_coverage, reported_exemption_pct, reported_nonmedical_pct, exemptions, kindergartners
+    order_by: place, year_start
+  }
+
+  #(doc) States by school year and coverage band, for the share of states at the 95% target over time.
+  view: bands_by_year is {
+    where: geography_type = 'State'
+    group_by: year_label, year_start, coverage_band
+    aggregate: places_reporting
+    order_by: year_start
+  }
+
+  #(doc) Rows for a reader to check, newest school year first.
+  view: records is {
+    group_by: place, place_type, year_label, year_start, coverage_pct, exemption_pct, nonmedical_pct, medical_pct, kindergarten_population, method
+    order_by: year_start desc, place
+  }
+}
+
+#(doc) Each state's change in kindergarten MMR coverage and exemptions between 2019-20, the last school year before the pandemic, and the latest school year (2025-26). One row per state (and DC). Coverage and exemption figures are CDC's own for each state and year. A state missing either year has a blank change.
+source: state_slip is kindergarten -> {
+  where: geography_type = 'State'
+  group_by: place, code
+  aggregate:
+    coverage_2019 is reported_coverage { where: school_year_start = 2019 }
+    coverage_latest is reported_coverage { where: school_year_start = 2025 }
+    exemption_2019 is reported_exemption_pct { where: school_year_start = 2019 }
+    exemption_latest is reported_exemption_pct { where: school_year_start = 2025 }
+    nonmedical_latest is reported_nonmedical_pct { where: school_year_start = 2025 }
+    kindergartners_latest is kindergartners { where: school_year_start = 2025 }
+    exemptions_latest is exemptions { where: school_year_start = 2025 }
+} extend {
+  primary_key: place
+
+  dimension:
+    #(doc) Change in MMR coverage from 2019-20 to 2025-26, in percentage points (negative = slipped).
+    coverage_change is coverage_latest - coverage_2019
+    #(doc) Change in the any-exemption rate from 2019-20 to 2025-26, in percentage points.
+    exemption_change is exemption_latest - exemption_2019
+    #(doc) "Slipped" when coverage fell by 1 point or more since 2019-20, "Held" within 1 point, "Rose" up 1 point or more. The 1-point band is this model's choice: smaller year-to-year changes are within the noise of how states count.
+    direction is pick 'Slipped' when coverage_latest - coverage_2019 <= -1
+      pick 'Rose' when coverage_latest - coverage_2019 >= 1
+      pick 'Held' when coverage_latest is not null and coverage_2019 is not null
+      else 'Not comparable'
+
+  measure:
+    #(doc) States in the rows.
+    state_count is count()
+    #(doc) States whose coverage fell 1 point or more since 2019-20.
+    states_slipped is count() { where: coverage_latest - coverage_2019 <= -1 }
+    #(doc) States whose coverage rose 1 point or more since 2019-20.
+    states_rose is count() { where: coverage_latest - coverage_2019 >= 1 }
+    #(doc) States with coverage in both years.
+    states_comparable is count() { where: coverage_latest is not null and coverage_2019 is not null }
+    #(doc) States at or above 95% in 2019-20.
+    at_target_2019 is count() { where: coverage_2019 >= 95 }
+    #(doc) States at or above 95% in 2025-26.
+    at_target_latest is count() { where: coverage_latest >= 95 }
+
+  #(doc) States ranked by change in coverage, biggest fall first.
+  view: biggest_slips is {
+    where: coverage_change is not null
+    group_by: place, code, coverage_2019, coverage_latest, coverage_change, exemption_2019, exemption_latest, exemption_change, direction
+    order_by: coverage_change
+  }
+
+  #(doc) The slip in one row: states compared, how many slipped or rose by 1 point or more, and how many met the 95% target in each year.
+  view: kpis is {
+    aggregate: state_count, states_comparable, states_slipped, states_rose, at_target_2019, at_target_latest
+  }
+
+  #(doc) How many states slipped, held or rose.
+  view: by_direction is {
+    group_by: direction
+    aggregate: state_count
+    order_by: state_count desc
+  }
+}
