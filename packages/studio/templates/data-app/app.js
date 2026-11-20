@@ -64,6 +64,26 @@ const toggleScope = (key, value) => setScope({ [key]: scope[key] === value ? S.D
 const openEntity = (id) => go({ view: S.ENTITY.view, id, compare: [] })
 const linkTo = (view, id = null, compare = []) => S.buildHash({ view, id, compare }, scope)
 
+// ---- Compare: the entities picked to set side by side. The Compare view's address holds them; elsewhere they are
+// kept for the session, and the header's Compare link carries and counts them, so a + on a ranked list shows where
+// it went. Pass `inCompare` and `onCompare: toggleCompare` to every ranked list of entities. ----
+
+let picked = []
+const inCompare = (id) => picked.includes(id)
+const goCompare = (ids) => go({ view: 'compare', id: null, compare: ids.slice(0, S.COMPARE_MAX) })
+function toggleCompare(id) {
+  picked = inCompare(id) ? picked.filter((x) => x !== id) : [...picked, id].slice(-S.COMPARE_MAX)
+  if (route.view === 'compare') goCompare(picked)
+  else showPicked()
+}
+function showPicked() {
+  const a = $('.app-nav a[data-view="compare"]')
+  if (!a) return
+  a.href = linkTo('compare', null, picked)
+  a.replaceChildren('Compare', ...(picked.length ? [h('span', { class: 'nav-count', text: ` · ${picked.length}` })] : []))
+  a.setAttribute('aria-label', picked.length ? `Compare, ${picked.length} picked` : 'Compare')
+}
+
 window.addEventListener('popstate', () => {
   ;({ route, scope } = S.parseHash(location.hash, known))
   render({ toTop: true })
@@ -382,12 +402,14 @@ function render({ toTop = false } = {}) {
 function paint(toTop, same) {
   epoch++
   io.disconnect()
+  if (route.view === 'compare') picked = [...route.compare]
   for (const a of document.querySelectorAll('.app-nav a')) {
     a.href = linkTo(a.dataset.view)
     const on = a.dataset.view === route.view || (a.dataset.view === 'explore' && route.view === S.ENTITY.view)
     if (on) a.setAttribute('aria-current', 'page')
     else a.removeAttribute('aria-current')
   }
+  showPicked()
   // Where the reader's card is, measured before anything above it changes: the scope bar gains or loses a row of chips.
   const here = [...document.querySelectorAll('#main .card')]
   const anchor = !same ? null : here.includes(lastCard) && lastCard.getBoundingClientRect().bottom > 0 && lastCard.getBoundingClientRect().top < innerHeight ? lastCard : here.find((c) => c.getBoundingClientRect().bottom > 0)
@@ -481,7 +503,7 @@ async function boot() {
 
 /** A view's head: crumbs, a kicker naming the view (shown by the light headers' looks), its title and lede. */
 function viewHead(title, lede, crumbs) {
-  const kicker = $(`.app-nav a[data-view="${route.view}"]`)?.textContent || ''
+  const kicker = $(`.app-nav a[data-view="${route.view}"]`)?.firstChild?.textContent || ''
   return [crumbs && h('p', { class: 'crumbs' }, ...crumbs), h('p', { class: 'kicker', text: kicker }), h('h1', { class: 'view-title', text: title }), lede && h('p', { class: 'lede' }, ...prose(lede))]
 }
 
@@ -520,6 +542,7 @@ function explore() {
         explain: ['The ZIP codes with the most complaints under the scope, and each one\'s change on the year before.'],
         draw: ([rows], body) => C.rankTable(body, rows.map((r) => ({ id: r.incident_zip, name: S.ENTITY.label(r.incident_zip), value: r.complaint_count, change: r.change_vs_prior })), {
           valueLabel: 'Complaints', changeLabel: 'Against last year', good: 'fall', onOpen: openEntity,
+          inCompare, onCompare: toggleCompare,
         }),
         finding: ([rows]) => [{ b: S.ENTITY.label(rows[0].incident_zip) }, ` has the most complaints in scope, ${C.fmt(rows[0].complaint_count)}.`],
         method: 'Complaints without a ZIP code are left out of this list and kept everywhere else.',
@@ -530,6 +553,7 @@ function entity() {
   const id = route.id
   return h('div', { class: 'view wrap' },
     ...viewHead(S.ENTITY.label(id), null, [h('a', { href: linkTo('explore'), text: 'Explore' }), ` / ${S.ENTITY.label(id)}`]),
+    h('p', {}, h('button', { class: 'btn', type: 'button', text: 'Add to compare', onclick: () => goCompare([...picked.filter((x) => x !== id), id]) })),
     h('div', { class: 'grid-2' },
       tile({
         title: 'Complaints per month', cls: 'span-2',
@@ -543,7 +567,15 @@ function records() {
   return h('div', { class: 'view wrap' }, ...viewHead('Records', 'Every complaint in scope, newest first.'))
 }
 function compare() {
-  return h('div', { class: 'view wrap' }, ...viewHead('Compare', 'Up to four side by side.'))
+  const ids = picked
+  const chips = h('div', { class: 'chips' },
+    ...ids.map((id) => h('span', { class: 'chip' }, S.ENTITY.label(id),
+      h('button', { type: 'button', 'aria-label': `Remove ${S.ENTITY.label(id)}`, text: '×', onclick: () => goCompare(ids.filter((x) => x !== id)) }))))
+  return h('div', { class: 'view wrap' },
+    ...viewHead('Compare', `Up to ${S.COMPARE_MAX} ZIP codes side by side. Add one with the + on a ranked list, or from its page.`),
+    ids.length ? chips : h('p', { class: 'lede', text: 'Nothing picked yet.' }),
+    // ADAPT: a tile per comparison, each query from S.compareQuery(view, ids, scope, known), one series per id.
+  )
 }
 function about() {
   return h('div', { class: 'view wrap' }, ...viewHead('About the data', 'Sources, licenses, what was reshaped, and caveats.'))

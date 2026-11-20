@@ -30,6 +30,8 @@ Read it once. Everything above `// ---- Views` is the frame; keep it as it is:
 
 - **Queries**: one request per distinct text, at most four in flight, kept for the session.
 - **The address**: `go()`, `setScope()`, `toggleScope()`; every view and filter can be shared.
+- **Compare**: `picked`, `inCompare()`, `toggleCompare()`, `goCompare()`. The header's Compare link carries the
+  picks and counts them, "Compare · 2", so the + on a ranked list shows where it went.
 - **`tile()`**: a card that loads as it nears the screen, with loading, empty and error states, a finding, a method
   note and its working (each query, what it counts, its rows and a CSV of them). When the scope changes on the same
   view, every card is drawn again in place: its chart stays, dimmed, until the rows arrive, then marks move and
@@ -48,4 +50,5 @@ this app's.
 - Load the app in the box at `#/`, `#/explore`, an entity's address and `#/about`; each shows data, and the console
   has no errors.
 - Click a nav link from low on a long view and see the new view open at its top.
+- Press the + on a ranked list: the header's Compare link counts it, and opens Compare with it.
 - Change a filter on Explore, open an entity, go back: the filter is still set, and the address says so.
