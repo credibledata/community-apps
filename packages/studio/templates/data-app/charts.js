@@ -796,6 +796,9 @@ export function heatmap(el, rowsOrder, colsOrder, cells, opts = {}) {
  * the trend to shade), selected (id), onOpen(id) (a row's click: on a view with filters, filter by it), href(id) (the
  * name becomes a link, to open the entity's page), inCompare(id) and onCompare(id) (both or neither).
  */
+/** The + last pressed on a ranked list. A page that redraws its cards on a pick replaces the table, so its new
+ *  drawing takes the focus back, as restoreFocus does for a chart's marks. */
+let rtRefocus = null
 export function rankTable(el, rows, opts = {}) {
   const { valueLabel = 'Value', format = fmt, trendLabel = 'Trend', changeLabel = 'Change', changeFormat = (v) => pct(v, 0), good = null, limit = 10, band, selected = null, onOpen, href, inCompare, onCompare } = opts
   const hasTrend = rows.some((r) => r.trend?.length)
@@ -840,9 +843,9 @@ export function rankTable(el, rows, opts = {}) {
         const btn = h('button', { type: 'button', 'aria-pressed': String(on), 'aria-label': `${on ? 'Remove' : 'Add'} ${r.name} ${on ? 'from' : 'to'} compare`, text: on ? '✓' : '+' })
         btn.addEventListener('click', (e) => {
           e.stopPropagation()
+          rtRefocus = { id: String(r.id), at: Date.now() }
           onCompare(r.id)
           render()
-          el.querySelector(`tr[data-id="${CSS.escape(String(r.id))}"] .rt__act button`)?.focus()
         })
         tr.append(h('td', { class: 'rt__act' }, btn))
       }
@@ -859,6 +862,10 @@ export function rankTable(el, rows, opts = {}) {
       kids.push(more)
     }
     el.replaceChildren(...kids)
+    const now = document.activeElement
+    if (rtRefocus && Date.now() - rtRefocus.at < 4000 && (!now || now === document.body || el.contains(now) || !now.isConnected)) {
+      el.querySelector(`tr[data-id="${CSS.escape(rtRefocus.id)}"] .rt__act button`)?.focus({ preventScroll: true })
+    }
   }
   render()
 }

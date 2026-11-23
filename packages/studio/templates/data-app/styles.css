@@ -93,6 +93,7 @@ strong { color: var(--text-strong); font-weight: 650; }
 .app-nav a { color: var(--band-text); padding: var(--sp-1) 0; border-bottom: 2px solid transparent; font-weight: 400; }
 .app-nav a:hover { text-decoration: none; border-bottom-color: currentColor; }
 .app-nav a[aria-current="page"] { font-weight: 600; border-bottom-color: currentColor; }
+.app-nav a[data-count]::after { content: " · " attr(data-count); }
 .search { position: relative; }
 .search input { width: 240px; padding: var(--sp-2) var(--sp-3); border-radius: 999px; border: 1px solid rgb(255 255 255 / 0.3); background: rgb(255 255 255 / 0.08); color: var(--band-text); font: inherit; }
 .search input::placeholder { color: rgb(255 255 255 / 0.6); }
@@ -237,7 +238,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 @media (max-width: 640px) {
   .wrap { padding: 0 var(--sp-4); }
-  .app-nav { order: 3; flex-basis: 100%; overflow-x: auto; }
+  /* Five views do not fit across a phone: the links wrap to a second line rather than run off its edge. */
+  .app-nav { order: 3; flex-basis: 100%; flex-wrap: wrap; }
   .app-nav a { white-space: nowrap; }
   .search, .search input { width: 100%; }
   .scope { position: static; }
@@ -340,7 +342,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 [data-lede="dropcap"] .lede::first-letter { float: left; margin: 0.08em 0.1em 0 0; font: 600 3.3em/0.8 var(--font-display); color: var(--accent); }
 @media (max-width: 640px) {
   [data-masthead="light"] .app-name__title { font-size: 34px; }
-  [data-masthead="light"] .app-nav { flex-wrap: nowrap; overflow-x: auto; }
+  [data-masthead="light"] .app-nav { flex-wrap: wrap; }
   [data-masthead="bar"] .app-nav { justify-content: flex-start; }
   .app-nav { gap: 14px !important; }
   [data-numbers="rules"] .kpis { gap: var(--sp-4) 0; }
