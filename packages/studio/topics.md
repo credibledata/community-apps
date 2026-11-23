@@ -1,25 +1,25 @@
 # Topics for the next community apps
 
-Updated 2026-11-17. Run `build-next-topic` with a topic's package name as the note to build it. Reorder, edit, or
+Updated 2026-11-23. Run `build-next-topic` with a topic's package name as the note to build it. Reorder, edit, or
 add a topic with `Added by:` your name.
 
-## 1. US measles after losing elimination status
+## 1. Gasoline prices going into Thanksgiving
 
-- Package: `measles-2026`
-- Why now: The US lost its measles elimination status in November 2026, with CDC counting 5,412 confirmed cases in 2026 as of November 12, the worst outbreak since 1991, https://news.google.com/rss/articles/CBMixAFBVV95cUxPRTN3WGpYREtMZGcxLXV6UVNVWlFRSmFXaGVCRTR3WTdZUGMyczlVdm5KSmIwd2NvZVZuOVdfQkNRTDhackVHbzBGWVRPUk81VTRDUVh3MkI5Y1o2WnJiN2ZaMklXUDVfUUM4X21FZUZuRXN5UHFkV19fYnBXVGNVVFR6M0VxSzczS1FsMlZfRUp5SVNXclNhZGRZQVdzeVlhSmlObE1Ic3U5OE1FTG5NS3dXaF8wSUFTbG9KdWhwRlNGSVN6?oc=5 (KFF)
-- Data: Measles Cases and Outbreaks from CDC, https://www.cdc.gov/measles/data-research/index.html, figures a federal agency compiles from state and local reports (accepted without a license field); yearly US cases since 1985, weekly cases since 2022, and kindergarten MMR coverage and exemptions by state and school year (901 rows, 2009-10 to 2025-26); all well under 1 MiB
-- Lead view: weekly confirmed cases since 2022, with 2026 against every earlier year
-- Risk: cases are national by week, not by state or county; state detail is only in the kindergarten coverage table and the current year's list of reporting jurisdictions
-- Added by: app-builder, 2026-11-17
+- Package: `us-gasoline-prices`
+- Why now: Reports call Thanksgiving gas prices near an all-time high, while EIA's weekly survey has the US average regular price falling from $4.331 a gallon on October 12 to $3.805 on November 16, https://news.google.com/rss/articles/CBMikAFBVV95cUxPWnNrNmcyaXlfWVlTM29KQnZKWUdIZVVvSnREWDhHcm9wZWtDVTVWMXlDV0I4dHFGQlJZYVFFbHI3N1VqdWZjOTlBY2xNT2tEYTBhYlJXX0xkaGpVVU94bnlJcjhXRUl2b3V3b254QmhkR2RPUWZPWjQ0aU9LOGFDdzVHbVFMcXJsWXI5M2FZUVg?oc=5 (Vermont Business Magazine)
+- Data: Weekly Retail Gasoline and Diesel Prices from the US Energy Information Administration, https://www.eia.gov/dnav/pet/pet_pri_gnd_dcus_nus_w.htm, public domain as US government publications (https://www.eia.gov/about/copyrights_reuse.php); one spreadsheet (about 500 KB) of weekly prices since 1990 to 1994 by grade, formulation and region (US, PADDs, some states and cities)
+- Lead view: weekly US regular gasoline price since 1990, with each year's Thanksgiving week marked
+- Risk: prices are nominal, so comparing with past peaks needs an inflation index (BLS CPI, also public domain) as a second dataset; regions are PADDs and a few states and cities, not every state
+- Added by: app-builder, 2026-11-23
 
-## 2. Lake Mead and Lake Powell under Colorado River cuts
+## 2. Carbon dioxide in the air after COP31 failed
 
-- Package: `colorado-river-reservoirs`
-- Why now: As the Colorado River shrinks under deep cuts, calls to drain Lake Powell grow, even after floods raised it 20 feet, https://grist.org/drought/as-the-colorado-river-shrinks-calls-to-drain-lake-powell-grow/
-- Data: Reservoir data (daily pool elevation and storage) from the US Bureau of Reclamation, https://www.usbr.gov/uc/water/hydrodata/reservoir_data/site_map.html, US federal government work (public domain); Lake Mead daily since 1935 and Lake Powell since 1963, about 23,000 to 33,000 rows per series, a few MiB in total
-- Lead view: daily elevation of both lakes since they filled, with the 2026 level marked against the shortage thresholds
-- Risk: the shortage-tier elevations come from Reclamation's operating guidelines, not the data files, and must be cited from that document
-- Added by: app-builder, 2026-11-17
+- Package: `co2-keeling-curve`
+- Why now: The COP31 climate talks in Antalya ended on November 22 without a deal, https://news.google.com/rss/articles/CBMiW0FVX3lxTE4zazlrTTNEV2tGd0RQYWNBcEdIendZVHNySG96NDVwUXA5aWQwLWw2NlFsN3RPUjhfRDQ4ZDNsQ1hjR0lvZ2V2ZENMSlIxbXdocWxKam9fTkNpak0?oc=5 (BBC)
+- Data: Mauna Loa CO2 monthly means from NOAA Global Monitoring Laboratory, https://gml.noaa.gov/ccgg/trends/data.html, measured by a US federal agency and stated in the file as "made freely available to the public"; about 820 monthly rows since March 1958 (latest month October 2026, 426.69 ppm), well under 1 MiB, with daily, weekly and global-mean files alongside
+- Lead view: the monthly Keeling curve since 1958, with the annual growth rate per year beneath it
+- Risk: NOAA's file asks users to cite it rather than naming a license; national emissions to set beside it would need a second dataset (such as the Global Carbon Budget, CC BY 4.0) whose license must be checked on its own page
+- Added by: app-builder, 2026-11-23
 
 ## 3. Bird flu in US dairy herds
 
