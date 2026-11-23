@@ -1,0 +1,326 @@
+#(doc) Monthly US consumer price index (BLS CPI-U, all items, US city average, not seasonally adjusted, 1982-84=100), with each month's deflator to the latest published month. Months BLS did not publish (October 2025, during the federal shutdown) are absent.
+source: cpi is community.table('us_gasoline_prices__cpi') extend {
+  primary_key: `month`
+}
+
+#(doc) The latest month BLS has published CPI-U for, and its index: the dollars real prices are stated in. One row.
+source: cpi_latest is (
+  cpi -> {
+    aggregate: base_month is `month`.max()
+    nest: latest is { group_by: cpi_month is `month`, base_cpi is cpi order_by: cpi_month desc limit: 1 }
+  } -> {
+    select: base_month, base_cpi is latest.base_cpi
+  }
+) extend {
+  dimension: one is 1
+}
+
+#(doc) Weekly retail fuel prices from the US Energy Information Administration's Gasoline and Diesel Fuel Update, one row per survey week and EIA price series. A series is one product, grade, formulation and area. Prices are dollars per gallon including taxes, as EIA publishes them. EIA dates each survey on its Monday. Weeks a series did not report are absent rather than blank.
+source: prices is community.table('us_gasoline_prices__prices') extend {
+  primary_key: row_key
+  join_one: cpi on `week`.month = cpi.`month`
+  join_one: cpi_latest on cpi_latest.one = 1
+
+  dimension:
+    #(doc) Unique key of a row: EIA series id and survey week.
+    row_key is concat(series_id, '|', `week`::string)
+
+    #(doc) Calendar year of the survey week.
+    survey_year is year(`week`)
+
+    #(doc) True for the survey week whose Monday falls in Thanksgiving week (Thanksgiving is the fourth Thursday of November, so that Monday is November 19 to 25).
+    is_thanksgiving_week is month(`week`) = 11 and day(`week`) >= 19 and day(`week`) <= 25
+
+    #(doc) True for the survey week one week before Thanksgiving week (a Monday from November 12 to 18). It is the latest week EIA has published before Thanksgiving in a year when the Thanksgiving-week survey is not yet out.
+    is_week_before_thanksgiving is month(`week`) = 11 and day(`week`) >= 12 and day(`week`) <= 18
+
+    #(doc) Week of the year counted from the first survey Monday of January, 1 to 53, for lining up years against each other.
+    week_of_year is floor((day_of_year(`week`) - 1) / 7) + 1
+
+    #(doc) Retail price restated in dollars of the latest month with published CPI-U (see cpi_base_month): price times that month's CPI-U over the survey month's CPI-U. Weeks after cpi_base_month are left in nominal dollars, which are already that month's dollars to within a month's inflation. Null for October 2025, when BLS published no CPI-U.
+    real_price is pick price when `week` >= cpi_latest.base_month + 1 month
+      else price * cpi_latest.base_cpi / nullif(cpi.cpi, 0)
+
+    #(doc) real_price with null as 0, for ranking weeks by real price without the October 2025 gap ranking first.
+    real_price_or_zero is coalesce(real_price, 0)
+
+    #(doc) Month of the dollars real_price is stated in: the latest month BLS has published CPI-U for.
+    cpi_base_month is cpi_latest.base_month
+
+    #(doc) Area type and name together, for listing areas in a sensible order: Nation, PADD, Sub-PADD, State, City.
+    area_type_order is area_type ?
+      pick 1 when 'Nation'
+      pick 2 when 'PADD'
+      pick 3 when 'Sub-PADD'
+      pick 4 when 'State'
+      pick 5 when 'City'
+      else 6
+
+    #(doc) Fuel label: the grade for gasoline, or "Diesel".
+    fuel is grade
+
+  measure:
+    #(doc) Number of weekly price readings (series-weeks).
+    reading_count is count()
+
+    #(doc) Number of distinct survey weeks.
+    week_count is count(`week`)
+
+    #(doc) Average retail price in dollars per gallon, nominal. Over one series it is the average of its weekly prices; over several series it averages their readings, so pick one series (product, grade, formulation, area) for a price.
+    # currency
+    avg_price is price.avg()
+
+    #(doc) Average retail price restated in dollars of cpi_base_month (CPI-U). Leaves out weeks whose month has no published CPI-U.
+    # currency
+    avg_real_price is real_price.avg()
+
+    #(doc) Highest weekly retail price, nominal dollars per gallon.
+    # currency
+    max_price is price.max()
+
+    #(doc) Lowest weekly retail price, nominal dollars per gallon.
+    # currency
+    min_price is price.min()
+
+    #(doc) Highest weekly price restated in dollars of cpi_base_month.
+    # currency
+    max_real_price is real_price.max()
+
+    #(doc) Latest survey week in scope.
+    latest_week is `week`.max()
+
+    #(doc) First survey week in scope.
+    first_week is `week`.min()
+
+  view:
+    #(doc) Each area's price series for one fuel, as a weekly line: filter product, grade and formulation first.
+    by_area_weekly is {
+      group_by: area, area_type, area_type_order, `week`, price
+      order_by: area_type_order, area, `week`
+      limit: 5000
+    }
+
+    #(doc) Number of series and readings by area type, area, product and grade, with the span each covers.
+    coverage is {
+      group_by: area_type_order, area_type, area, product, grade, formulation
+      aggregate: reading_count, first_week, latest_week
+      order_by: area_type_order, area
+    }
+}
+
+#(doc) The headline question's scope: the US average price of regular gasoline, all formulations (EIA series EMM_EPMR_PTE_NUS_DPG), weekly since August 1990. The series the brief's article quotes.
+source: us_regular is prices extend {
+  where: series_id = 'EMM_EPMR_PTE_NUS_DPG'
+
+  view:
+    #(doc) Weekly US regular price since 1990, nominal and in dollars of cpi_base_month, with Thanksgiving week and the week before flagged.
+    weekly is {
+      group_by: `week`, price, real_price, is_thanksgiving_week, is_week_before_thanksgiving
+      order_by: `week`
+      limit: 5000
+    }
+
+    #(doc) For each year, the price in the survey week before Thanksgiving (a Monday from November 12 to 18), nominal and in dollars of cpi_base_month. It is the latest week EIA has published before Thanksgiving 2026, so every year is compared on the same week.
+    before_thanksgiving_by_year is {
+      where: is_week_before_thanksgiving
+      group_by: survey_year, `week`, price, real_price
+      order_by: survey_year
+    }
+
+    #(doc) For each year, the price in Thanksgiving week (survey Monday November 19 to 25). 2026's is not published until after Thanksgiving.
+    thanksgiving_by_year is {
+      where: is_thanksgiving_week
+      group_by: survey_year, `week`, price, real_price
+      order_by: survey_year
+    }
+
+    #(doc) Headline numbers, one row: the latest week and its price, nominal and real; the price 52 survey weeks earlier and the change since (year_ago_week shows the match); the all-time highest weekly price, nominal and in dollars of cpi_base_month, with their weeks; and cpi_base_month.
+    kpis is {
+      group_by: `week`, price, real_price, real_price_or_zero, cpi_base_month
+      calculate:
+        year_ago_price is lag(price, 52) { order_by: `week` }
+        year_ago_week is lag(`week`, 52) { order_by: `week` }
+        recency is rank() { order_by: `week` desc }
+        nominal_rank is rank() { order_by: price desc, `week` }
+        real_rank is rank() { order_by: real_price_or_zero desc, `week` }
+      limit: 5000
+    } -> {
+      aggregate:
+        latest_week is max(`week`)
+        latest_price is max(price) { where: recency = 1 }
+        latest_real_price is max(real_price) { where: recency = 1 }
+        year_ago_week is max(year_ago_week) { where: recency = 1 }
+        year_ago_price is max(year_ago_price) { where: recency = 1 }
+        change_vs_year_ago is max(price) { where: recency = 1 } - max(year_ago_price) { where: recency = 1 }
+        peak_week is max(`week`) { where: nominal_rank = 1 }
+        peak_price is max(price) { where: nominal_rank = 1 }
+        peak_real_week is max(`week`) { where: real_rank = 1 }
+        peak_real_price is max(real_price) { where: real_rank = 1 }
+        peak_real_nominal_price is max(price) { where: real_rank = 1 }
+        below_peak_real is max(real_price) { where: real_rank = 1 } - max(real_price) { where: recency = 1 }
+        cpi_base_month is max(cpi_base_month)
+        first_week is min(`week`)
+    }
+
+    #(doc) For each year, the price in the survey week before Thanksgiving, as before_thanksgiving_by_year, with real_rank: the year's place among all years by the price in dollars of cpi_base_month (1 = highest).
+    before_thanksgiving_ranked is {
+      where: is_week_before_thanksgiving
+      group_by: survey_year, `week`, price, real_price, real_price_or_zero
+      calculate: real_rank is rank() { order_by: real_price_or_zero desc }
+      order_by: survey_year
+    }
+}
+
+#(doc) One price series per area and fuel: the all-formulations series for each gasoline grade, and the all-diesel series. The explorer's source. With fuel and area chosen, each week has one row. Conventional, reformulated and sulfur-grade series, published for the US only, are left out here and stay in `prices`.
+source: fuel_prices is prices extend {
+  where: formulation = 'All' or formulation = 'All diesel'
+
+  dimension:
+    #(doc) Calendar month of the survey week.
+    survey_month is `week`.month
+
+  measure:
+    #(doc) Average regular gasoline price in scope, dollars per gallon, nominal. Pick one area for a price.
+    # currency
+    regular_price is price.avg() { where: grade = 'Regular' }
+
+    #(doc) Average midgrade gasoline price in scope, dollars per gallon, nominal.
+    # currency
+    midgrade_price is price.avg() { where: grade = 'Midgrade' }
+
+    #(doc) Average premium gasoline price in scope, dollars per gallon, nominal.
+    # currency
+    premium_price is price.avg() { where: grade = 'Premium' }
+
+    #(doc) Average on-highway diesel price in scope, dollars per gallon, nominal.
+    # currency
+    diesel_price is price.avg() { where: grade = 'Diesel' }
+
+    #(doc) Premium minus regular, dollars per gallon: average premium price less average regular price over the same weeks and area. Null where either is missing.
+    # currency
+    premium_gap is premium_price - regular_price
+
+    #(doc) Diesel minus regular gasoline, dollars per gallon: average diesel price less average regular price over the same weeks and area.
+    # currency
+    diesel_gap is diesel_price - regular_price
+
+  view:
+    #(doc) Areas with a series, for search and the area list: area, its type and the fuels it reports.
+    areas is {
+      group_by: area, area_type, area_type_order
+      aggregate: first_week, latest_week, reading_count
+      nest: fuels is { group_by: fuel order_by: fuel }
+      order_by: area_type_order, area
+    }
+
+    #(doc) Weekly price for the fuel and area in scope, nominal and in dollars of cpi_base_month. Filter one fuel and one area.
+    trend is {
+      group_by: `week`, price, real_price
+      order_by: `week`
+      limit: 5000
+    }
+
+    #(doc) Monthly average price by area for one fuel, for comparing areas on one line chart. Filter one fuel.
+    by_area_monthly is {
+      group_by: area, survey_month
+      aggregate: avg_price
+      order_by: area, survey_month
+      limit: 20000
+    }
+
+    #(doc) Each area's price in its latest week in scope and in the week 52 weeks before (the same week a year earlier), nominal. year_ago_week is shown so the match can be checked; change_vs_year_ago is the difference in dollars per gallon. Filter one fuel.
+    area_latest is {
+      group_by: area, area_type, area_type_order, `week`, price
+      calculate:
+        year_ago_price is lag(price, 52) { partition_by: area order_by: `week` }
+        year_ago_week is lag(`week`, 52) { partition_by: area order_by: `week` }
+        recency is rank() { partition_by: area order_by: `week` desc }
+    } -> {
+      where: recency = 1
+      select:
+        area, area_type, area_type_order, latest_week is `week`, price, year_ago_week, year_ago_price,
+        change_vs_year_ago is price - year_ago_price
+      order_by: price desc
+    }
+
+    #(doc) Each area's highest weekly price on record, nominal and in dollars of cpi_base_month, and the week it was set. Filter one fuel.
+    area_peaks is {
+      group_by: area, area_type
+      aggregate: max_price, max_real_price, latest_week
+      nest:
+        peak_week is { group_by: `week`, price order_by: price desc limit: 1 }
+      order_by: max_price desc
+    }
+
+    #(doc) Monthly averages of each fuel and the gaps between them, for one area: premium minus regular and diesel minus regular. Filter one area.
+    grade_gaps is {
+      group_by: survey_month
+      aggregate: regular_price, midgrade_price, premium_price, diesel_price, premium_gap, diesel_gap
+      order_by: survey_month
+    }
+
+    #(doc) Yearly averages of each fuel and the gaps between them, for one area: premium minus regular and diesel minus regular. The current year is partial. Filter one area.
+    grade_gaps_by_year is {
+      group_by: survey_year
+      aggregate: regular_price, premium_price, diesel_price, premium_gap, diesel_gap
+      order_by: survey_year
+    }
+
+    #(doc) Yearly summary for the fuel and area in scope: average, highest and lowest weekly price, nominal, and the average in dollars of cpi_base_month. The current year is partial. Filter one fuel and one area.
+    by_year is {
+      group_by: survey_year
+      aggregate: avg_price, avg_real_price, max_price, min_price, week_count
+      order_by: survey_year
+    }
+
+    #(doc) Seasonal pattern: each week's price against that year's average price, in dollars per gallon, by year and week of the year. Positive means dearer than the year's average. The current year's average covers only the weeks published so far. Filter one fuel and one area.
+    seasonal is {
+      group_by: survey_year
+      aggregate: year_avg is avg_price
+      nest: wk is { group_by: week_of_year, `week`, price }
+    } -> {
+      group_by:
+        survey_year, week_of_year is wk.week_of_year, `week` is wk.`week`, price is wk.price,
+        vs_year_avg is wk.price - year_avg
+      order_by: survey_year, week_of_year
+      limit: 5000
+    }
+
+    #(doc) Typical seasonal shape: for each week of the year, the average of (that week's price minus its year's average) over complete years in scope. The current, partial year is left out. Filter one fuel and one area.
+    seasonal_profile is {
+      where: survey_year < year(now)
+      group_by: survey_year
+      aggregate: year_avg is avg_price
+      nest: wk is { group_by: week_of_year, price }
+    } -> {
+      group_by: week_of_year is wk.week_of_year
+      aggregate:
+        avg_vs_year_avg is wk.avg(wk.price - year_avg)
+        year_count is count(survey_year)
+      order_by: week_of_year
+    }
+
+    #(doc) The weekly readings in scope, newest first: week, area, fuel, price nominal and in dollars of cpi_base_month, and EIA's series id.
+    records is {
+      select: `week`, area, area_type, fuel, price, real_price, series_id
+      order_by: `week` desc, area
+    }
+
+    #(doc) Headline numbers for the fuel and area in scope: latest week and price, the price 52 survey weeks earlier (last_year.year_ago_price, with its week), the highest weekly price nominal and real, and the base month of real dollars.
+    scope_kpis is {
+      aggregate: latest_week, first_week, week_count, avg_price
+      nest:
+        latest is { group_by: `week`, price order_by: `week` desc limit: 1 }
+        last_year is {
+          group_by: `week`, price
+          calculate:
+            year_ago_price is lag(price, 52) { order_by: `week` }
+            year_ago_week is lag(`week`, 52) { order_by: `week` }
+          order_by: `week` desc
+          limit: 1
+        }
+        peak_nominal is { group_by: `week`, price order_by: price desc limit: 1 }
+        peak_real is { where: real_price is not null group_by: `week`, real_price order_by: real_price desc limit: 1 }
+        base is { group_by: cpi_base_month limit: 1 }
+    }
+}

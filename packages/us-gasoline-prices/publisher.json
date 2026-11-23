@@ -1,0 +1,5 @@
+{
+  "name": "us-gasoline-prices",
+  "version": "0.0.1",
+  "description": "Weekly US gasoline and diesel prices since 1990 from EIA, by grade and region, with Thanksgiving weeks compared in nominal and inflation-adjusted dollars."
+}
