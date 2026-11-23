@@ -52,17 +52,61 @@ export function query(q) {
 
 // ---- Navigation ----
 
-function go(nextRoute, nextScope = scope, { push = true } = {}) {
+function go(nextRoute, nextScope = scope, { push = true, toTop = push } = {}) {
   route = nextRoute
   scope = nextScope
   const hash = S.buildHash(route, scope)
   if (hash !== location.hash) history[push ? 'pushState' : 'replaceState'](null, '', hash)
-  render({ toTop: push })
+  render({ toTop })
 }
 const setScope = (patch) => go(route, { ...scope, ...patch }, { push: false })
 const toggleScope = (key, value) => setScope({ [key]: scope[key] === value ? S.DEFAULT_SCOPE[key] : value })
 const openEntity = (id) => go({ view: S.ENTITY.view, id, compare: [] })
 const linkTo = (view, id = null, compare = []) => S.buildHash({ view, id, compare }, scope)
+
+// ---- Compare: the entities picked to set side by side, kept until the page reloads. The header's Compare link
+// carries and counts them, so a + on a ranked list shows where it went. The Compare view shows what its own address
+// holds, so Back and Forward show each step; opening it with picks in the address makes them the picks. Pass
+// `inCompare` and `onCompare: toggleCompare` to every ranked list of entities. ----
+
+let picked = []
+/** The picks a control on this view acts on: the Compare view's own, elsewhere the kept ones. */
+const current = () => (route.view === 'compare' ? route.compare : picked)
+const inCompare = (id) => current().some((x) => String(x) === String(id))
+/** A control to focus once the next view is drawn, such as the next × after one is pressed. */
+let focusNext = null
+/** Open Compare with `ids`; past the limit the oldest picks go, as with the +. Changing the picks on Compare itself
+ *  keeps the reader's place (`toTop: false`). */
+function goCompare(ids, { toTop = true } = {}) {
+  picked = ids.slice(-S.COMPARE_MAX)
+  go({ view: 'compare', id: null, compare: picked }, scope, { toTop })
+}
+function toggleCompare(id) {
+  const ids = inCompare(id) ? current().filter((x) => String(x) !== String(id)) : [...current(), id]
+  if (route.view === 'compare') goCompare(ids, { toTop: false })
+  else {
+    picked = ids.slice(-S.COMPARE_MAX)
+    showPicked()
+  }
+}
+/** The header's Compare link, and the + on every ranked list on the page, not only the one clicked. */
+function showPicked() {
+  const a = $('.app-nav a[data-view="compare"]')
+  if (a) {
+    a.href = linkTo('compare', null, picked)
+    // The count is drawn by the stylesheet, so the link's own text stays "Compare" for whatever reads it.
+    if (picked.length) a.dataset.count = picked.length
+    else delete a.dataset.count
+    a.setAttribute('aria-label', picked.length ? `Compare, ${picked.length} picked` : 'Compare')
+  }
+  for (const b of document.querySelectorAll('#main .rt__act button')) {
+    const on = inCompare(b.closest('tr')?.dataset.id)
+    const name = (b.getAttribute('aria-label') || '').replace(/^(Add|Remove) /, '').replace(/ (to|from) compare$/, '')
+    b.textContent = on ? '✓' : '+'
+    b.setAttribute('aria-pressed', String(on))
+    b.setAttribute('aria-label', `${on ? 'Remove' : 'Add'} ${name} ${on ? 'from' : 'to'} compare`)
+  }
+}
 
 window.addEventListener('popstate', () => {
   ;({ route, scope } = S.parseHash(location.hash, known))
@@ -382,12 +426,14 @@ function render({ toTop = false } = {}) {
 function paint(toTop, same) {
   epoch++
   io.disconnect()
+  if (route.view === 'compare' && route.compare.length) picked = [...route.compare]
   for (const a of document.querySelectorAll('.app-nav a')) {
     a.href = linkTo(a.dataset.view)
     const on = a.dataset.view === route.view || (a.dataset.view === 'explore' && route.view === S.ENTITY.view)
     if (on) a.setAttribute('aria-current', 'page')
     else a.removeAttribute('aria-current')
   }
+  showPicked()
   // Where the reader's card is, measured before anything above it changes: the scope bar gains or loses a row of chips.
   const here = [...document.querySelectorAll('#main .card')]
   const anchor = !same ? null : here.includes(lastCard) && lastCard.getBoundingClientRect().bottom > 0 && lastCard.getBoundingClientRect().top < innerHeight ? lastCard : here.find((c) => c.getBoundingClientRect().bottom > 0)
@@ -405,6 +451,8 @@ function paint(toTop, same) {
       if (old.__loaded) old.__update(c.__spec)
       else old.__respec(c.__spec)
     }
+    // Parts of a view that are not cards but follow the address, such as Compare's picks, marked data-redraw.
+    for (const el of next.querySelectorAll('[data-redraw]')) $(`#main [data-redraw="${el.dataset.redraw}"]`)?.replaceWith(el)
     if (anchor) {
       scrollBy(0, anchor.getBoundingClientRect().top - want)
       keepInView(anchor)
@@ -418,6 +466,10 @@ function paint(toTop, same) {
   if (toTop) {
     $('.app-header').scrollIntoView({ block: 'start' })
     $('#main').focus({ preventScroll: true })
+  }
+  if (focusNext) {
+    ;($(focusNext) || $('#main')).focus({ preventScroll: true })
+    focusNext = null
   }
 }
 
@@ -520,6 +572,7 @@ function explore() {
         explain: ['The ZIP codes with the most complaints under the scope, and each one\'s change on the year before.'],
         draw: ([rows], body) => C.rankTable(body, rows.map((r) => ({ id: r.incident_zip, name: S.ENTITY.label(r.incident_zip), value: r.complaint_count, change: r.change_vs_prior })), {
           valueLabel: 'Complaints', changeLabel: 'Against last year', good: 'fall', onOpen: openEntity,
+          inCompare, onCompare: toggleCompare,
         }),
         finding: ([rows]) => [{ b: S.ENTITY.label(rows[0].incident_zip) }, ` has the most complaints in scope, ${C.fmt(rows[0].complaint_count)}.`],
         method: 'Complaints without a ZIP code are left out of this list and kept everywhere else.',
@@ -530,6 +583,7 @@ function entity() {
   const id = route.id
   return h('div', { class: 'view wrap' },
     ...viewHead(S.ENTITY.label(id), null, [h('a', { href: linkTo('explore'), text: 'Explore' }), ` / ${S.ENTITY.label(id)}`]),
+    h('p', {}, h('button', { class: 'btn', type: 'button', text: inCompare(id) ? 'Open compare' : 'Add to compare', onclick: () => goCompare(inCompare(id) ? picked : [...picked, id]) })),
     h('div', { class: 'grid-2' },
       tile({
         title: 'Complaints per month', cls: 'span-2',
@@ -543,7 +597,19 @@ function records() {
   return h('div', { class: 'view wrap' }, ...viewHead('Records', 'Every complaint in scope, newest first.'))
 }
 function compare() {
-  return h('div', { class: 'view wrap' }, ...viewHead('Compare', 'Up to four side by side.'))
+  const ids = route.compare
+  const chips = h('div', { class: 'chips' },
+    ...ids.map((id) => h('span', { class: 'chip' }, S.ENTITY.label(id),
+      h('button', { type: 'button', 'aria-label': `Remove ${S.ENTITY.label(id)}`, text: '×', onclick: () => {
+        focusNext = '.chip button'
+        goCompare(ids.filter((x) => x !== id), { toTop: false })
+      } }))))
+  return h('div', { class: 'view wrap' },
+    ...viewHead('Compare', `Up to ${S.COMPARE_MAX} ZIP codes side by side. Add one with the + on a ranked list, or from its page.`),
+    // data-redraw: the frame swaps this in place when the picks change, while the cards update where they are.
+    h('div', { 'data-redraw': 'picks' }, ids.length ? chips : h('p', { class: 'lede', text: 'Nothing picked yet.' })),
+    // ADAPT: a tile per comparison, each query from S.compareQuery(view, ids, scope, known), one series per id.
+  )
 }
 function about() {
   return h('div', { class: 'view wrap' }, ...viewHead('About the data', 'Sources, licenses, what was reshaped, and caveats.'))

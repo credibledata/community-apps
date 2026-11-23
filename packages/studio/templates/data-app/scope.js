@@ -100,7 +100,7 @@ export function entityQuery(view, id, scope, known, extra = '') {
 
 /** Several entities side by side: the view grouped by the entity, limited to the ids being compared. */
 export function compareQuery(view, ids, scope, known, extra = '') {
-  const ok = ids.filter((id) => isEntity(id, known)).slice(0, COMPARE_MAX)
+  const ok = ids.filter((id) => isEntity(id, known)).slice(-COMPARE_MAX)
   if (!ok.length) throw new Error('Nothing to compare')
   // In brackets: Malloy reads `a = 'x' | 'y' and b = 'z'` as `a = 'x' | ('y' and b = 'z')`, which it refuses.
   const clauses = [`(${ENTITY.field} = ${ok.map(lit).join(' | ')})`, ...scopeClauses(scope, known, ENTITY_KEYS)]
@@ -132,7 +132,7 @@ export function parseHash(hash, known) {
   else if (VIEWS.includes(view)) route = { view, id: null, compare: [] }
   const p = new URLSearchParams(query)
   if (route.view === 'compare') {
-    route.compare = [...new Set((p.get('ids') || '').split(','))].filter((x) => isEntity(x, known)).slice(0, COMPARE_MAX)
+    route.compare = [...new Set((p.get('ids') || '').split(','))].filter((x) => isEntity(x, known)).slice(-COMPARE_MAX)
   }
   const scope = { ...DEFAULT_SCOPE }
   for (const [key, spec] of Object.entries(SCOPE)) {
