@@ -138,5 +138,5 @@ Each form needs its numbers ready from the model, in the shape the last column g
 - **Colours come from the design tokens** (`reference/design.md`, "Colour"), each with one meaning across the app.
   Neutral bars use `--c-bar`; the accent is for the lead number and the selection.
 - **Every chart's finding is also a sentence** in the tile, from a query, for readers who cannot see the chart.
-- **Every query behind a chart says what it counts**, in the tile's `explain`, so the working under the card reads
+- **Every query behind a chart says what it counts**, in the tile's `explain`, so the back of its info mark reads
   as a definition, the query and its rows.

@@ -169,20 +169,30 @@ function tile(spec) {
   const found = h('p', { class: 'card__finding' })
   const methodEl = h('p', { class: 'card__method', text: spec.method || '' })
   let results = []
-  const details = h('details', {}, h('summary', {}, h('span', { class: 'when-closed', text: 'Show the working' }), h('span', { class: 'when-open', text: 'Hide the working' })))
-  details.addEventListener('toggle', () => {
-    details.querySelector('.working')?.remove()
-    if (details.open) details.append(working(current.queries(), current.explain || [], results))
-  })
+  // The info mark turns the card over to how it is made: what it covers and leaves out, each query with what it
+  // counts and its rows, and, inside Credible, a question to Credible's agent about it.
+  const back = h('div', { class: 'card__back', role: 'region', 'aria-label': `How “${title}” is made`, hidden: true })
+  const info = h('button', { type: 'button', class: 'card__info', 'aria-expanded': 'false', 'aria-label': `How “${title}” is made`, title: 'How it’s made' }, infoIcon())
+  const flip = (open) => {
+    if (open) {
+      back.style.minHeight = `${card.offsetHeight - card.querySelector('.card__head').offsetHeight}px`
+      back.replaceChildren(...howMade(current, results, found.textContent, title))
+    }
+    back.hidden = !open
+    card.classList.toggle('card--back', open)
+    info.setAttribute('aria-expanded', String(open))
+  }
+  info.onclick = () => flip(back.hidden)
   const card = h(
     'article',
     { class: `card ${cls}`, 'data-key': `${cls}|${title}` },
-    h('h3', { class: 'card__title', text: title }),
+    h('div', { class: 'card__head' }, h('h3', { class: 'card__title', text: title }), info),
+    back,
     sub && h('p', { class: 'card__sub', text: sub }),
     body,
     found,
     spec.method && methodEl,
-    h('div', { class: 'card__foot' }, h('span', { text: note || '' }), details)
+    note && h('div', { class: 'card__foot' }, h('span', { text: note }))
   )
   card.__spec = spec
   const run = (updating) => {
@@ -240,7 +250,7 @@ function tile(spec) {
   card.__respec = respec // not loaded yet: it draws with the new scope when it comes into view
   card.__update = (next) => {
     respec(next)
-    details.open = false
+    flip(false)
     return run(true)
   }
   return card
@@ -276,6 +286,57 @@ function settleInPlace(body, was) {
     const num = tr.querySelector('.rt__bar span')
     if (num && old.num) C.countTo(num, old.num, num.textContent)
   }
+}
+
+function infoIcon() {
+  const ns = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(ns, 'svg')
+  svg.setAttribute('viewBox', '0 0 16 16')
+  svg.setAttribute('aria-hidden', 'true')
+  for (const [tag, attrs] of [['circle', { cx: 8, cy: 8, r: 6.5 }], ['path', { d: 'M8 7.2v4' }], ['circle', { cx: 8, cy: 4.9, r: 0.6, class: 'dot' }]]) {
+    const el = document.createElementNS(ns, tag)
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
+    svg.append(el)
+  }
+  return svg
+}
+
+/** The back of a card: how it is made. */
+function howMade(spec, results, finding, title) {
+  const part = (head, ...kids) => h('section', { class: 'back__part' }, h('h4', { text: head }), ...kids)
+  const chips = S.scopeChips(scope, S.skipFor ? S.skipFor(route.view) : []).map((c) => c.label)
+  const qs = spec.queries()
+  return [
+    spec.sub && part('What it shows', h('p', { text: spec.sub })),
+    part('What it covers', h('p', { text: chips.length ? `${chips.join(', ')}.` : 'All of the data, with no filter set.' })),
+    spec.method && part('What it leaves out', h('p', { text: spec.method })),
+    part('How it is counted', working(qs, spec.explain || [], results)),
+    inCredible() && h('button', { type: 'button', class: 'btn back__ask', text: 'Ask Credible about this', onclick: () => askCredible(
+      `${document.title}, "${title}": ${finding ? `${finding} ` : ''}What is behind this, and what should I look at next?`,
+      { scope: { package: decodeURIComponent(location.pathname.match(/\/packages\/([^/]+)/)?.[1] || ''), model: S.MODEL }, view: { type: 'card', id: title, title },
+        entities: [{ kind: 'source', name: S.SOURCE }], items: [{ label: 'what it covers', value: chips.join(', ') || 'everything' }, ...qs.slice(0, 3).map((q, i) => ({ label: `query ${i + 1}`, value: q.slice(0, 900) }))] }) }),
+  ].filter(Boolean)
+}
+
+/** True inside Credible's viewer: in a frame, on a Credible data host ("data" or "<env>-data"). */
+function inCredible(loc = location) {
+  const parts = loc.host.split('.')
+  const plane = parts[1] || ''
+  return window.parent !== window && parts.length >= 3 && (plane === 'data' || plane.endsWith('-data'))
+}
+/** Opens Credible's chat with `prompt`, after attaching `context`; Credible drops a context over 8,000 characters. */
+function askCredible(prompt, context) {
+  const text = String(prompt ?? '').trim().slice(0, 4000)
+  if (!text || !inCredible()) return false
+  const parts = location.host.split('.')
+  parts[1] = parts[1].replace(/data$/, 'app')
+  const origin = `${location.protocol}//${parts.join('.')}`
+  let c = context
+  while (JSON.stringify(c).length > 7800 && (c.items || []).length > 1) c = { ...c, items: c.items.slice(0, -1) }
+  if (JSON.stringify(c).length > 7800) c = { scope: c.scope, view: { ...c.view, id: String(c.view.id).slice(0, 200), title: String(c.view.title).slice(0, 200) } }
+  window.parent.postMessage({ type: 'credible:chat-context', context: c }, origin)
+  window.parent.postMessage({ type: 'credible:chat-message', prompt: text }, origin)
+  return true
 }
 
 /** The working behind a card: for each query, what it counts, the query itself, and the rows it returned. */

@@ -23,11 +23,11 @@ out the same.
 - **The app is not the publisher.** Never use a data publisher's logo, name as a brand, or palette; the app credits
   them as a source.
 - **Every card** has a title (uppercase, or a headline in some looks), a description saying how to read it and what clicking does, the chart, a
-  sentence stating its finding, a method note, and a footer that shows the working: what each query counts, the
-  query, and the rows it returned.
+  sentence stating its finding, a method note, and an info mark (ⓘ) in its corner, never a text button, that turns it over to how it is
+  made: what each query counts, the query, and the rows it returned.
 
 The stylesheet's parts, in order: the tokens on `:root`, the page and its type, the header and scope bar, cards and
-headline numbers, the ranked table and the working, states, motion, the phone layout, then the Looks. Choose the
+headline numbers, the ranked table and the card's back, states, motion, the phone layout, then the Looks. Choose the
 theme as "Colour" says and the Looks' attributes on `<body>`; keep the rest.
 
 ## Colour

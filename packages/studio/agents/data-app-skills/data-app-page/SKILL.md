@@ -63,7 +63,8 @@ This is the whole page at low effort. At high effort, the page below the answer 
 
 ## Hand-off to the agent
 
-When the app runs inside Credible, add an "Ask about this" action under the lead and on each view. It sends a
+When the app runs inside Credible, every card's info mark already offers "Ask Credible about this". Add an
+"Ask about this" action under the lead and on each view too. It sends a
 specific question to Credible's agent with the `credible:chat-message` event described in
 `credible-data-apps`, such as "Which states had the largest rise in measles cases this year?". This is how a
 visitor goes from reading the app to using Credible.

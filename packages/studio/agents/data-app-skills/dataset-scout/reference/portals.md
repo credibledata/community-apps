@@ -1,6 +1,7 @@
 # Where to look
 
-Starting points that serve data without a key. Each one's license still has to be read per dataset, as in
+Starting points. Most serve data without a key; a source that needs one is usable only when the environment holds
+that key (`SKILL.md`). Each one's license still has to be read per dataset, as in
 `licenses.md`. A URL here is a starting point, not a promise that it still answers.
 
 ## General catalogs
@@ -19,7 +20,7 @@ Starting points that serve data without a key. Each one's license still has to b
 | Eurostat | EU countries and regions, often monthly | `https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/<dataset>?format=JSON` |
 | US Census Bureau | US population, business and housing by geography | `https://api.census.gov/data/...`; small requests need no key. It can be slow or unreachable; give it one try with a timeout and move on. |
 | US Bureau of Labor Statistics | US prices, jobs and wages | public API v1, no key, limited requests per day |
-| US Energy Information Administration | energy prices and production | needs a key: skip |
+| US Energy Information Administration | energy prices and production | The API takes its key in the address, which Credible cannot add: use the spreadsheet on each series' page, which needs none. Public domain. |
 | OECD | country comparisons | `https://sdmx.oecd.org/public/rest/data/...`; check the dataset's terms |
 
 ## Topic sources
@@ -34,5 +35,6 @@ Starting points that serve data without a key. Each one's license still has to b
 
 ## Not usable
 
-Kaggle (needs a login), anything behind a key or a sign-up form, paywalled reports, scraped tables from
+Kaggle (needs a login), anything behind a sign-up form or terms to accept, a key the environment does not hold,
+paywalled reports, scraped tables from
 news sites, and Wikipedia (share-alike, see `licenses.md`).
