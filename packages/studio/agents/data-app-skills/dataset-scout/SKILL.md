@@ -47,6 +47,8 @@ Stop on a dataset when:
 - getting it needs an API key the environment does not hold (your briefing lists the ones it does, each as an
   environment variable with the hosts it may be sent to): keep it as a source for later, with the key's name, its
   host and where to get a free one, and carry on without it,
+- its key goes in the address (`?api_key=…`) rather than a header: Credible adds a key to a request's
+  `Authorization` header or the header the key names, never to the address, so such a source cannot be used,
 - the data is about identifiable people.
 
 ## What to hand to the next step

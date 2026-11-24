@@ -109,8 +109,7 @@ host page scrolls: no drawers, popups or `position: fixed`, and each page under 
 kit already follows this.
 
 **Fast because Credible stores it.** The app's source is a managed table, so it is materialized with rollups, as
-`reference/app-frame.md` "Make it fast" says, and each section's info mark then says which table answered. Persist
-only a source over a managed table; a source over a file in `data/` is never materialized.
+`reference/app-frame.md` "Make it fast" says, and each section's info mark then says which table answered.
 
 ## Work in phases
 

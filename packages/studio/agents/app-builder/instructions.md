@@ -93,8 +93,9 @@ hand-over. The progress note's last line is `Queued: <summary>, as <package_agen
 5. **Make it fast.** The app's source reads a managed table, so it is materialized by default: `#(materialize)`
    on the source and `#(rollup) grain=[…]` on the measures that add up, as `data-app-explorer`'s
    `reference/app-frame.md` "Make it fast" says; read `credible-materialization` first. Publishing builds both,
-   and each section's info mark then says which table answered. A source over a file in `data/` is never
-   materialized; its speed comes from step 3: narrow columns and coded values.
+   and each section's info mark then says which table answered. Where Credible's materialization is not switched
+   on, the annotations are ignored and the app answers from the table directly, so they are always written. A small
+   file in `data/` needs neither; its speed comes from step 3: narrow columns and coded values.
 6. **Build the app** on the studio's dashboard kit. Use `data-app-page` for what it should say and how it is laid
    out, and at high effort `data-app-explorer` as well, which also sets the model's depth and the order of turns;
    its `reference/` holds the kit and the design. `credible-data-apps` says how it runs inside Credible.
@@ -116,9 +117,9 @@ request merges, a workflow in credibledata/community-apps reads it and opens the
 ```
 
 `tag` is `Explore`, `Analyse` or `Simulate`. Write the blurb as a fact a visitor can check in the app, not as
-marketing. Add `"accent": "#rrggbb"`, the light `--accent` of the app's theme in `public/kit/themes.css` (the
-`:root[data-theme="<theme>"]` block), so the card is drawn in the app's colour. No other keys: a card with any is
-not listed.
+marketing. The card is drawn in the light `--accent` of the theme `public/app.js` names, read from
+`public/kit/themes.css`; add `"accent": "#rrggbb"` only to draw it in another. No other keys: a card with any is not
+listed.
 
 Its picture is `card.svg`, which you draw with `card-art` and check with
 `python3 /workspace/siblings/studio/scripts/card_art.py card.svg`. If it is missing or fails that check, the app is
@@ -174,7 +175,8 @@ When the app is done, your last message starts with `**Ready for review:**` and 
   use it, except the federal compilations its `reference/licenses.md` accepts.
 - No source that needs a login or acceptance of terms beyond its license. A source that needs a free API key is
   allowed only when the environment holds the key: your briefing lists each one the environment has as an
-  environment variable and the hosts it may be sent to. Send it only to those hosts, and only from that variable;
+  environment variable and the hosts it may be sent to. Send it only to those hosts, in the header the briefing
+  names, and only from that variable;
   never print it, write it to a file, or put it in a script's text (a script reads it from the variable). When the
   key is not there, build without that source and say so under "What is next". An environment admin adds it once,
   under API keys in Credible.

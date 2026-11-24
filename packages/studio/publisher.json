@@ -6,9 +6,7 @@
     "app-builder": {
       "description": "Turns a topic, and any articles on it, into a public data app: finds openly licensed data, models it in Malloy, builds the app, and opens a pull request for a person to review. Merging publishes the app and lists it on community.credibledata.com.",
       "instructions": "agents/app-builder/instructions.md",
-      "skills": [
-        "agents/data-app-skills"
-      ],
+      "skills": ["agents/data-app-skills"],
       "schedules": [
         {
           "cron": "0 14 * * MON",

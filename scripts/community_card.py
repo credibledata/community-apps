@@ -11,8 +11,9 @@ The card, written by whoever builds the app:
 
     {"name": "at most 40 characters", "blurb": "at most 60 words", "tag": "Explore", "accent": "#7a4520"}
 
-`tag` is one of TAGS. `accent` is optional; without it the app's `--accent` in public/styles.css is used, and
-without that the site draws the card in grey.
+`tag` is one of TAGS. `accent` is optional; without it the card takes the app's own colour: for an app on the
+dashboard kit, the light `--accent` of the theme its public/app.js names, from public/kit/themes.css; for an older
+app, the `--accent` in public/styles.css. Without either, the site draws the card in grey.
 
 Card art, also optional, is the package's `card.svg`: a 320 x 200 drawing the builder makes of the app. The site never
 gets the file as written. It is parsed, and only drawing elements and attributes with plain values are written into a
@@ -65,6 +66,18 @@ def accent_of(styles_css: str) -> str | None:
     found = re.findall(r"--accent:\s*([^;]+);", re.sub(r"/\*.*?\*/", "", styles_css, flags=re.S))
     value = found[-1].strip() if found else ""
     return value.lower() if HEX.fullmatch(value) else None
+
+
+def theme_accent(app_js: str, themes_css: str) -> str | None:
+    """A kit app's colour: the light `--accent` of the theme its config names (`theme: 'harvest'`), or of the
+    default theme, the plain `:root` block, when it names none. None when that is not a hex colour."""
+    named = re.search(r"\btheme:\s*['\"]([a-z]+)['\"]", app_js)
+    theme = named.group(1) if named else "paper"
+    head = r":root \{" if theme == "paper" else re.escape(f':root[data-theme="{theme}"]') + r" \{"
+    block = re.search(rf"^{head}\n(.*?)^\}}", re.sub(r"/\*.*?\*/", "", themes_css, flags=re.S), re.S | re.M)
+    if not block and theme != "paper":
+        return None
+    return accent_of(block.group(1)) if block else None
 
 
 def takes_drawn_cards(apps_ts: str) -> bool:
@@ -129,8 +142,12 @@ def read_card(package: Path) -> tuple[str, dict, str | None]:
     problems = card_problems(card)
     if problems:
         raise SystemExit(f"Not listed: {slug}'s card: {'; '.join(problems)}")
-    styles = package / "public" / "styles.css"
-    accent = card.get("accent") or (accent_of(styles.read_text()) if styles.is_file() else None)
+    public = package / "public"
+    accent = card.get("accent")
+    if not accent and (public / "kit" / "themes.css").is_file() and (public / "app.js").is_file():
+        accent = theme_accent((public / "app.js").read_text(), (public / "kit" / "themes.css").read_text())
+    if not accent and (public / "styles.css").is_file():
+        accent = accent_of((public / "styles.css").read_text())
     return slug, card, accent
 
 

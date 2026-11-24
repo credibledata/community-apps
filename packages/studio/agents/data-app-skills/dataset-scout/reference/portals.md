@@ -20,7 +20,7 @@ that key (`SKILL.md`). Each one's license still has to be read per dataset, as i
 | Eurostat | EU countries and regions, often monthly | `https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/<dataset>?format=JSON` |
 | US Census Bureau | US population, business and housing by geography | `https://api.census.gov/data/...`; small requests need no key. It can be slow or unreachable; give it one try with a timeout and move on. |
 | US Bureau of Labor Statistics | US prices, jobs and wages | public API v1, no key, limited requests per day |
-| US Energy Information Administration | energy prices and production | The API needs a free key (api.eia.gov, from https://www.eia.gov/opendata/register.php); many series also have a spreadsheet on their page that needs none. Public domain. |
+| US Energy Information Administration | energy prices and production | The API takes its key in the address, which Credible cannot add: use the spreadsheet on each series' page, which needs none. Public domain. |
 | OECD | country comparisons | `https://sdmx.oecd.org/public/rest/data/...`; check the dataset's terms |
 
 ## Topic sources

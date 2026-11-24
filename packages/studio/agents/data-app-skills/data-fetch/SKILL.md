@@ -10,8 +10,10 @@ description: Download the shortlisted public datasets, shape them at record grai
 ## Download
 
 - Fetch each dataset's download URL with `curl -sSL --fail --max-time 120 -o /tmp/raw/<name>.<ext>`.
-- A source that needs a key reads it from the environment variable your briefing names, in the shape it gives
-  (such as `-H "Authorization: Bearer $THE_VARIABLE"`), and only on the hosts it lists. Never write the key into a
+- A source that needs a key reads it from the environment variable your briefing names, in the header and shape it
+  gives (such as `-H "Authorization: Bearer $THE_VARIABLE"`), and only on the hosts it lists. The variable holds a
+  stand-in that Credible swaps for the key on the way out, in that header only: a key put in the address is sent as
+  the stand-in and refused. Never write the key into a
   script, a file, a log line or the README; a script in `pipeline/` names the variable and stops with a clear
   message when it is unset, so anyone rebuilding the tables knows to get their own.
   Raw files stay in `/tmp/raw/`; they never go into the checkout.
@@ -83,8 +85,8 @@ instructions say.
   default `credible` one. Name it `<package>__<table>` with the package's hyphens as underscores, since a table name
   holds only lowercase letters, digits and underscores, at most 63: `colorado_river_reservoirs__readings`. You
   cannot replace or delete a table, so load it once the shape is final; if the name is taken, add `_v2`.
-- Read it in the model as `community.table('colorado_river_reservoirs__readings')`. A source over a managed table can be
-  materialized; read `credible-materialization` before adding a `#@ persist`.
+- Read it in the model as `community.table('colorado_river_reservoirs__readings')`. The app's source over it is
+  materialized with rollups, as `data-app-explorer`'s `reference/app-frame.md` "Make it fast" says.
 - Nothing loaded is in the package or its pull request. Name each table, its rows and the script that wrote its
   file in the README's "Rebuild" section, and list them in the hand-over.
 

@@ -29,9 +29,9 @@ dashboard({
     { key: 'level', field: 'area_type', label: 'Kind of place', plural: 'kinds of place' },
   ],
   entities: { area: { field: 'area', label: 'Area', plural: 'areas' } },
-  defaults: { period: 'last_364', compare: 'year', filters: { grade: ['Regular'], formulation: ['All'], area: ['U.S.'] } },
+  defaults: { period: 'last_364', compare: 'year', filters: { grade: ['Regular'], formulation: ['All'], area: ['United States'] } },
   sources: {
-    eia: { name: 'Weekly Retail Gasoline and Diesel Prices', by: 'US Energy Information Administration', what: 'EIA surveys stations every Monday and publishes the average price for the country, its regions, nine states and ten cities.', license: 'Public domain', url: 'https://www.eia.gov/petroleum/gasdiesel/' },
+    eia: { name: 'Weekly Retail Gasoline and Diesel Prices', by: 'US Energy Information Administration', what: 'EIA surveys stations every Monday and publishes the average price for the country, its regions, and some of its states and cities.', license: 'Public domain', url: 'https://www.eia.gov/petroleum/gasdiesel/' },
     bls: { name: 'Consumer Price Index (CPI-U)', by: 'US Bureau of Labor Statistics', what: 'How much prices in general have risen, used to restate old prices in today’s dollars.', license: 'Public domain', url: 'https://www.bls.gov/cpi/' },
   },
   glossary: [
@@ -52,8 +52,8 @@ dashboard({
 function overview() {
   return blocks(
     subject({ metrics: PRICES }),
-    rank({ entity: 'area', metric: 'avg_price', top: 9, where: "area_type = 'State'", kicker: 'Price per gallon by state', what: 'The nine states EIA reports, by their average price in the period, with the same weeks a year earlier as the pale bar.' }),
-    rank({ entity: 'area', metric: 'avg_price', top: 10, where: "area_type = 'City'", kicker: 'Price per gallon by city', what: 'The ten cities EIA reports, by their average price in the period.' }),
+    rank({ entity: 'area', metric: 'avg_price', top: 20, where: "area_type = 'State'", kicker: 'Price per gallon by state', what: 'Each state EIA reports, by its average price in the period, with the same weeks a year earlier as the pale bar.' }),
+    rank({ entity: 'area', metric: 'avg_price', top: 20, where: "area_type = 'City'", kicker: 'Price per gallon by city', what: 'Each city EIA reports, by its average price in the period.' }),
     trend({ metric: 'avg_price', by: 'grade', top: 5, kicker: 'Price per gallon by grade', what: 'Each grade’s average price over the period, one line each; diesel is listed with them.' }),
     heat({ rows: { expr: 'survey_year', label: 'Year', count: 12 }, cols: { expr: 'week_of_year', label: 'Week of the year', name: (w) => `week ${w}` }, metric: 'avg_price', period: false, where: `survey_year >= ${firstYear()}`, kicker: 'Every week of the last twelve years · darker is dearer', what: 'The average price in each week of each year, so a summer peak or an autumn fall shows as a band across the years.' }),
   )
@@ -61,7 +61,7 @@ function overview() {
 
 function areas() {
   return [
-    pageHead('Areas', 'The country, its five regions, nine states and ten cities, each on the same measures.'),
+    pageHead('Areas', 'The country, its regions, and the states and cities EIA reports, each on the same measures.'),
     blocks(
       rank({ entity: 'area', metric: 'avg_price', top: 30, extra: ['max_price'], span: 12, kicker: 'Every area by price per gallon' }),
       table({ kicker: 'Every area', open: { entity: 'area', key: 'area' }, sort: { key: 'avg_price', desc: true },

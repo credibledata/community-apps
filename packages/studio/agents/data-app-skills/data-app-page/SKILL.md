@@ -1,6 +1,6 @@
 ---
 name: data-app-page
-description: What a public data app built from a brief (a topic, often a story in the news, and any articles on it) should say and how it is laid out - the lead question, the views, the articles, sources and caveats, and the checks before hand-over. Use when building or reviewing a data app's page, and for the rules every data app follows. The mechanics of Publisher.query, vendoring and embedding are in malloy-html-data-apps and credible-data-apps.
+description: What a public data app built from a brief (a topic, often a story in the news, and any articles on it) should say and how it is laid out - the lead question, the Overview and About pages on the studio's dashboard kit, the articles, sources and caveats, and the checks before hand-over. Use when building or reviewing a data app, and for the rules every data app follows. The kit is in data-app-explorer's reference/app-frame.md; it replaces the frame malloy-html-data-apps describes, and credible-data-apps covers running inside Credible.
 ---
 
 # Data app page

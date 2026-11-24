@@ -33,8 +33,9 @@ for f in index.html app.js; do [ -e "public/$f" ] || cp "$T/$f" public/; done
 chmod -R u+w public
 ```
 
-An app built before the kit (a `scope.js` and `styles.css` in `public/`) moves to it by rewriting `public/app.js` on
-the kit and removing the old frame's files; see the studio's `revisit-app` task.
+An app built before the kit (a `scope.js` and `styles.css` in `public/`) moves to it by copying the template's
+`index.html` over its own (the kit draws into its `#app`), rewriting `public/app.js` on the kit, and removing the old
+frame's files; see the studio's `revisit-app` task.
 
 ## The model the kit needs
 
@@ -158,8 +159,9 @@ dashboard({
   marks the page that lists an entity, which its pages' breadcrumbs return to. `period: false` and `filters: false`
   hide those controls on a page they do not apply to, such as the About page.
 - **`defaults.filters`**: values a reader starts filtered to, when one slice is the whole story by default (regular
-  gasoline in the US as a whole, `{ grade: ['Regular'], area: ['U.S.'] }`). A reader can clear them, and a shared
-  link keeps what they chose.
+  gasoline in the US as a whole, `{ grade: ['Regular'], area: ['United States'] }`). A reader can clear them, and a shared
+  link keeps what they chose. Copy each value from a query's rows: a value the data does not have is dropped, and
+  `?check=1` fails on it.
 - **`sources`**: where the data comes from (`name`, `by`, `what`, `license`, `url`). Every block's info mark lists
   them, or the ones it names in its own `sources: ['eia']`; the footer credits them; `aboutPage()` lists them with
   their licences. An app on public data has `sources` and an About page.

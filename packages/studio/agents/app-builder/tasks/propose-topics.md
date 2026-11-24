@@ -24,7 +24,8 @@ find more, so a turn that is stopped still leaves a list.
   question: prices beside incomes, cases beside population, emissions beside output. Name it when there is one.
 - **Open data behind it.** Each dataset from the body that collects it, under a license `dataset-scout` accepts, that
   a script can fetch (see `data-fetch`). No login or terms to accept. A source that needs a free API key is
-  allowed: name the key (below), and say whether the app can open without it.
+  allowed when the key goes in a request header, as `dataset-scout` says: name the key (below), and say whether the
+  app can open without it.
 - **Something new for the catalogue.** A subject and a lead view that no listed app already has.
 
 ## Steps
