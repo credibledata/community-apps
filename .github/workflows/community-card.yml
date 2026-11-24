@@ -13,19 +13,17 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: "An app to list again, by its folder name under packages/"
+        description: "Apps to list, by folder name under packages/, separated by spaces"
         required: true
 
 permissions:
   contents: read
 
-concurrency:
-  group: community-card
-  cancel-in-progress: false
-
 jobs:
-  list:
+  cards:
     runs-on: ubuntu-latest
+    outputs:
+      names: ${{ steps.cards.outputs.names }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,6 +36,8 @@ jobs:
           AFTER: ${{ github.sha }}
           ONE: ${{ inputs.package }}
         run: |
+          # Names are split on spaces on purpose, with no filename expansion.
+          set -f
           if [ -n "$ONE" ]; then
             names="$ONE"
           else
@@ -47,25 +47,37 @@ jobs:
           for n in $names; do
             echo "$n" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$' || { echo "::error::$n is not a package name"; exit 1; }
           done
-          echo "names=$(echo $names)" >> "$GITHUB_OUTPUT"
+          # shellcheck disable=SC2086
+          echo "names=$(printf '%s\n' $names | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().split()))')" >> "$GITHUB_OUTPUT"
+
+  list:
+    needs: cards
+    if: needs.cards.outputs.names != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.cards.outputs.names) }}
+    # One queue per app. A later run for the same app waits for the one listing it and replaces any run already
+    # waiting, and each lists the card as it is on main when it starts, so the newest card is the one listed.
+    # Different apps never wait on each other: each writes only its own branch on the site.
+    concurrency:
+      group: community-card-${{ matrix.package }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/checkout@v4
-        if: steps.cards.outputs.names != ''
         with:
           repository: credibledata/community
           token: ${{ secrets.COMMUNITY_SITE_TOKEN }}
           path: site
 
-      - name: Open a pull request per card
-        if: steps.cards.outputs.names != ''
+      - name: Open its pull request
         env:
           GH_TOKEN: ${{ secrets.COMMUNITY_SITE_TOKEN }}
-          NAMES: ${{ steps.cards.outputs.names }}
+          PACKAGE: ${{ matrix.package }}
           SOURCE: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-        run: |
-          status=0
-          for n in $NAMES; do
-            git -C site checkout -q main && git -C site reset -q --hard origin/main
-            python3 scripts/community_card.py "packages/$n" --site site --pr --source "$SOURCE" || status=1
-          done
-          exit $status
+        run: python3 scripts/community_card.py "packages/$PACKAGE" --site site --pr --source "$SOURCE"
