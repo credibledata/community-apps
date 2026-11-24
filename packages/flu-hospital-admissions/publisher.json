@@ -1,0 +1,5 @@
+{
+  "name": "flu-hospital-admissions",
+  "version": "0.0.1",
+  "description": "Weekly flu hospital admissions in the US, by season and state, with COVID-19, RSV and hospital beds, from CDC NHSN data."
+}

@@ -1,0 +1,322 @@
+// Weekly hospital admissions for flu, COVID-19 and RSV, by US state, from CDC's National Healthcare Safety
+// Network (NHSN), with Census population for rates. One row per jurisdiction per week.
+
+#(doc) "One row per jurisdiction: the 50 states, DC, Puerto Rico, four other territories, the 10 HHS regions and the USA total, with the Census Bureau's Vintage 2025 population estimate where it covers them (it has none for American Samoa, Guam, the Northern Mariana Islands, the US Virgin Islands or the HHS regions)."
+source: jurisdictions is community.table('flu_hospital_admissions__jurisdictions') extend {
+  primary_key: code
+  #(doc) "Census region (Northeast, Midwest, South, West) of a state; blank for the nation, Puerto Rico, the territories and HHS regions."
+  dimension: region is census_region
+  #(index) #(doc) "Name of the state, territory or region, as the Census Bureau writes it."
+  dimension: state_name is name
+}
+
+#(doc) "First week (week ending date) of each respiratory virus season, as CDC's own `Respiratory Virus Season` column assigns weeks to seasons (a season runs from the week ending in early October, MMWR week 40, to the end of September). Read from the USA rows."
+source: season_starts is community.table('flu_hospital_admissions__weekly') -> {
+  where: geo_level = 'nation'
+  group_by: season
+  aggregate:
+    season_start is min(week_ending)
+    season_end is max(week_ending)
+} extend {
+  primary_key: season
+}
+
+#(doc) "One row: the latest week in the data, the first week of the current season, and which week of the season the latest week is."
+source: latest is season_starts -> {
+  aggregate:
+    latest_week is max(season_end)
+    current_season_start is max(season_start)
+} extend {
+  #(doc) "Week of the season that the latest week is (1 for the season's first week)."
+  dimension: current_season_week is floor(days(current_season_start to latest_week) / 7) + 1
+}
+
+#(doc) "Weekly hospital respiratory data by jurisdiction, from CDC's National Healthcare Safety Network (NHSN) Hospital Respiratory Data: one row per state, territory, HHS region or USA total per week, weeks ending Saturday from 2020-08-08. Counts are what hospitals reported for that week; the latest weeks are often revised upward as late reports arrive. Hospital reporting was mandatory except from May 1 to October 31, 2024, when it was voluntary and about 40% of hospitals reported, so totals in that window are not comparable with the rest (see `reporting_period`). Do not add the USA, HHS region and state rows together: filter on `geo_level` first, or use the `national` or `states` sources."
+source: hospital_weeks is community.table('flu_hospital_admissions__weekly') extend {
+  primary_key: row_key
+  rename: flu_admissions_n is flu_admissions
+  rename: covid_admissions_n is covid_admissions
+  rename: rsv_admissions_n is rsv_admissions
+  rename: flu_inpatients_n is flu_inpatients
+  rename: covid_inpatients_n is covid_inpatients
+  rename: rsv_inpatients_n is rsv_inpatients
+  rename: flu_icu_patients_n is flu_icu_patients
+  join_one: j is jurisdictions on jurisdiction = j.code
+  join_one: s is season_starts on season = s.season
+  join_cross: l is latest
+
+  #(doc) "Unique key of a row: jurisdiction and week."
+  dimension: row_key is concat(jurisdiction, ' ', week_ending::string)
+
+  #(doc) "Saturday that ends the reporting week (MMWR week)."
+  dimension: week_end is week_ending
+
+  #(doc) "Respiratory virus season the week belongs to, as CDC labels it, such as '2025-2026'. A season starts with the week ending in early October. '2019-2020' holds only the last eight weeks of that season (August and September 2020), the first the dataset covers."
+  dimension: season_label is season
+
+  #(doc) "Week of the season: 1 for the season's first week (early October), counting up; so the same week of different seasons lines up. Null for the partial 2019-2020 season."
+  dimension: season_week is pick null when season = '2019-2020' else floor(days(s.season_start to week_ending) / 7) + 1
+
+  #(doc) "True for the season that holds the latest week in the data (the current season)."
+  dimension: is_current_season is s.season_end = l.latest_week
+
+  #(doc) "True for the latest week in the data."
+  dimension: is_latest_week is week_ending = l.latest_week
+
+  #(doc) "True when the week is the same week of its season as the latest week is of the current season, such as week 6 of every season. The like-for-like point for comparing seasons."
+  dimension: is_same_season_week is season_week = l.current_season_week
+
+  #(doc) "True when the week falls in its season no later than the latest week does in the current season: the season to date, like for like."
+  dimension: is_season_to_date is season_week <= l.current_season_week
+
+  #(doc) "Week of the season that the latest week in the data is."
+  dimension: current_season_week is l.current_season_week
+
+  #(doc) "Weeks before the latest week in the data: 0 for the latest week, 1 for the week before, and so on."
+  dimension: weeks_ago is floor(days(week_ending to l.latest_week) / 7)
+
+  #(doc) "Whether hospitals had to report that week. CMS required reporting until April 30, 2024 and again from November 1, 2024; from May 1 to October 31, 2024 reporting was voluntary and fewer hospitals reported, so counts in that window are low and not comparable. The week ending 2024-05-04 is the last mandatory week and 2024-11-02 the first again (weeks end on Saturday)."
+  dimension: reporting_period is pick 'Voluntary (May-Oct 2024)' when week_ending >= @2024-05-05 and week_ending <= @2024-11-01 else 'Mandatory'
+
+  #(doc) "Level of the row: 'nation' (USA total), 'state' (the 50 states and DC), 'territory' (Puerto Rico, Guam, American Samoa, the Northern Mariana Islands, US Virgin Islands), or 'hhs_region' (one of the 10 HHS regions)."
+  dimension: level is geo_level
+
+  #(index) #(doc) "State, territory or region name."
+  dimension: state_name is j.state_name
+
+  #(doc) "Two-letter postal code of the state or territory, 'USA', or 'Region N'."
+  dimension: state_code is jurisdiction
+
+  #(doc) "Census region of a state (Northeast, Midwest, South, West); blank for the nation, territories and HHS regions."
+  dimension: region is j.region
+
+  // Admissions: new patients admitted with a laboratory-confirmed infection during the week.
+  #(doc) "New hospital admissions of patients with laboratory-confirmed influenza during the week, all ages (NHSN `totalconfflunewadm`)."
+  measure: flu_admissions is flu_admissions_n.sum()
+  #(doc) "New hospital admissions with laboratory-confirmed COVID-19 during the week, all ages (NHSN `totalconfc19newadm`)."
+  measure: covid_admissions is covid_admissions_n.sum()
+  #(doc) "New hospital admissions with laboratory-confirmed RSV during the week, all ages (NHSN `totalconfrsvnewadm`)."
+  measure: rsv_admissions is rsv_admissions_n.sum()
+  #(doc) "New flu admissions of patients under 18."
+  measure: flu_admissions_children is flu_admissions_ped.sum()
+  #(doc) "New flu admissions of patients 18 and over."
+  measure: flu_admissions_adults is flu_admissions_adult.sum()
+  #(doc) "New flu admissions aged 0-4."
+  measure: flu_adm_age_0_4 is flu_adm_0_4.sum()
+  #(doc) "New flu admissions aged 5-17."
+  measure: flu_adm_age_5_17 is flu_adm_5_17.sum()
+  #(doc) "New flu admissions aged 18-49."
+  measure: flu_adm_age_18_49 is flu_adm_18_49.sum()
+  #(doc) "New flu admissions aged 50-64."
+  measure: flu_adm_age_50_64 is flu_adm_50_64.sum()
+  #(doc) "New flu admissions aged 65-74."
+  measure: flu_adm_age_65_74 is flu_adm_65_74.sum()
+  #(doc) "New flu admissions aged 75 and over."
+  measure: flu_adm_age_75_plus is flu_adm_75_plus.sum()
+  #(doc) "New flu admissions whose age was not reported."
+  measure: flu_adm_age_unknown is flu_adm_unknown_age.sum()
+
+  // Patients in hospital and beds: NHSN reports these as the week's average of daily counts.
+  #(doc) "Patients in hospital with laboratory-confirmed flu: NHSN's weekly average of the daily count (`totalconffluhosppats`). Summed over weeks it is patient-weeks, so read it one week at a time."
+  measure: flu_inpatients is flu_inpatients_n.sum()
+  #(doc) "Patients in hospital with laboratory-confirmed COVID-19, weekly average of the daily count."
+  measure: covid_inpatients is covid_inpatients_n.sum()
+  #(doc) "Patients in hospital with laboratory-confirmed RSV, weekly average of the daily count."
+  measure: rsv_inpatients is rsv_inpatients_n.sum()
+  #(doc) "Flu patients in intensive care, weekly average of the daily count."
+  measure: flu_icu_patients is flu_icu_patients_n.sum()
+  #(doc) "Inpatient beds occupied by any patient, weekly average of the daily count."
+  measure: beds_occupied is inpatient_beds_occupied.sum()
+  #(doc) "Inpatient beds staffed, weekly average of the daily count."
+  measure: beds_total is inpatient_beds.sum()
+
+  #(doc) "Share of staffed inpatient beds that hold a patient with confirmed flu: flu inpatients / inpatient beds, from rows where both are reported. CDC publishes the same ratio as `pctconffluinptbeds`."
+  measure: flu_bed_share is flu_inpatients_n.sum() { where: inpatient_beds is not null } / nullif(inpatient_beds.sum() { where: flu_inpatients_n is not null }, 0)
+  #(doc) "Share of staffed inpatient beds that hold a patient with confirmed COVID-19: COVID inpatients / inpatient beds, from rows where both are reported."
+  measure: covid_bed_share is covid_inpatients_n.sum() { where: inpatient_beds is not null } / nullif(inpatient_beds.sum() { where: covid_inpatients_n is not null }, 0)
+  #(doc) "Share of staffed inpatient beds that hold a patient with confirmed RSV: RSV inpatients / inpatient beds, from rows where both are reported."
+  measure: rsv_bed_share is rsv_inpatients_n.sum() { where: inpatient_beds is not null } / nullif(inpatient_beds.sum() { where: rsv_inpatients_n is not null }, 0)
+  #(doc) "Share of staffed inpatient beds occupied by any patient: beds occupied / inpatient beds."
+  measure: bed_occupancy is inpatient_beds_occupied.sum() { where: inpatient_beds is not null } / nullif(inpatient_beds.sum() { where: inpatient_beds_occupied is not null }, 0)
+
+  #(doc) "Census population of the rows counted, for the week's calendar year (2025 for 2026). Summed over weeks it is person-weeks; it is the denominator of the per-100k rates."
+  measure: population_weeks is population.sum()
+  #(doc) "New flu admissions per 100,000 people per week: flu admissions / population x 100,000, over rows that have a population (not the four small territories). Over several weeks it is the average weekly rate. CDC publishes the same weekly rate as `totalconfflunewadmper100k`."
+  measure: flu_rate is flu_admissions_n.sum() { where: population is not null } / nullif(population.sum() { where: flu_admissions_n is not null }, 0) * 100000
+  #(doc) "New COVID-19 admissions per 100,000 people per week, as `flu_rate`."
+  measure: covid_rate is covid_admissions_n.sum() { where: population is not null } / nullif(population.sum() { where: covid_admissions_n is not null }, 0) * 100000
+  #(doc) "New RSV admissions per 100,000 people per week, as `flu_rate`."
+  measure: rsv_rate is rsv_admissions_n.sum() { where: population is not null } / nullif(population.sum() { where: rsv_admissions_n is not null }, 0) * 100000
+
+  #(doc) "Hospitals that reported flu admissions (summed over the rows counted; read one week at a time). A fall in the latest week usually means late reports, not closed hospitals."
+  measure: hospitals_reporting is flu_hospitals_reporting.sum()
+  #(doc) "Weeks counted."
+  measure: week_count is count(week_ending)
+  #(doc) "Latest week ending date among the rows counted."
+  measure: last_week is max(week_ending)
+  #(doc) "Rows (jurisdiction-weeks) counted."
+  measure: row_count is count()
+
+  // Views shared by `national` and `states`; run them there, never on this source, which holds every level.
+  #(doc) "Weekly new flu admissions by week of the season, one line per season, summed over the rows in scope: on `national`, the lead chart. Season week 1 is the week ending in early October. Excludes the partial 2019-2020 season."
+  view: by_season_week is {
+    where: season_week is not null
+    group_by: season_label, season_week, week_end, reporting_period
+    aggregate: flu_admissions, flu_rate
+    order_by: season_label, season_week
+  }
+
+  #(doc) "Each season at the same week as the latest: that week's flu admissions and the season-to-date total through it, like for like."
+  view: same_week_by_season is {
+    where: season_week is not null, is_season_to_date
+    group_by: season_label
+    aggregate:
+      flu_admissions_that_week is flu_admissions { where: is_same_season_week }
+      flu_rate_that_week is flu_rate { where: is_same_season_week }
+      flu_admissions_to_date is flu_admissions
+      week_that_week is max(week_end) { where: is_same_season_week }
+    order_by: season_label
+  }
+
+  #(doc) "Weekly new admissions for flu, COVID-19 and RSV across the whole record, summed over the rows in scope."
+  view: weekly_trend is {
+    group_by: week_end, season_label, reporting_period
+    aggregate: flu_admissions, covid_admissions, rsv_admissions, flu_rate, covid_rate, rsv_rate, hospitals_reporting
+    order_by: week_end
+  }
+
+  #(doc) "Patients in hospital with flu, COVID-19 and RSV, and their share of staffed beds, by week, summed over the rows in scope."
+  view: beds_trend is {
+    group_by: week_end
+    aggregate: flu_inpatients, covid_inpatients, rsv_inpatients, beds_occupied, beds_total, flu_bed_share, covid_bed_share, rsv_bed_share, bed_occupancy
+    order_by: week_end
+  }
+
+  #(doc) "New flu admissions by age group, per season, through the same week of the season as the latest week (like for like). Age bands are NHSN's; hospitals reported admissions by age only from the 2024-2025 season, so earlier seasons show 0 in every band."
+  view: age_by_season is {
+    where: season_week is not null, is_season_to_date
+    group_by: season_label
+    aggregate:
+      flu_adm_age_0_4, flu_adm_age_5_17, flu_adm_age_18_49, flu_adm_age_50_64, flu_adm_age_65_74, flu_adm_age_75_plus, flu_adm_age_unknown, flu_admissions
+    order_by: season_label
+  }
+}
+
+#(doc) "The US total: one row per week for the whole country (NHSN's 'USA' rows, which include the territories). The source of the app's headline: is this flu season earlier and bigger than the last ones at the same week?"
+source: national is hospital_weeks extend {
+  where: level = 'nation'
+
+  #(doc) "New flu admissions in the latest week."
+  measure: flu_admissions_latest is flu_admissions { where: is_latest_week }
+  #(doc) "New flu admissions in the week before the latest."
+  measure: flu_admissions_prior_week is flu_admissions { where: weeks_ago = 1 }
+  #(doc) "New flu admissions in the same week of last season (one season before the current one), the like-for-like comparison for the latest week."
+  measure: flu_admissions_same_week_last_season is flu_admissions { where: is_same_season_week and s.season_end < l.latest_week and s.season_end >= l.current_season_start - 7 days }
+  #(doc) "Highest weekly flu admissions at the same week of any of the five seasons before the current one (2021-2022 to 2025-2026). Two-stage: computed in the `same_week_by_season` view's rows; here the plain max over those weeks."
+  measure: flu_admissions_same_week_prior_max is max(flu_admissions_n) { where: is_same_season_week and not is_current_season and season_label >= '2021-2022' }
+  #(doc) "Flu admissions per 100,000 people in the latest week."
+  measure: flu_rate_latest is flu_rate { where: is_latest_week }
+  #(doc) "Share of staffed inpatient beds holding a flu patient in the latest week."
+  measure: flu_bed_share_latest is flu_bed_share { where: is_latest_week }
+  #(doc) "New COVID-19 admissions in the latest week."
+  measure: covid_admissions_latest is covid_admissions { where: is_latest_week }
+  #(doc) "New RSV admissions in the latest week."
+  measure: rsv_admissions_latest is rsv_admissions { where: is_latest_week }
+  #(doc) "New flu admissions so far this season, through the latest week."
+  measure: flu_admissions_season_to_date is flu_admissions { where: is_current_season }
+  #(doc) "Hospitals reporting flu admissions in the latest week."
+  measure: hospitals_reporting_latest is hospitals_reporting { where: is_latest_week }
+
+  #(doc) "Headline numbers for the latest week, from the US total."
+  view: kpis is {
+    aggregate:
+      last_week
+      current_season_week is max(l.current_season_week)
+      flu_admissions_latest
+      flu_admissions_prior_week
+      flu_admissions_same_week_last_season
+      flu_admissions_same_week_prior_max
+      flu_rate_latest
+      flu_bed_share_latest
+      flu_admissions_season_to_date
+      covid_admissions_latest
+      rsv_admissions_latest
+      hospitals_reporting_latest
+  }
+
+}
+
+#(doc) "The 50 states, DC and the five territories, one row per jurisdiction per week. HHS regions and the US total are left out, so sums over this source do not double count. Rates per 100,000 leave out the four small territories, which have no Census population in the state file."
+source: states is hospital_weeks extend {
+  where: level = 'state' or level = 'territory'
+
+  #(doc) "Flu admissions per 100,000 people in the latest week."
+  measure: flu_rate_latest is flu_rate { where: is_latest_week }
+  #(doc) "Flu admissions per 100,000 people in the week before the latest."
+  measure: flu_rate_prior_week is flu_rate { where: weeks_ago = 1 }
+  #(doc) "Flu admissions per 100,000 people three weeks before the latest."
+  measure: flu_rate_3_weeks_ago is flu_rate { where: weeks_ago = 3 }
+  #(doc) "Flu admissions per 100,000 people at the same week of last season."
+  measure: flu_rate_same_week_last_season is flu_rate { where: is_same_season_week and s.season_end < l.latest_week and s.season_end >= l.current_season_start - 7 days }
+  #(doc) "New flu admissions in the latest week."
+  measure: flu_admissions_latest is flu_admissions { where: is_latest_week }
+  #(doc) "New flu admissions in the week before the latest."
+  measure: flu_admissions_prior_week is flu_admissions { where: weeks_ago = 1 }
+  #(doc) "New COVID-19 admissions in the latest week."
+  measure: covid_admissions_latest is covid_admissions { where: is_latest_week }
+  #(doc) "New RSV admissions in the latest week."
+  measure: rsv_admissions_latest is rsv_admissions { where: is_latest_week }
+  #(doc) "Share of staffed inpatient beds holding a flu patient in the latest week."
+  measure: flu_bed_share_latest is flu_bed_share { where: is_latest_week }
+  #(doc) "Share of staffed inpatient beds occupied by any patient in the latest week."
+  measure: bed_occupancy_latest is bed_occupancy { where: is_latest_week }
+  #(doc) "New flu admissions so far this season, through the latest week."
+  measure: flu_admissions_season_to_date is flu_admissions { where: is_current_season }
+  #(doc) "Population (Census, for the latest week's year)."
+  measure: population_latest is population.sum() { where: is_latest_week }
+  #(doc) "Hospitals reporting flu admissions in the latest week."
+  measure: hospitals_reporting_latest is hospitals_reporting { where: is_latest_week }
+  #(doc) "Change in the weekly flu rate per 100,000 over the last three weeks: the latest week's rate minus the rate three weeks before."
+  measure: flu_rate_change_3w is flu_rate_latest - flu_rate_3_weeks_ago
+
+  #(doc) "Every state and territory in the latest week: flu admissions and rate per 100,000, the rate a week and three weeks earlier and at the same week last season, COVID-19 and RSV admissions, and bed use. Sorted by the latest flu rate."
+  view: by_state is {
+    group_by: state_code, state_name, region, level
+    aggregate:
+      flu_rate_latest, flu_rate_prior_week, flu_rate_3_weeks_ago, flu_rate_change_3w, flu_rate_same_week_last_season
+      flu_admissions_latest, flu_admissions_prior_week, flu_admissions_season_to_date
+      covid_admissions_latest, rsv_admissions_latest
+      flu_bed_share_latest, bed_occupancy_latest, population_latest, hospitals_reporting_latest
+    order_by: flu_rate_latest desc
+  }
+
+  #(doc) "The four Census regions in the latest week: flu admissions and rate per 100,000. Puerto Rico and the territories have no Census region and are left out."
+  view: by_region is {
+    where: region is not null
+    group_by: region
+    aggregate: flu_rate_latest, flu_rate_prior_week, flu_rate_same_week_last_season, flu_admissions_latest, flu_admissions_season_to_date
+    order_by: flu_rate_latest desc
+  }
+
+  #(doc) "Weekly flu rate per 100,000 for every state over the current and last season: the grid of states by week."
+  view: state_weeks is {
+    where: s.season_end >= l.current_season_start - 7 days
+    group_by: state_code, state_name, region, week_end, season_label, season_week
+    aggregate: flu_rate, flu_admissions
+    order_by: state_code, week_end
+  }
+
+  #(doc) "One state's whole record by week: flu, COVID-19 and RSV admissions and rates, patients in hospital and bed use. Filter on state_code."
+  view: state_trend is {
+    group_by: week_end, season_label, season_week, reporting_period
+    aggregate: flu_admissions, covid_admissions, rsv_admissions, flu_rate, covid_rate, rsv_rate, flu_inpatients, covid_inpatients, rsv_inpatients, flu_bed_share, covid_bed_share, rsv_bed_share, bed_occupancy, hospitals_reporting
+    order_by: week_end
+  }
+
+  #(doc) "The weekly rows, newest first: each state's week with its admissions, patients in hospital, beds and hospitals reporting."
+  view: records is {
+    group_by: week_end, state_code, state_name, season_label, reporting_period
+    aggregate: flu_admissions, flu_rate, covid_admissions, rsv_admissions, flu_inpatients, flu_icu_patients, beds_occupied, beds_total, hospitals_reporting
+    order_by: week_end desc, state_code
+  }
+}
