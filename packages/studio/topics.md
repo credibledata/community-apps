@@ -27,19 +27,7 @@ add a topic with `Added by:` your name.
 - Risk: fetching high and low tides for every station is one API request per station per month, so the full history runs as a job; flood thresholds are NOAA's own derived values per station
 - Added by: app-builder, 2026-11-24
 
-## 3. Carbon dioxide in the air after COP31 failed
-
-- Package: `co2-keeling-curve`
-- Why now: The COP31 climate talks in Antalya ended on November 22 without a deal, https://news.google.com/rss/articles/CBMiW0FVX3lxTE4zazlrTTNEV2tGd0RQYWNBcEdIendZVHNySG96NDVwUXA5aWQwLWw2NlFsN3RPUjhfRDQ4ZDNsQ1hjR0lvZ2V2ZENMSlIxbXdocWxKam9fTkNpak0?oc=5 (BBC)
-- Data: Mauna Loa CO2 monthly means from NOAA Global Monitoring Laboratory, https://gml.noaa.gov/ccgg/trends/data.html, measured by a US federal agency and stated in the file as "made freely available to the public"; about 820 monthly rows since March 1958 (latest month October 2026, 426.69 ppm), well under 1 MiB, with daily, weekly and global-mean files alongside
-- More data: national emissions from the Global Carbon Budget (CC BY 4.0, license to check on its own page), to set countries' emissions beside the curve
-- Needs a key: none
-- Lead view: the monthly Keeling curve since 1958, with the annual growth rate per year beneath it
-- Pages: a year, with its monthly readings and growth; a country, if emissions are added; About the data
-- Risk: NOAA's file asks users to cite it rather than naming a license; without a second dataset the record is small, closer to a chart than an app
-- Added by: app-builder, 2026-11-23
-
-## 4. Thanksgiving flight delays
+## 3. Thanksgiving flight delays
 
 - Package: `us-flight-delays`
 - Why now: Storms on both coasts and airline system glitches threaten the busiest travel week of the year, https://news.google.com/rss/articles/CBMiogFBVV95cUxNRXpwaW1RekJITW11bzNyd19hUzZ0MGF1RG5PY196VmNZOXBSZEcxeUdYazJYRV9zNFFqTHBxdXMyeXNIa242aFlzcHRWbnY1bzhLYlpTUjdrM1BtZUxNczBEaV9BT0ZKUVNieFN3UlNOcWFLbUdFWEZhUW52MTk1LUM3NS1oUXY5V1o2bWpodXYxRUk4Z05TalpNblo3YlVUX1E?oc=5 (PBS)
@@ -51,7 +39,7 @@ add a topic with `Added by:` your name.
 - Risk: bts.gov refused this agent computer, so BTS's own reuse statement was not read; the data runs about two months behind, so this Thanksgiving's flights will not be in it until late January; the full history is too large to load whole and must be trimmed to Thanksgiving weeks or recent years
 - Added by: app-builder, 2026-11-24
 
-## 5. Bird flu in US dairy herds
+## 4. Bird flu in US dairy herds
 
 - Package: `bird-flu-dairy-herds`
 - Why now: Oregon confirmed its first H5N1 case in dairy cattle on November 12, the 22nd state to do so, as Washington's infected herds climb into the dozens, https://news.google.com/rss/articles/CBMihgFBVV95cUxOZlAyelU4R3VPT1Y3MlQtTWY0SDJoMTJTWlBlOGgwRHhrQnhzZ0JYc3p4WHZMdUprMGdESDRqRXVJampCX0phaWpDSU96WWhJb2t0dHhkWGlRUW9wQk9ZQmlZSzczbDlFd2hWR0JiVVRRNGlleVJ5Qnk2T3l5LTN1cUJKXzc0dw?oc=5 (OPB)
@@ -62,3 +50,15 @@ add a topic with `Added by:` your name.
 - Pages: a state, with its herds and flocks by month; About the data
 - Risk: the data is served only through APHIS's Tableau dashboards; the default flock sheet exports as a monthly CSV, and a record-level export for herds is not yet confirmed
 - Added by: app-builder, 2026-11-17
+
+## 5. Carbon dioxide in the air after COP31 failed
+
+- Package: `co2-keeling-curve`
+- Why now: The COP31 climate talks in Antalya ended on November 22 without a deal, https://news.google.com/rss/articles/CBMiW0FVX3lxTE4zazlrTTNEV2tGd0RQYWNBcEdIendZVHNySG96NDVwUXA5aWQwLWw2NlFsN3RPUjhfRDQ4ZDNsQ1hjR0lvZ2V2ZENMSlIxbXdocWxKam9fTkNpak0?oc=5 (BBC)
+- Data: Mauna Loa CO2 monthly means from NOAA Global Monitoring Laboratory, https://gml.noaa.gov/ccgg/trends/data.html, measured by a US federal agency and stated in the file as "made freely available to the public"; about 820 monthly rows since March 1958 (latest month October 2026, 426.69 ppm), well under 1 MiB, with daily, weekly and global-mean files alongside
+- More data: national emissions from the Global Carbon Budget (CC BY 4.0, license to check on its own page), to set countries' emissions beside the curve
+- Needs a key: none
+- Lead view: the monthly Keeling curve since 1958, with the annual growth rate per year beneath it
+- Pages: a year, with its monthly readings and growth; a country, if emissions are added; About the data
+- Risk: NOAA's file asks users to cite it rather than naming a license; without a second dataset the record is small, closer to a chart than an app
+- Added by: app-builder, 2026-11-23
