@@ -54,6 +54,67 @@ new MutationObserver(recolour).observe(document.documentElement, { attributes: t
 
 // ---- Queries: one request per distinct text, at most four in flight ----
 
+// Where each query was answered from (a summary Credible keeps, a stored copy, or the raw data just now), as the
+// query's response says, so a card's back can tell the reader. Publisher.query returns only the rows, so the frame
+// reads the response on its way past.
+const answered = new Map() // query text -> { servedFrom, ms, path }
+let modelAt = null
+const pageFetch = window.fetch.bind(window)
+window.fetch = async (input, init) => {
+  const res = await pageFetch(input, init)
+  try {
+    const url = typeof input === 'string' ? input : input.url
+    if (init?.method === 'POST' && init.body && /\/models\/[^/]+\/query(\?|$)/.test(url)) {
+      const q = JSON.parse(init.body).query
+      if (q) {
+        modelAt ||= { url: url.replace(/\/query(\?.*)?$/, ''), init: { credentials: init.credentials, headers: Object.fromEntries(Object.entries(init.headers || {}).filter(([k]) => k.toLowerCase() !== 'content-type')) } }
+        res.clone().json().then((j) => answered.set(q, { servedFrom: j.servedFrom ?? null, ms: j.executionTimeMs, path: j.path }), () => {})
+      }
+    }
+  } catch {
+    // Not a query, or not JSON: nothing to record.
+  }
+  return res
+}
+/** The tables Credible built for this package, from its build plan, and when the last build finished. */
+let servedP = null
+function servedTables() {
+  if (!servedP) {
+    const base = modelAt?.url.replace(/\/models\/.*$/, '')
+    const get = (path) => pageFetch(`${base}/${path}`, modelAt.init).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+    servedP = !base ? Promise.resolve(null) : Promise.all([get('build-plan'), get('materializations')]).then(([plan, runs]) => {
+      if (!plan?.sources) return null
+      const tables = new Map(Object.values(plan.sources).map((src) => [src.sourceEntityId, { name: src.name, rollup: src.preaggregate || null }]))
+      const done = (Array.isArray(runs) ? runs : []).filter((r) => r.status === 'MANIFEST_FILE_READY' && r.completedAt).sort((a, b) => String(b.completedAt).localeCompare(String(a.completedAt)))[0]
+      return { tables, builtAt: done?.completedAt || null }
+    })
+  }
+  return servedP
+}
+/** "Read from a summary Credible keeps…", "Worked out from the raw data just now", or nothing when unknown. */
+function answeredFrom(qs) {
+  const el = h('p', { class: 'back__where' })
+  const seen = qs.map((q) => answered.get(q)).filter(Boolean)
+  if (!seen.length) return el
+  const kinds = seen.map((a) => a.path?.servedBy?.kind || (a.servedFrom ? 'materialized' : 'live'))
+  const ms = Math.max(...seen.map((a) => a.ms || 0))
+  const say = (text) => (el.textContent = `${text} Answered in ${ms} ms.`)
+  const words = (n) => String(n).replace(/_/g, ' ')
+  const list = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}` : xs[0] || '')
+  if (kinds.every((k) => k === 'live')) say('Worked out from the raw data just now.')
+  else {
+    say(kinds.includes('rollup') ? 'Read from a summary Credible keeps of the data.' : 'Read from a copy of the data Credible keeps.')
+    servedTables().then((t) => {
+      const built = t?.builtAt ? `, last built ${new Date(t.builtAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''
+      const used = seen.map((a) => t?.tables.get(a.path?.servedBy?.tableId)).filter(Boolean)
+      const roll = used.find((x) => x.rollup)?.rollup
+      if (roll) say(`Read from a summary Credible keeps of the data: one row for each ${list(roll.grainDimensions.map(words))}, with ${list(roll.measures.map(words))} already added up${built}, so it does not add up every row each time it opens.`)
+      else if (used.length) say(`Read from a copy of the data Credible keeps${built}, so it does not reach back to the raw data each time it opens.`)
+    })
+  }
+  return el
+}
+
 const cache = new Map()
 const queue = []
 let inFlight = 0
@@ -345,6 +406,7 @@ function howMade(spec, results, finding, title, status = 'ok') {
     part('What it covers', h('p', { text: `${chips.length ? `${chips.join(', ')}.` : 'All of the data.'}${ignored.length ? ` It does not apply the filter${ignored.length > 1 ? 's' : ''} ${ignored.join(', ')}.` : ''}` })),
     spec.method && part('What it leaves out', h('p', { text: spec.method })),
     part('How it is counted', working(qs, spec.explain || [], results, status)),
+    status === 'ok' && qs.some((q) => answered.has(q)) && part('Where the answer came from', answeredFrom(qs)),
     inCredible() && h('button', { type: 'button', class: 'btn back__ask', text: 'Ask Credible about this', onclick: () => askCredible(
       `${document.title}, "${title}": ${finding ? `${finding} ` : ''}What is behind this, and what should I look at next?`,
       { scope: { package: decodeURIComponent(location.pathname.match(/\/packages\/([^/]+)/)?.[1] || ''), model: S.MODEL }, view: { type: 'card', id: title, title },

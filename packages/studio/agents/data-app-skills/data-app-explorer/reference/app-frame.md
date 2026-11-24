@@ -47,6 +47,42 @@ Read it once. Everything above `// ---- Views` is the frame; keep it as it is:
 Below it, `boot()` (its lists and the "Data through" line are marked ADAPT) and the views, a sketch to replace with
 this app's.
 
+## Make it fast: store the source, roll up what it adds
+
+An app over a managed table is materialized: Credible stores the app's main source as a table and keeps rollups of
+the figures it adds up, and each card's info mark says which one answered and how it was built ("a summary
+Credible keeps of the data: one row for each state, cause and day, with acres burned and fires already added up,
+last built 24 November"). A small file in `data/` needs neither.
+
+```malloy
+#(doc) One row per fire, with the fields the app filters by stored beside each one.
+#(materialize)
+source: fires is community.table('wildfires__fires') extend {
+  dimension:
+    discovery_date is discovered_at.day            // a day, so a rollup can filter a period on it
+  measure:
+    #(rollup) grain=["discovery_date", "state", "cause", "size_class"]
+    fire_count is count()
+    #(rollup) grain=["discovery_date", "state", "cause", "size_class"]
+    acres_burned is acres.sum()
+    #(rollup) grain=["discovery_date", "state", "cause", "size_class"]
+    acres_per_fire is acres_burned / nullif(fire_count, 0)   // a ratio of rolled-up sums rolls up when it says so too
+}
+```
+
+- **`#(materialize)` on the source** the scope module names (`SOURCE` in `scope.js`).
+- **`#(rollup) grain=[…]` on every measure that sums or counts, and on ratios of them.** The grain is the date and
+  the scope's fields, the four to seven a reader filters by; leave out one with thousands of values (a ZIP code),
+  which makes the rollup nearly as big as the source.
+- **No rollup on a distinct count or on a measure that reads a joined column**: Publisher refuses it, and the
+  measure is answered from the stored source, which is still fast.
+- **A view answers from a rollup when it groups by grain fields and aggregates rolled-up measures**, with the scope
+  as a plain `where`. A view that nests, calculates over rows, or filters a measure inside itself is answered from
+  the stored source. Write the cards' views that way where it costs nothing.
+- **Check it** once published: a card's info mark says "Read from a summary Credible keeps…". Where Credible's
+  materialization is not switched on, the annotations are ignored and every card says "Worked out from the raw data
+  just now."
+
 ## Before you build on it
 
 - Load the app in the box at `#/`, `#/explore`, an entity's address and `#/about`; each shows data, and the console
