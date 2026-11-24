@@ -10,3 +10,4 @@ publisher_data/
 server.log
 .mcp.json
 .DS_Store
+__pycache__/

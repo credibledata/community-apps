@@ -17,7 +17,7 @@ APART, APART_CVD = 18.0, 10.0  # least CIELAB distance between two categories, n
 COLOURS = re.compile(r"(?:bg|panel|band(?:-text)?|text(?:-strong|-muted)?|accent|c-bar|up|down|c[1-6]|seq-[0-5])")
 
 
-def tokens(css, theme=None, mode="light"):
+def tokens(css, theme=None, mode="light", system=False):
     """Every --token in the top-level :root blocks, later ones winning; a :root inside @media is not the page. With a
     theme, that theme's light block, then its dark block for mode dark, after the plain :root blocks."""
     css, found, depth, i = re.sub(r"/\*.*?\*/", "", css, flags=re.S), {}, 0, 0
@@ -30,8 +30,10 @@ def tokens(css, theme=None, mode="light"):
         i += 1
     if theme:
         for dark in ([False, True] if mode == "dark" else [False]):
-            sel = re.escape(f':root[data-theme="{theme}"]') + (re.escape('[data-mode="dark"]') if dark else "")
-            for m in re.finditer(r"(?m)^" + sel + r"\s*\{([^}]*)\}", css):
+            # Dark chosen in the address, or (system=True) a reader whose system is dark: the block inside @media.
+            dark_sel = re.escape(':not([data-mode="light"])') if system else re.escape('[data-mode="dark"]')
+            sel = re.escape(f':root[data-theme="{theme}"]') + (dark_sel if dark else "")
+            for m in re.finditer(sel + r"\s*\{([^}]*)\}", css):
                 found.update((k, v.strip().lower()) for k, v in re.findall(r"--([\w-]+)\s*:\s*([^;]+)", m.group(1)))
     return found
 
@@ -81,16 +83,31 @@ def distance(a, b, kind=None):
 
 
 def main(paths):
-    theme = paths[paths.index("--theme") + 1] if "--theme" in paths else None
-    mode = paths[paths.index("--mode") + 1] if "--mode" in paths else "light"
+    flag = lambda f, default: paths[paths.index(f) + 1] if f in paths and paths.index(f) + 1 < len(paths) else (default if f not in paths else "")
+    theme = flag("--theme", None) or None
+    mode = flag("--mode", "light")
+    if "--theme" in paths and not theme:
+        print("--theme needs a theme's name")
+        return 2
     paths = [p for i, p in enumerate(paths) if p not in ("--theme", "--mode") and (i == 0 or paths[i - 1] not in ("--theme", "--mode"))]
     if not paths or mode not in ("light", "dark"):
         print(__doc__)
         return 2
     # One stylesheet, as the browser cascades the files: every plain :root first, then the theme's blocks in file order,
     # so an app's override in styles.css wins over themes.css and the template's fallback :root never does.
-    t = tokens("\n".join(open(path, encoding="utf-8").read() for path in paths), theme, mode)
+    css = "\n".join(open(path, encoding="utf-8").read() for path in paths)
+    # data-theme='x' and data-theme=x select the same as data-theme="x": read them all one way.
+    css = re.sub(r"""\[data-(theme|mode)=['"]?([\w-]+)['"]?\]""", r'[data-\1="\2"]', css)
+    if theme and f':root[data-theme="{theme}"]' not in css:
+        print(f"no theme {theme!r} in {', '.join(paths)}")
+        return 1
+    t = tokens(css, theme, mode)
     fails, notes = [], []
+    if theme and mode == "dark":
+        # A reader whose system is dark gets the @media block, not [data-mode="dark"]: an override needs both.
+        sys_dark = tokens(css, theme, mode, system=True)
+        for name in sorted(k for k in t if COLOURS.fullmatch(k) and sys_dark.get(k) != t[k]):
+            fails.append(f"--{name} is {t[name]} in dark chosen in the address but {sys_dark.get(name)} for a reader whose system is dark: give the override under @media (prefers-color-scheme: dark) too")
     for name in [k for k in t if COLOURS.fullmatch(k)]:
         if not re.fullmatch(r"#[0-9a-f]{6}", t[name]):
             fails.append(f"--{name} is {t.pop(name)}: write it as six-digit hex so it can be checked")

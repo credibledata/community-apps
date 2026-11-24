@@ -22,7 +22,8 @@ mkdir -p public && for f in index.html app.js scope.js styles.css; do [ -e publi
 chmod -R u+w public
 ```
 
-Then the chart module and d3 as `reference/charts.md` says, and `fonts.css` as `reference/fonts.md` says.
+Then the chart module, `themes.css` and d3 as `reference/charts.md` says, and `fonts.css` as `reference/fonts.md`
+says. Those are shared, not the app's own: copy them again whenever the templates change, as a revisit does.
 
 ## What `app.js` holds
 

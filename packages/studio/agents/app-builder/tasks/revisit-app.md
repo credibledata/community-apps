@@ -34,14 +34,16 @@ instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rat
    this revisit is for. This revisit may create managed tables. In order: (1) Refresh the data, only when its source has
    published newer data than the app holds: run its `pipeline/` scripts and load the result as a new table named
    for the month (`<table>_<yyyymm>`), since a table cannot be replaced; point the model at it, and name the table it
-   replaces in the hand-over. (2) Take the latest frame from the studio package mounted beside this one, as `data-app-explorer`'s
-   `reference/app-frame.md` says: copy its shared files (`charts.js`, `charts.css`, `themes.css`, `vendor/`) over
-   the app's, carry the template's frame (everything in `app.js` above `// ---- Views`) into the app's `app.js` while
-   keeping the app's own views and the lines marked ADAPT, carry the template's card rules into the app's `styles.css`
-   (from the comment `/* The info mark in a card's corner` to the next comment, and the `.map` rules), make its
-   `index.html` link `themes.css` before `styles.css` as the template's does, and give the app a theme on `<html>` if
-   it has none, as `reference/design.md` "Colour" says. Keep every view the app has, and check a card's info mark
-   opens and closes at both widths. (3) Add one source that
+   replaces in the hand-over. (2) Take the frame's newer parts from the studio package mounted beside
+   this one, never its whole frame: the app's own helpers, `boot()` and query code stay as they are. Copy the shared
+   files (`charts.js`, `charts.css`, `themes.css`, `vendor/`) over the app's. In `app.js`, replace the app's `tile()`
+   and `working()` with the template's and add `howMade()`, `infoIcon()`, `inCredible()` and `askCredible()`, then the
+   template's theme and mode block (from the comment `---- Theme and mode` through the `MutationObserver` line) if the app lacks it,
+   and drop any Ask code of its own that the info mark replaces. In `styles.css`, add the template's card rules (from
+   the comment `/* The info mark in a card's corner` to the next comment), its `.map` rules and its header logo rules.
+   Make `index.html` link `themes.css` before `styles.css`, and give the app a theme on `<html>` if it has none, as
+   `reference/design.md` 'Colour' says. Keep every view the app has. Load every view in the box and check that each
+   card's info mark opens and closes, at both widths, in light and dark. (3) Add one source that
    makes it deeper, found with `dataset-scout`: a second dataset joined by place or time that answers the next
    question a reader asks, or the one its 'What is next' named. Use a source that needs a key only when the
    environment holds that key. Then check, shoot and

@@ -76,8 +76,9 @@ def theme_accent(index_html: str, themes_css: str) -> str | None:
         return None
     css = re.sub(r"/\*.*?\*/", "", themes_css.replace("\r\n", "\n"), flags=re.S)
     head = re.escape(':root[data-theme="' + named.group(1) + '"]')
-    block = re.search("^" + head + r" \{\n(.*?)^\}", css, re.S | re.M)
-    return accent_of(block.group(1)) if block else None
+    # Every block for the theme, in file order, as one: the last --accent wins, as in the browser.
+    blocks = [m.group(1) for m in re.finditer(head + r"\s*\{([^}]*)\}", css)]
+    return accent_of("\n".join(blocks)) if blocks else None
 
 
 def takes_drawn_cards(apps_ts: str) -> bool:
@@ -145,7 +146,9 @@ def read_card(package: Path) -> tuple[str, dict, str | None]:
     public = package / "public"
     accent = card.get("accent")
     if not accent and (public / "themes.css").is_file() and (public / "index.html").is_file():
-        accent = theme_accent((public / "index.html").read_text(), (public / "themes.css").read_text())
+        # styles.css after themes.css, as the page links them, so an app's own override of its theme's accent wins.
+        styles = (public / "styles.css").read_text() if (public / "styles.css").is_file() else ""
+        accent = theme_accent((public / "index.html").read_text(), (public / "themes.css").read_text() + "\n" + styles)
     if not accent and (public / "styles.css").is_file():
         accent = accent_of((public / "styles.css").read_text())
     return slug, card, accent

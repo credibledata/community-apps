@@ -168,6 +168,13 @@ class MainTest(unittest.TestCase):
         self.assertEqual(self.run_main(), 0)
         self.assertIn("accent: '#2f5d3a',", (self.site / "src/content/apps.ts").read_text())
 
+    def test_an_apps_own_override_of_its_theme_accent_is_listed(self):
+        (self.pkg / "public/themes.css").write_text(':root[data-theme="meadow"] {\n  --accent: #2f5d3a;\n}\n')
+        (self.pkg / "public/styles.css").write_text(':root { --accent: #7a4520; }\n:root[data-theme="meadow"] {\n  --accent: #8a1c2b;\n}\n')
+        (self.pkg / "public/index.html").write_text('<html data-theme="meadow">')
+        self.assertEqual(self.run_main(), 0)
+        self.assertIn("accent: '#8a1c2b',", (self.site / "src/content/apps.ts").read_text())
+
     def test_the_cards_own_accent_wins_over_the_theme(self):
         (self.pkg / "public/themes.css").write_text(':root[data-theme="meadow"] {\n  --accent: #2f5d3a;\n}\n')
         (self.pkg / "public/index.html").write_text('<html data-theme="meadow">')

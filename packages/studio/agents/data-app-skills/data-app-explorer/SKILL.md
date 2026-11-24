@@ -180,6 +180,6 @@ On top of the checks in `data-app-page`:
 - Search finds an entity by part of its name and opens its page; Back returns to where the reader was.
 - Clearing every chip returns Explore to how it loads.
 
-Add to your hand-over: the views, the scope keys, the entity, the native chart and why, the accent and categories you
-chose and why, any card that ignores a key, each chart's form and the form it beat, and how the app differs from
+Add to your hand-over: the views, the scope keys, the entity, the native chart and why, the theme you chose and why, and
+what each category colour means, any card that ignores a key, each chart's form and the form it beat, and how the app differs from
 the plan.
