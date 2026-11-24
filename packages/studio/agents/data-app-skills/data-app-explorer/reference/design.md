@@ -64,9 +64,12 @@ news. Set the app's on `<html>` in `index.html`: `<html lang="en" data-theme="la
   label and chip. Only `--c1` may be the accent; fewer categories are better. `--c-bar` is the neutral for a count
   with no category, the ramp `--seq-0` to `--seq-5` is for maps and heatmaps, and `--up` and `--down` are bad news and
   good news, not up and down.
-- **Don't hand-pick colours.** Override a token only for a subject with its own colour (a party): on
-  `:root[data-theme="<theme>"]` and on `:root[data-theme="<theme>"][data-mode="dark"]` in `styles.css`, never in
-  `themes.css`, then run `reference/palette-check.md` for both modes. The tokens on `:root` in `styles.css` are only a
+- **Don't hand-pick colours.** Override a token only for a subject with its own colour (a party), in `styles.css`,
+  never in `themes.css`, under the theme's own three selectors so it wins in every mode: `:root[data-theme="<theme>"]`
+  for light, `:root[data-theme="<theme>"][data-mode="dark"]` for dark chosen in the address, and
+  `@media (prefers-color-scheme: dark) { :root[data-theme="<theme>"]:not([data-mode="light"]) { … } }` for a reader
+  whose system is dark. `index.html` links `themes.css` before `styles.css`, so these come last. Then run
+  `reference/palette-check.md` for both modes. The tokens on `:root` in `styles.css` are only a
   fallback for a page with no theme.
 
 ## Looks

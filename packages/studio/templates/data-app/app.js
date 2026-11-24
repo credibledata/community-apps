@@ -39,7 +39,7 @@ if (window.parent !== window) {
   addEventListener('message', (e) => {
     const d = e.data
     if (e.source !== window.parent || !d || d.type !== 'credible:color-scheme' || !['light', 'dark'].includes(d.mode)) return
-    if (!fixed) document.documentElement.dataset.mode = d.mode
+    if (!fixed && document.documentElement.dataset.mode !== d.mode) document.documentElement.dataset.mode = d.mode // the same mode again redraws nothing
     e.source.postMessage({ type: 'credible:color-scheme-applied', mode: fixed ? document.documentElement.dataset.mode : d.mode }, e.origin === 'null' ? '*' : e.origin)
   })
   window.parent.postMessage({ type: 'credible:color-scheme-request' }, '*')
@@ -144,6 +144,7 @@ window.addEventListener('popstate', () => {
 // ---- Tiles: a card that loads its queries when it comes near the screen ----
 
 let epoch = 0
+let backs = 0
 const io = new IntersectionObserver(
   (entries) => {
     for (const e of entries) {
@@ -156,9 +157,10 @@ const io = new IntersectionObserver(
 )
 
 /**
- * tile({ title, sub, cls, queries: () => [q...], explain: [what each query counts, in plain words],
+ * tile({ title, sub, cls, tile, queries: () => [q...], explain: [what each query counts, in plain words],
  *        draw: (results, body) => void or a promise, finding: (results) => sentence or prose() parts,
  *        method: what the card leaves out and why, note })
+ * `tile` names its entry in scope.js's TILES, so its back leaves out of "What it covers" the keys the card ignores.
  * Once loaded, a card is drawn again in place when the scope changes: its chart stays, dimmed, until the new rows
  * arrive, then its marks move, its numbers count, and its body eases to its new height.
  */
@@ -171,18 +173,23 @@ function tile(spec) {
   let results = []
   // The info mark turns the card over to how it is made: what it covers and leaves out, each query with what it
   // counts and its rows, and, inside Credible, a question to Credible's agent about it.
-  const back = h('div', { class: 'card__back', role: 'region', 'aria-label': `How “${title}” is made`, hidden: true })
-  const info = h('button', { type: 'button', class: 'card__info', 'aria-expanded': 'false', 'aria-label': `How “${title}” is made`, title: 'How it’s made' }, infoIcon())
+  const backId = `back-${++backs}`
+  const back = h('div', { class: 'card__back', id: backId, role: 'region', 'aria-label': `How “${title}” is made`, hidden: true })
+  const info = h('button', { type: 'button', class: 'card__info', 'aria-expanded': 'false', 'aria-controls': backId, 'aria-label': `How “${title}” is made`, title: 'How it’s made' }, infoIcon())
+  const fill = () => back.replaceChildren(...howMade(current, results, found.textContent, title))
   const flip = (open) => {
+    // Closing with focus inside the back would drop it to the page: it goes back to the info mark first.
+    if (!open && back.contains(document.activeElement)) info.focus()
     if (open) {
       back.style.minHeight = `${card.offsetHeight - card.querySelector('.card__head').offsetHeight}px`
-      back.replaceChildren(...howMade(current, results, found.textContent, title))
+      fill()
     }
     back.hidden = !open
     card.classList.toggle('card--back', open)
     info.setAttribute('aria-expanded', String(open))
   }
   info.onclick = () => flip(back.hidden)
+  back.addEventListener('keydown', (e) => e.key === 'Escape' && flip(false))
   const card = h(
     'article',
     { class: `card ${cls}`, 'data-key': `${cls}|${title}` },
@@ -233,7 +240,9 @@ function tile(spec) {
         })
       })
       .then(() => {
-        if (mine === epoch) card.dataset.loaded = '1'
+        if (mine !== epoch) return
+        card.dataset.loaded = '1'
+        if (!back.hidden) fill() // opened while loading: now it has the rows
       })
       .finally(() => mine === epoch && card.classList.remove('is-updating'))
       .catch((err) => {
@@ -304,11 +313,13 @@ function infoIcon() {
 /** The back of a card: how it is made. */
 function howMade(spec, results, finding, title) {
   const part = (head, ...kids) => h('section', { class: 'back__part' }, h('h4', { text: head }), ...kids)
-  const chips = S.scopeChips(scope, S.skipFor ? S.skipFor(route.view) : []).map((c) => c.label)
+  const own = (spec.tile && S.TILES?.[spec.tile]?.ignore) || []
+  const chips = S.scopeChips(scope, [...(S.skipFor ? S.skipFor(route.view) : []), ...own]).map((c) => c.label)
+  const ignored = S.scopeChips(scope).filter((c) => own.includes(c.key)).map((c) => c.label)
   const qs = spec.queries()
   return [
     spec.sub && part('What it shows', h('p', { text: spec.sub })),
-    part('What it covers', h('p', { text: chips.length ? `${chips.join(', ')}.` : 'All of the data, with no filter set.' })),
+    part('What it covers', h('p', { text: `${chips.length ? `${chips.join(', ')}.` : 'All of the data, with no filter set.'}${ignored.length ? ` It leaves out ${ignored.join(', ')}, so every choice shows here to pick from.` : ''}` })),
     spec.method && part('What it leaves out', h('p', { text: spec.method })),
     part('How it is counted', working(qs, spec.explain || [], results)),
     inCredible() && h('button', { type: 'button', class: 'btn back__ask', text: 'Ask Credible about this', onclick: () => askCredible(
@@ -349,8 +360,8 @@ function working(qs, explain, results) {
       explain[i] && h('p', { text: explain[i] }),
       h('pre', { text: q }),
       h('span', { text: `${rows.length} row${rows.length === 1 ? '' : 's'}${rows.length > 100 ? ', the first 100 shown' : ''}` }),
-      cols.length && h('button', { type: 'button', class: 'btn btn--small', text: 'Download CSV', onclick: () => downloadCsv(rows, cols, i) }),
-      cols.length && h('div', { class: 'working__rows' }, h('table', {},
+      cols.length > 0 && h('button', { type: 'button', class: 'btn btn--small', text: 'Download CSV', onclick: () => downloadCsv(rows, cols, i) }),
+      cols.length > 0 && h('div', { class: 'working__rows' }, h('table', {},
         h('thead', {}, h('tr', {}, ...cols.map((c) => h('th', { text: c })))),
         h('tbody', {}, ...rows.slice(0, 100).map((r) => h('tr', {}, ...cols.map((c) => h('td', { class: typeof r[c] === 'number' ? 'num' : null, text: cell(r[c]) }))))))))
   }))
@@ -650,12 +661,14 @@ function explore() {
     ...viewHead('Explore', 'Click a bar to filter everything; the address keeps the view.'),
     section('Where', 'Which boroughs and ZIP codes complain most.',
       tile({
+        tile: 'boroughs',
         title: 'By borough', sub: 'Click a borough to filter.',
         queries: () => [S.tileQuery('boroughs', scope, known)],
         explain: ['Complaints per borough under the scope.'],
         draw: ([rows], body) => C.bars(chartBox(body), rows.map((r) => ({ label: r.borough, value: r.complaint_count })), { horizontal: true, selected: scope.borough, onPick: (b) => toggleScope('borough', b) }),
       }),
       tile({
+        tile: 'zips',
         title: 'Top ZIP codes', sub: 'Open a ZIP code’s page.',
         queries: () => [S.tileQuery('zips', scope, known)],
         explain: ['The ZIP codes with the most complaints under the scope, and each one\'s change on the year before.'],

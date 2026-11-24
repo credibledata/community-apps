@@ -37,9 +37,11 @@ instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rat
    replaces in the hand-over. (2) Take the latest frame from the studio package mounted beside this one, as `data-app-explorer`'s
    `reference/app-frame.md` says: copy its shared files (`charts.js`, `charts.css`, `themes.css`, `vendor/`) over
    the app's, carry the template's frame (everything in `app.js` above `// ---- Views`) into the app's `app.js` while
-   keeping the app's own views and the lines marked ADAPT, and give the app a theme on `<html>` if it has none, as
-   `reference/design.md` "Colour" says. Keep every view the app has. End the README with the line `Built by
-   Credible's app-builder.` if it lacks it. (3) Add one source that
+   keeping the app's own views and the lines marked ADAPT, carry the template's card rules into the app's `styles.css`
+   (from the comment `/* The info mark in a card's corner` to the next comment, and the `.map` rules), make its
+   `index.html` link `themes.css` before `styles.css` as the template's does, and give the app a theme on `<html>` if
+   it has none, as `reference/design.md` "Colour" says. Keep every view the app has, and check a card's info mark
+   opens and closes at both widths. (3) Add one source that
    makes it deeper, found with `dataset-scout`: a second dataset joined by place or time that answers the next
    question a reader asks, or the one its 'What is next' named. Use a source that needs a key only when the
    environment holds that key. Then check, shoot and

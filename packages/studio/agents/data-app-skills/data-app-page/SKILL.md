@@ -50,9 +50,9 @@ This is the whole page at low effort. At high effort, the page below the answer 
   `reference/charts.md` says. Choose each chart for its finding, as `data-app-explorer`'s "Plan the app" says: a line
   for change over time, bars for comparing places or categories, sorted. A map only when the pattern in space is the
   finding and the boundaries ship with the package. No pie charts with more than three
-  slices. Label units on axes. The module reads its colours and type from the page's tokens, so start `styles.css` from the
-  `:root` block in that skill's `reference/design.md`, link `themes.css` after it and choose a theme on `<html>` as its
-  "Colour" says, and write `fonts.css` as its `reference/fonts.md` says, linked before `styles.css`.
+  slices. Label units on axes. The module reads its colours and type from the page's tokens, so copy `styles.css` and `themes.css` from
+  the templates as that skill's `reference/app-frame.md` says, link `themes.css` before `styles.css`, choose a theme on
+  `<html>` as its `reference/design.md` "Colour" says, and write `fonts.css` as its `reference/fonts.md` says, linked before `styles.css`.
 - **Every state has an address.** Keep the page's state (a toggle, a tab, a filter) in the URL hash, for example
   `#fuel=diesel&area=states`, and read it on load. A visitor can share a view, and you can screenshot it.
 - **Phone first.** One column under 640 px wide, with charts at full width and readable at 390 px. No `100vh`;
@@ -63,8 +63,8 @@ This is the whole page at low effort. At high effort, the page below the answer 
 
 ## Hand-off to the agent
 
-When the app runs inside Credible, every card's info mark already offers "Ask Credible about this". Add an
-"Ask about this" action under the lead and on each view too. It sends a
+When the app runs inside Credible, add an "Ask about this" action under the lead and on each view. An app built on
+the frame's cards (`data-app-explorer`) also has "Ask Credible about this" on every card's info mark. It sends a
 specific question to Credible's agent with the `credible:chat-message` event described in
 `credible-data-apps`, such as "Which states had the largest rise in measles cases this year?". This is how a
 visitor goes from reading the app to using Credible.

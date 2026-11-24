@@ -3,7 +3,7 @@
 """Check a data app's colour tokens: contrast on the page, categories a reader can tell apart (also with red-green
 colour blindness), a sequential ramp that darkens step by step (brightens, on a dark page), and one meaning per colour.
 
-Usage: python3 -I palette.py <styles.css> [more.css ...] [--theme NAME [--mode light|dark]]: a later file's tokens
+Usage: python3 -I palette.py <themes.css> <styles.css> [more.css ...] [--theme NAME [--mode light|dark]]: a later file's tokens
 override an earlier one's. With --theme, a file's :root[data-theme="NAME"] block counts too, and with --mode dark its
 :root[data-theme="NAME"][data-mode="dark"] block after it: run it once per mode for an app on a theme.
 """
@@ -87,9 +87,9 @@ def main(paths):
     if not paths or mode not in ("light", "dark"):
         print(__doc__)
         return 2
-    t = {}
-    for path in paths:
-        t.update(tokens(open(path, encoding="utf-8").read(), theme, mode))
+    # One stylesheet, as the browser cascades the files: every plain :root first, then the theme's blocks in file order,
+    # so an app's override in styles.css wins over themes.css and the template's fallback :root never does.
+    t = tokens("\n".join(open(path, encoding="utf-8").read() for path in paths), theme, mode)
     fails, notes = [], []
     for name in [k for k in t if COLOURS.fullmatch(k)]:
         if not re.fullmatch(r"#[0-9a-f]{6}", t[name]):
