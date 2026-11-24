@@ -50,7 +50,8 @@ instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rat
    card's info mark opens and closes and Credible's logo shows, at both widths, in light and dark. (3) Add one source that
    makes it deeper, found with `dataset-scout`: a second dataset joined by place or time that answers the next
    question a reader asks, or the one its 'What is next' named. Use a source that needs a key only when the
-   environment holds that key. Then check, shoot and
+   environment holds that key. (4) Materialize the app's source with rollups if it is not yet, as
+   `data-app-explorer`'s `reference/app-frame.md` 'Make it fast' says. Then check, shoot and
    hand over as a build does, with `publish_package` opening the pull request for review. Its description says that
    approving it republishes the live app (the app is already listed), and starts
    with what changed for a reader."

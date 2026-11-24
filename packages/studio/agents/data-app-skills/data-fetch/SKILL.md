@@ -86,8 +86,8 @@ instructions say.
   holds only lowercase letters, digits and underscores, at most 63: `colorado_river_reservoirs__readings`. You
   cannot replace or delete a table, so load it once the shape is final; if the name is taken, add `_v2`. A revisit
   that refreshes the data loads a new table named for the month instead (`<table>_<yyyymm>`).
-- Read it in the model as `community.table('colorado_river_reservoirs__readings')`. A source over a managed table can be
-  materialized; read `credible-materialization` before adding a `#@ persist`.
+- Read it in the model as `community.table('colorado_river_reservoirs__readings')`. The app's source over it is
+  materialized with rollups, as `data-app-explorer`'s `reference/app-frame.md` "Make it fast" says.
 - Nothing loaded is in the package or its pull request. Name each table, its rows and the script that wrote its
   file in the README's "Rebuild" section, and list them in the hand-over.
 

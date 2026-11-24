@@ -118,6 +118,9 @@ support is left out; no number goes in a static caption, sub-line or legend, whe
 change between small groups shows only where the model's threshold says there is enough, and the card says how many
 it left out.
 
+**Fast because Credible stores it.** The app's source is a managed table, so it is materialized with rollups, as
+`reference/app-frame.md` "Make it fast" says, and each card's info mark then says which table answered.
+
 **Credible's viewer shapes the frame.** The app runs in a frame as tall as its content, at most 20,000 px, and the
 host page scrolls. So: no drawers, popups or `position: fixed`; nothing that only works when it sticks; each view
 under about 5,000 px at desktop width, so a long Explore splits a section into its own view. The frame handles the rest: a new view scrolls the reader to its top.

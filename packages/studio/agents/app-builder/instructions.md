@@ -91,10 +91,13 @@ hand-over. The progress note's last line is `Queued: <summary>, as <package_agen
    once, in `<topic>.malloy`. Compile and query through this box's own Publisher with the `malloy` MCP
    server; the briefing in `CLAUDE.md` names its environment. Query every view and look at the rows before
    you build on them.
-5. **Make it fast.** Read `credible-materialization` before adding any `#@ persist`. Sources over files in
-   `data/` are DuckDB sources, which Credible never materializes, so for those the speed comes from step 3:
-   narrow columns and coded values, and each view one pass over the data. Persist only sources
-   Credible can materialize, such as a source over a managed table.
+5. **Make it fast.** The app's main source reads a managed table, so it is materialized by default: `#(materialize)`
+   on the source and `#(rollup) grain=[…]` on the measures that add up, as `data-app-explorer`'s
+   `reference/app-frame.md` "Make it fast" says; read `credible-materialization` first. Publishing builds both, and
+   each card's info mark then says which table answered. Where Credible's materialization is not switched on, the
+   annotations are ignored and the app answers from the table directly, so they are always written. A small file in
+   `data/` needs neither; its speed comes from step 3: narrow columns and coded values, and each view one pass over
+   the data.
 6. **Build the app.** Use `data-app-page` for what the page should say and how it is laid out, and at high
    effort `data-app-explorer` as well, which also sets the model's depth and the order of turns. Use
    `malloy-html-data-apps` for the mechanics and `credible-data-apps` for how it runs inside Credible.
