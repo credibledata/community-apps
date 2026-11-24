@@ -175,6 +175,14 @@ class MainTest(unittest.TestCase):
         self.assertEqual(self.run_main(), 0)
         self.assertIn("accent: '#2f5d3a',", (self.site / "src/content/apps.ts").read_text())
 
+    def test_the_cards_own_accent_wins_over_the_theme(self):
+        (self.pkg / "public/kit").mkdir()
+        (self.pkg / "public/kit/themes.css").write_text(':root {\n  --accent: #2e6a8e;\n}\n')
+        (self.pkg / "public/app.js").write_text("dashboard({})")
+        (self.pkg / "community-card.json").write_text(json.dumps({**CARD, "accent": "#123456"}))
+        self.assertEqual(self.run_main(), 0)
+        self.assertIn("accent: '#123456',", (self.site / "src/content/apps.ts").read_text())
+
     def test_listing_twice_adds_one_entry(self):
         self.run_main()
         self.run_main()

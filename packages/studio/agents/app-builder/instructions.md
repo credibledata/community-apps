@@ -49,7 +49,8 @@ already there; never change either.
   reader should query.
 - `public/`: the data app, on the studio's dashboard kit (`public/kit/`, copied whole), with its own `index.html`
   and `app.js`.
-- `README.md`: what the app shows, the articles it responds to, and the sources table from `data-fetch`.
+- `README.md`: what the app shows, the articles it responds to, and the sources table from `data-fetch`. Its last
+  line is exactly `Built by Credible's app-builder.`, which is how the monthly revisit knows the app is this agent's.
 - `community-card.json`: the catalogue card, described below.
 - `card.svg`: the card's art, a 320 x 200 drawing of the app's lead view (`card-art`).
 - A one-line `description` of the app in `publisher.json`.

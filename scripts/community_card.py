@@ -71,7 +71,7 @@ def accent_of(styles_css: str) -> str | None:
 def theme_accent(app_js: str, themes_css: str) -> str | None:
     """A kit app's colour: the light `--accent` of the theme its config names (`theme: 'harvest'`), or of the
     default theme, the plain `:root` block, when it names none. None when that is not a hex colour."""
-    code = re.sub(r"/\*.*?\*/|//[^\n]*", "", app_js, flags=re.S)
+    code = re.sub(r"/\*.*?\*/|(?:^|(?<=\s))//[^\n]*", "", app_js, flags=re.S | re.M)
     named = re.search(r"\btheme:\s*['\"]([a-z]+)['\"]", code)
     css = re.sub(r"/\*.*?\*/", "", themes_css.replace("\r\n", "\n"), flags=re.S)
     block = None

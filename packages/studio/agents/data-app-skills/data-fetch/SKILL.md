@@ -84,7 +84,8 @@ instructions say.
 - Load each file with `create_database_table`, as your briefing describes, into database `community`, never the
   default `credible` one. Name it `<package>__<table>` with the package's hyphens as underscores, since a table name
   holds only lowercase letters, digits and underscores, at most 63: `colorado_river_reservoirs__readings`. You
-  cannot replace or delete a table, so load it once the shape is final; if the name is taken, add `_v2`.
+  cannot replace or delete a table, so load it once the shape is final; if the name is taken, add `_v2`. A revisit
+  that refreshes the data loads a new table named for the month instead (`<table>_<yyyymm>`).
 - Read it in the model as `community.table('colorado_river_reservoirs__readings')`. The app's source over it is
   materialized with rollups, as `data-app-explorer`'s `reference/app-frame.md` "Make it fast" says.
 - Nothing loaded is in the package or its pull request. Name each table, its rows and the script that wrote its
