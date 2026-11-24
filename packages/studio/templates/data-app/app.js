@@ -178,18 +178,47 @@ function tile(spec) {
   const info = h('button', { type: 'button', class: 'card__info', 'aria-expanded': 'false', 'aria-controls': backId, 'aria-label': `How “${title}” is made`, title: 'How it’s made' }, infoIcon())
   let status = 'loading' // 'loading', 'ok', or the error's message: what the back says about the rows
   const fill = () => back.replaceChildren(...howMade(current, results, found.textContent, title, status))
+  // The back opens as a circle growing out of the info mark and closes back into it; the card keeps its height.
+  let turning = null
   const flip = (open) => {
     // Closing with focus inside the back would drop it to the page: it goes back to the info mark first.
     if (!open && back.contains(document.activeElement)) info.focus()
+    const head = card.querySelector('.card__head')
+    const front = [...card.children].filter((el) => el !== head && el !== back)
+    turning?.cancel()
+    turning = null
     if (open) {
-      back.style.minHeight = `${card.offsetHeight - card.querySelector('.card__head').offsetHeight}px`
+      const top = head.offsetTop + head.offsetHeight
+      back.style.setProperty('--back-top', `${top}px`)
+      back.classList.toggle('card__back--float', card.offsetHeight - top < 240)
       fill()
+      back.hidden = false
+      back.scrollTop = 0
     }
-    back.hidden = !open
     card.classList.toggle('card--back', open)
     info.setAttribute('aria-expanded', String(open))
+    info.setAttribute('aria-label', open ? `Close how “${title}” is made` : `How “${title}” is made`)
+    info.title = open ? 'Close' : 'How it’s made'
+    for (const el of front) el.inert = open
+    const done = () => {
+      if (!open) back.hidden = true
+    }
+    if (!C.MOTION) return done()
+    const r = info.getBoundingClientRect()
+    const box = back.getBoundingClientRect()
+    const cx = r.left + r.width / 2 - box.left
+    const cy = r.top + r.height / 2 - box.top
+    const rad = Math.ceil(Math.hypot(Math.max(cx, box.width - cx), Math.max(cy, box.height - cy)))
+    const small = `circle(0px at ${cx}px ${cy}px)`
+    const big = `circle(${rad}px at ${cx}px ${cy}px)`
+    turning = back.animate({ clipPath: open ? [small, big] : [big, small] }, { duration: open ? 420 : 280, easing: open ? 'cubic-bezier(.2,.7,.3,1)' : 'cubic-bezier(.4,0,.7,.2)' })
+    turning.onfinish = () => {
+      turning = null
+      done()
+    }
   }
-  info.onclick = () => flip(back.hidden)
+  const isOpen = () => info.getAttribute('aria-expanded') === 'true'
+  info.onclick = () => flip(!isOpen())
   const card = h(
     'article',
     { class: `card ${cls}`, 'data-key': `${cls}|${title}` },
@@ -202,7 +231,7 @@ function tile(spec) {
     note && h('div', { class: 'card__foot' }, h('span', { text: note }))
   )
   card.__spec = spec
-  card.addEventListener('keydown', (e) => e.key === 'Escape' && !back.hidden && flip(false))
+  card.addEventListener('keydown', (e) => e.key === 'Escape' && isOpen() && flip(false))
   const run = (updating) => {
     const mine = epoch
     const s = current
@@ -312,11 +341,22 @@ function infoIcon() {
   const svg = document.createElementNS(ns, 'svg')
   svg.setAttribute('viewBox', '0 0 16 16')
   svg.setAttribute('aria-hidden', 'true')
-  for (const [tag, attrs] of [['circle', { cx: 8, cy: 8, r: 6.5 }], ['path', { d: 'M8 7.2v4' }], ['circle', { cx: 8, cy: 4.9, r: 0.6, class: 'dot' }]]) {
-    const el = document.createElementNS(ns, tag)
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
-    svg.append(el)
+  // The ring stays; inside it the i turns into a cross while the card shows its back (styles.css).
+  const glyph = (cls, parts) => {
+    const g = document.createElementNS(ns, 'g')
+    if (cls) g.setAttribute('class', cls)
+    for (const [tag, attrs] of parts) {
+      const el = document.createElementNS(ns, tag)
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
+      g.append(el)
+    }
+    return g
   }
+  svg.append(
+    glyph(null, [['circle', { cx: 8, cy: 8, r: 6.5 }]]),
+    glyph('i', [['path', { d: 'M8 7.2v4' }], ['circle', { cx: 8, cy: 4.9, r: 0.6, class: 'dot' }]]),
+    glyph('x', [['path', { d: 'M5.9 5.9l4.2 4.2M10.1 5.9l-4.2 4.2' }]])
+  )
   return svg
 }
 
@@ -375,7 +415,8 @@ function askCredible(prompt, context) {
 
 /** The working behind a card: for each query, what it counts, the query itself, and the rows it returned. */
 function working(qs, explain, results, status = 'ok') {
-  const cell = (v) => (v === null || v === undefined ? '∅' : typeof v === 'number' ? String(Number.isInteger(v) ? v : Number(v.toPrecision(4))) : String(v))
+  // A date comes back as midnight UTC (2020-10-03T00:00:00.000Z): show the day; a time of day stays as it came.
+  const cell = (v) => (v === null || v === undefined ? '∅' : typeof v === 'number' ? String(Number.isInteger(v) ? v : Number(v.toPrecision(4))) : /^\d{4}-\d\d-\d\dT00:00:00(\.000)?Z$/.test(v) ? String(v).slice(0, 10) : String(v))
   return h('div', { class: 'working' }, ...qs.map((q, i) => {
     // Rows only from an answer to this query: while it loads, or when it failed, there are none to show.
     const rows = status === 'ok' ? results[i] || [] : []
