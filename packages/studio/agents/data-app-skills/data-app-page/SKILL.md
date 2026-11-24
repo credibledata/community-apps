@@ -1,6 +1,6 @@
 ---
 name: data-app-page
-description: What a public data app built from a brief (a topic, often a story in the news, and any articles on it) should say and how it is laid out - the lead question, the Overview and About pages on the studio's dashboard kit, the articles, sources and caveats, and the checks before hand-over. Use when building or reviewing a data app, and for the rules every data app follows. The kit is in data-app-explorer's reference/app-frame.md; it replaces the frame malloy-html-data-apps describes, and credible-data-apps covers running inside Credible.
+description: What a public data app built from a brief (a topic, often a story in the news, and any articles on it) should say and how it is laid out - the lead question, the Overview and About pages on the studio's data app kit, the articles, sources and caveats, and the checks before hand-over. Use when building or reviewing a data app, and for the rules every data app follows. The kit is in data-app-explorer's reference/app-frame.md; it replaces the frame malloy-html-data-apps describes, and credible-data-apps covers running inside Credible.
 ---
 
 # Data app page
@@ -13,8 +13,8 @@ question. In ten seconds the page should answer it with data,
 then let them dig one level deeper. A visitor who wants to go further should find it natural to sign in and
 ask Credible's agent.
 
-This is the whole app at low effort: an Overview and About the data, built on the studio's dashboard kit
-(`data-app-explorer`'s `reference/app-frame.md` for the kit, `reference/dashboard-design.md` for the design). At
+This is the whole app at low effort: an Overview and About the data, built on the studio's data app kit
+(`data-app-explorer`'s `reference/app-frame.md` for the kit, `reference/data-app-design.md` for the design). At
 high effort it grows into pages a reader moves between: read `data-app-explorer`, which replaces the limits in items
 3 and 4 and adds its own checks.
 
@@ -44,7 +44,7 @@ high effort it grows into pages a reader moves between: read `data-app-explorer`
 - **Every number comes from a Malloy measure** in the package's model. Never compute a total, rate or change in
   JavaScript; add a measure.
 - **The kit draws it.** Its blocks and chart module, never another chart library; its theme, chosen from the
-  subject (`reference/dashboard-design.md`), never colours of your own except for a meaning the theme lacks.
+  subject (`reference/data-app-design.md`), never colours of your own except for a meaning the theme lacks.
 - **Every state has an address.** The kit keeps the period, the filters and the page in the address; a visitor can
   share a view, and you can screenshot it.
 - **Phone first.** Check every page at 390 px. No `100vh`; Credible sizes the frame to the content.

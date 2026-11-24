@@ -1,6 +1,6 @@
 ---
 name: data-app-explorer
-description: The high-effort data app, built on the studio's dashboard kit - pages a reader moves between (an Overview that answers the brief, a page per area, a page per entity, About the data), every chart clickable and every section explaining itself, in a theme chosen from the subject, over a model deep enough to carry it and stored by Credible so it opens fast. Use when the task asks for effort high. Sources, caveats, the hand-off to Credible's agent and the screenshot rules come from data-app-page.
+description: The high-effort data app, built on the studio's data app kit - pages a reader moves between (an Overview that answers the brief, a page per area, a page per entity, About the data), every chart clickable and every section explaining itself, in a theme chosen from the subject, over a model deep enough to carry it and stored by Credible so it opens fast. Use when the task asks for effort high. Sources, caveats, the hand-off to Credible's agent and the screenshot rules come from data-app-page.
 ---
 
 # Data app explorer
@@ -11,7 +11,7 @@ At high effort the brief is the way in, and the app is the product. A visitor la
 question, then uses the app: changes the period, filters to a place, clicks a bar to open that entity's page,
 searches for one by name, turns a section over to see how it is made, reads the rows behind a number. It should feel
 like a product someone designed, not like an article with charts. The kit (`reference/app-frame.md`) draws all of
-that to one design (`reference/dashboard-design.md`); the app is the config, the pages and the findings.
+that to one design (`reference/data-app-design.md`); the app is the config, the pages and the findings.
 Everything `data-app-page` says about sources, caveats, the hand-off to Credible's agent and
 screenshots still holds; its limit of one page and one or two filters does not.
 
@@ -59,7 +59,7 @@ Then write the plan into that turn's `**Progress:**` note, so the person sees it
 
 - **The lead finding** the Overview opens on: one sentence, its number, the view it comes from.
 - **The pages and the paths**: each page, what leads it, its sections in order, and which page a click on each list
-  opens (`reference/dashboard-design.md`, "Pages, and the paths between them"). The theme, from the subject.
+  opens (`reference/data-app-design.md`, "Pages, and the paths between them"). The theme, from the subject.
 - **Each section**: the question, the finding the rows show in one line with its number, two or three forms that
   could show it, the one you pick (a kit block, or a chart of your own) and why it beats the others.
 - **The native form** and why the field draws it that way.

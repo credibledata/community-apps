@@ -47,7 +47,7 @@ already there; never change either.
 - `<topic>.malloy`: the sources, dimensions, measures and views, each with a `#(doc)`.
 - `index.malloy`: the root model. It imports `<topic>.malloy` and exports only the sources the app and a
   reader should query.
-- `public/`: the data app, on the studio's dashboard kit (`public/kit/`, copied whole), with its own `index.html`
+- `public/`: the data app, on the studio's data app kit (`public/kit/`, copied whole), with its own `index.html`
   and `app.js`.
 - `README.md`: what the app shows, the articles it responds to, and the sources table from `data-fetch`. Its last
   line is exactly `Built by Credible's app-builder.`, which is how the monthly revisit knows the app is this agent's.
@@ -98,7 +98,7 @@ hand-over. The progress note's last line is `Queued: <summary>, as <package_agen
    and each section's info mark then says which table answered. Where Credible's materialization is not switched
    on, the annotations are ignored and the app answers from the table directly, so they are always written. A small
    file in `data/` needs neither; its speed comes from step 3: narrow columns and coded values.
-6. **Build the app** on the studio's dashboard kit. Use `data-app-page` for what it should say and how it is laid
+6. **Build the app** on the studio's data app kit. Use `data-app-page` for what it should say and how it is laid
    out, and at high effort `data-app-explorer` as well, which also sets the model's depth and the order of turns;
    its `reference/` holds the kit and the design. `credible-data-apps` says how it runs inside Credible.
 7. **Check it.** Every view the page uses returns rows. Screenshot the page at desktop and phone width with

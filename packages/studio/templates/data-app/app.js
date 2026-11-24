@@ -6,13 +6,13 @@
 // Brief: for anyone filling up before Thanksgiving, and for reporters checking claims of "record" prices. The
 // subject is the US regular price; the record claims need it in today's dollars too, so that figure sits beside it.
 // Pages: Overview (the US price and where it is highest), Areas (every state and city), an area's page, About.
-import { dashboard, subject, rank, trend, heat, table, entityHead, pageHead, aboutPage, blocks, S } from './kit/kit.js'
+import { dataApp, subject, rank, trend, heat, table, entityHead, pageHead, aboutPage, blocks, S } from './kit/kit.js'
 
 const PRICES = ['avg_price', 'avg_real_price', 'max_price', 'min_price']
 // The twelve years up to the latest in the data, read when a page draws (the data's span is known by then).
 const firstYear = () => Number(S.known.span.last.slice(0, 4)) - 11
 
-dashboard({
+dataApp({
   title: 'Gasoline prices', sub: 'What a gallon costs, week by week', theme: 'transit',
   model: 'index.malloy', source: 'gas', credit: true, search: 'area',
   date: { field: 'survey_week', label: 'Survey week' },

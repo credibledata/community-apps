@@ -18,7 +18,7 @@ listing it. Merging that one deploys the site.
 - `agents/app-builder/instructions.md`: what the agent does and the rules it keeps.
 - `agents/data-app-skills/`: how it finds and fetches data, builds an app, and draws its card art.
 - `scripts/card_art.py`: the check a card's art must pass, run by the agent and by the listing workflow.
-- `templates/data-app/`: the dashboard kit every app is built on (`kit/`, copied whole into each app), its page,
+- `templates/data-app/`: the data app kit every app is built on (`kit/`, copied whole into each app), its page,
   and a worked example app. The agent computer mounts this package read-only beside the app, and the skills copy
   from here. The kit's source is the `malloy-html-data-apps` skill's `assets/data-app/kit/` in malloydata/publisher;
   copy it again from there to take a fix.
