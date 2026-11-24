@@ -77,8 +77,9 @@ source: fires is community.table('wildfires__fires') extend {
 - **No rollup on a distinct count or on a measure that reads a joined column**: Publisher refuses it, and the
   measure is answered from the stored source, which is still fast.
 - **A view answers from a rollup when it groups by grain fields and aggregates rolled-up measures**, with the scope
-  as a plain `where`. A view that nests, calculates over rows, or filters a measure inside itself is answered from
-  the stored source. Write the cards' views that way where it costs nothing.
+  as a plain `where`. A measure filtered inside the view (`count() { where: … }`) is answered from the stored
+  source instead; put the filter in the view's `where`, or give the filtered measure its own `#(rollup)` in the
+  model. For anything else, the card's info mark says which table answered.
 - **Check it** once published: a card's info mark says "Read from a summary Credible keeps…". Where Credible's
   materialization is not switched on, the annotations are ignored and every card says "Worked out from the raw data
   just now."
