@@ -176,7 +176,8 @@ function tile(spec) {
   const backId = `back-${++backs}`
   const back = h('div', { class: 'card__back', id: backId, role: 'region', 'aria-label': `How “${title}” is made`, hidden: true })
   const info = h('button', { type: 'button', class: 'card__info', 'aria-expanded': 'false', 'aria-controls': backId, 'aria-label': `How “${title}” is made`, title: 'How it’s made' }, infoIcon())
-  const fill = () => back.replaceChildren(...howMade(current, results, found.textContent, title))
+  let status = 'loading' // 'loading', 'ok', or the error's message: what the back says about the rows
+  const fill = () => back.replaceChildren(...howMade(current, results, found.textContent, title, status))
   const flip = (open) => {
     // Closing with focus inside the back would drop it to the page: it goes back to the info mark first.
     if (!open && back.contains(document.activeElement)) info.focus()
@@ -206,6 +207,7 @@ function tile(spec) {
     const mine = epoch
     const s = current
     card.__loaded = true
+    status = 'loading'
     if (updating) card.classList.add('is-updating')
     return Promise.all(s.queries().map(query))
       .then((rs) => {
@@ -241,6 +243,7 @@ function tile(spec) {
       })
       .then(() => {
         if (mine !== epoch) return
+        status = 'ok'
         card.dataset.loaded = '1'
         if (!back.hidden) {
           // Opened while loading: now it has the rows. Focus inside the back goes to the info mark first.
@@ -252,7 +255,9 @@ function tile(spec) {
       .catch((err) => {
         if (mine !== epoch) return
         body.replaceChildren(h('div', { class: 'state state--error', text: `Could not load: ${err.message}` }))
-        if (!back.hidden) back.prepend(h('p', { class: 'state state--error', text: `Could not load: ${err.message}` }))
+        status = err.message || 'an error'
+        results = []
+        if (!back.hidden) fill()
         console.error(`[${title}]`, err)
       })
   }
@@ -316,7 +321,7 @@ function infoIcon() {
 }
 
 /** The back of a card: how it is made. */
-function howMade(spec, results, finding, title) {
+function howMade(spec, results, finding, title, status = 'ok') {
   const part = (head, ...kids) => h('section', { class: 'back__part' }, h('h4', { text: head }), ...kids)
   // What the card's own queries apply, read from the queries themselves: a filter whose clause is in none of them
   // (the card ignores it, or always shows the whole) is said to be left out, never claimed.
@@ -324,16 +329,22 @@ function howMade(spec, results, finding, title) {
   const keys = Object.keys(S.SCOPE || {})
   const applied = (key) => {
     const [clause] = S.scopeClauses(scope, known, keys.filter((k) => k !== key))
-    return clause && qs.some((q) => q.includes(clause))
+    if (!clause) return false
+    // The clause as a whole expression, never part of a longer name or after a "not".
+    const re = new RegExp(`(?<!not\\s)(?<![\\w.])${clause.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w.])`)
+    return qs.some((q) => re.test(q))
   }
   const set = S.scopeChips(scope)
   const chips = set.filter((c) => applied(c.key)).map((c) => c.label)
+  // An entity's page, or Compare, narrows every query to its entities before any filter.
+  if (S.ENTITY && route.view === S.ENTITY.view && route.id != null) chips.unshift(S.ENTITY.label(route.id))
+  if (route.view === 'compare' && route.compare?.length) chips.unshift(route.compare.map((id) => (S.ENTITY ? S.ENTITY.label(id) : id)).join(' against '))
   const ignored = set.filter((c) => !applied(c.key)).map((c) => c.label)
   return [
     spec.sub && part('What it shows', h('p', { text: spec.sub })),
     part('What it covers', h('p', { text: `${chips.length ? `${chips.join(', ')}.` : 'All of the data.'}${ignored.length ? ` It does not apply the filter${ignored.length > 1 ? 's' : ''} ${ignored.join(', ')}.` : ''}` })),
     spec.method && part('What it leaves out', h('p', { text: spec.method })),
-    part('How it is counted', working(qs, spec.explain || [], results)),
+    part('How it is counted', working(qs, spec.explain || [], results, status)),
     inCredible() && h('button', { type: 'button', class: 'btn back__ask', text: 'Ask Credible about this', onclick: () => askCredible(
       `${document.title}, "${title}": ${finding ? `${finding} ` : ''}What is behind this, and what should I look at next?`,
       { scope: { package: decodeURIComponent(location.pathname.match(/\/packages\/([^/]+)/)?.[1] || ''), model: S.MODEL }, view: { type: 'card', id: title, title },
@@ -363,15 +374,17 @@ function askCredible(prompt, context) {
 }
 
 /** The working behind a card: for each query, what it counts, the query itself, and the rows it returned. */
-function working(qs, explain, results) {
+function working(qs, explain, results, status = 'ok') {
   const cell = (v) => (v === null || v === undefined ? '∅' : typeof v === 'number' ? String(Number.isInteger(v) ? v : Number(v.toPrecision(4))) : String(v))
   return h('div', { class: 'working' }, ...qs.map((q, i) => {
-    const rows = results[i] || []
+    // Rows only from an answer to this query: while it loads, or when it failed, there are none to show.
+    const rows = status === 'ok' ? results[i] || [] : []
     const cols = rows.length ? Object.keys(rows[0]) : []
+    const said = status === 'loading' ? 'Loading.' : status !== 'ok' ? `Could not load: ${status}` : `${rows.length} row${rows.length === 1 ? '' : 's'}${rows.length > 100 ? ', the first 100 shown' : ''}`
     return h('div', { class: 'working__item' },
       explain[i] && h('p', { text: explain[i] }),
       h('pre', { text: q }),
-      h('span', { text: `${rows.length} row${rows.length === 1 ? '' : 's'}${rows.length > 100 ? ', the first 100 shown' : ''}` }),
+      h('span', { class: status !== 'ok' && status !== 'loading' ? 'state--error' : null, text: said }),
       cols.length > 0 && h('button', { type: 'button', class: 'btn btn--small', text: 'Download CSV', onclick: () => downloadCsv(rows, cols, i) }),
       cols.length > 0 && h('div', { class: 'working__rows' }, h('table', {},
         h('thead', {}, h('tr', {}, ...cols.map((c) => h('th', { text: c })))),

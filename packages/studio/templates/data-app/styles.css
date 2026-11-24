@@ -14,13 +14,13 @@
   --text-muted: #6e675f;
   --text-soft: #9a938a;
 
-  /* The colours below are chosen per app ("Colour"); these are a starting point that passes the palette check. */
+  /* A fallback for a page with no theme: the app's colours come from its theme in themes.css ("Colour"). */
   --accent: #2f6b9a;
   --accent-soft: #e3edf5;
   --up: #a83f27;
   --down: #276d4f;
 
-  /* Categorical, one meaning each: name each one's meaning in its comment. */
+  /* Categorical, one meaning each: name each one's meaning in a comment at the top of this file. */
   --c-bar: #4f7896;
   --c1: #2f6b9a;
   --c2: #c96a22;

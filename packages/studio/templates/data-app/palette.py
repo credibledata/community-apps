@@ -89,6 +89,9 @@ def main(paths):
     if "--theme" in paths and not theme:
         print("--theme needs a theme's name")
         return 2
+    if mode == "dark" and not theme:
+        print("--mode dark needs --theme: the dark colours live in the theme's blocks")
+        return 2
     paths = [p for i, p in enumerate(paths) if p not in ("--theme", "--mode") and (i == 0 or paths[i - 1] not in ("--theme", "--mode"))]
     if not paths or mode not in ("light", "dark"):
         print(__doc__)
