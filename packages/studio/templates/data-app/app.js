@@ -30,20 +30,20 @@ let scope = { ...S.DEFAULT_SCOPE }
   if (p.get('theme')) document.documentElement.dataset.theme = p.get('theme')
   if (['light', 'dark'].includes(p.get('mode'))) document.documentElement.dataset.mode = p.get('mode')
 }
-// The host's mode. Credible shows the app in a frame and tells it which mode its reader chose
-// (credible:color-scheme, on load and on every change). The frame follows it unless the address fixes one (?mode=),
-// and answers credible:color-scheme-applied, so the host knows this app draws dark itself and stops holding its
+// The host's mode. Credible, or Publisher's own viewer, shows the app in a frame and tells it which mode its reader
+// chose (publisher:color-scheme, on load and on every change). The frame follows it unless the address fixes one (?mode=),
+// and answers publisher:color-scheme-applied, so the host knows this app draws dark itself and stops holding its
 // frame light. It also asks once on start, in case the host spoke before the frame was listening.
 if (window.parent !== window) {
   const fixed = ['light', 'dark'].includes(new URLSearchParams(location.search).get('mode'))
   addEventListener('message', (e) => {
     const d = e.data
-    if (e.source !== window.parent || !d || d.type !== 'credible:color-scheme' || !['light', 'dark'].includes(d.mode)) return
+    if (e.source !== window.parent || !d || d.type !== 'publisher:color-scheme' || !['light', 'dark'].includes(d.mode)) return
     if (!fixed && document.documentElement.dataset.mode !== d.mode) document.documentElement.dataset.mode = d.mode // the same mode again redraws nothing
-    e.source.postMessage({ type: 'credible:color-scheme-applied', mode: fixed ? document.documentElement.dataset.mode : d.mode }, e.origin === 'null' ? '*' : e.origin)
+    e.source.postMessage({ type: 'publisher:color-scheme-applied', mode: fixed ? document.documentElement.dataset.mode : d.mode }, e.origin === 'null' ? '*' : e.origin)
   })
   // The request carries nothing; it goes to the host's own origin where the browser says it, else to any.
-  window.parent.postMessage({ type: 'credible:color-scheme-request' }, location.ancestorOrigins?.[0] || '*')
+  window.parent.postMessage({ type: 'publisher:color-scheme-request' }, location.ancestorOrigins?.[0] || '*')
 }
 /** Charts read their colours when they draw, so a new theme or mode draws every loaded card again, in place. */
 function recolour() {
