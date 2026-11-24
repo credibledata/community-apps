@@ -150,15 +150,22 @@ select, .btn { font: 500 var(--fs-sm)/1.2 var(--font-ui); padding: 7px 12px; bor
 .card__finding { font: 400 var(--fs-md)/1.45 var(--font-serif); color: var(--text-strong); margin: 0; max-width: 62ch; }
 .card__method { font: italic 400 var(--fs-sm)/1.45 var(--font-serif); color: var(--text-muted); margin: 0; max-width: 62ch; }
 .card__foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--sp-3); font-size: var(--fs-xs); color: var(--text-muted); margin-top: auto; padding-top: var(--sp-1); }
-/* The info mark in a card's corner, and the card's back it turns over to: how the card is made */
+/* The info mark in a card's corner, and the card's back it turns over to: how the card is made. The mark is an i on
+   the front and a cross on the back, one turning into the other. The back lies over the card below its title, the
+   card keeping its height, and a long back scrolls inside it; on a card too short to read it in, it floats down over
+   what follows. */
 .card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); }
-.card__info { flex: none; width: 24px; height: 24px; margin: -3px 0 0 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--text-muted); cursor: pointer; }
+.card__info { position: relative; z-index: 3; flex: none; width: 24px; height: 24px; margin: -3px 0 0 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--text-muted); cursor: pointer; transition: background-color .2s ease, color .2s ease; }
 .card__info svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.3; }
 .card__info svg .dot { fill: currentColor; stroke: none; }
 .card__info:hover, .card__info[aria-expanded="true"] { color: var(--text-strong); background: var(--surface-2); }
 .card__info:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.card--back > :is(.card__sub, .card__body, .card__finding, .card__method, .card__foot) { display: none; }
-.card__back { display: grid; align-content: start; gap: var(--sp-3); }
+.card__info svg g { transform-box: view-box; transform-origin: 50% 50%; transition: opacity .18s ease, transform .3s cubic-bezier(.2,.7,.3,1); }
+.card__info .x { opacity: 0; transform: rotate(-90deg) scale(.4); }
+.card__info[aria-expanded="true"] .i { opacity: 0; transform: rotate(90deg) scale(.4); }
+.card__info[aria-expanded="true"] .x { opacity: 1; transform: none; }
+.card__back { position: absolute; left: 0; right: 0; top: var(--back-top, 0); bottom: 0; z-index: 2; display: grid; align-content: start; gap: var(--sp-3); padding: var(--sp-2) 2px var(--sp-3); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; background: var(--bg); }
+.card__back--float { bottom: auto; height: 300px; padding: var(--sp-3); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 12px 32px rgb(0 0 0 / .14); }
 .card__back[hidden] { display: none; }
 .back__part h4 { margin: 0 0 4px; font: 600 var(--fs-xs)/1.3 var(--font-ui); letter-spacing: var(--tr-caps); text-transform: uppercase; color: var(--text-muted); }
 .back__part p { margin: 0; font: 400 var(--fs-sm)/1.5 var(--font-serif); color: var(--text); max-width: 70ch; }
