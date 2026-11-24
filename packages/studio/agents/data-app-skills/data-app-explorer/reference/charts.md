@@ -15,7 +15,7 @@ third-party host. Never edit the module in the app; copy it again to take a fixe
 
 ```sh
 T=$(ls -d /workspace/siblings/*/templates/data-app | head -1)
-mkdir -p public/vendor && chmod -R u+w public && cp "$T"/charts.js "$T"/charts.css public/ && cp "$T"/vendor/d3.min.js public/vendor/ && chmod -R u+w public
+mkdir -p public/vendor && chmod -R u+w public && cp "$T"/charts.js "$T"/charts.css "$T"/themes.css public/ && cp "$T"/vendor/d3.min.js public/vendor/ && chmod -R u+w public
 grep -qs "^d3.min.js:" public/vendor/README.md || echo "d3.min.js: d3 v7.9.0, ISC license, unmodified, from the data app templates." >> public/vendor/README.md
 ```
 

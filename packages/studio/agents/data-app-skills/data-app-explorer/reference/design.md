@@ -1,7 +1,7 @@
 # Design
 
 A small design system for the app: tokens, then the pieces the frame in `reference/app-frame.md` uses. The
-stylesheet is `templates/data-app/styles.css`, copied with the frame; make it the app's own: choose its colours as "Colour" below says, and keep
+stylesheet is `templates/data-app/styles.css`, copied with the frame; make it the app's own: choose its theme as "Colour" below says, and keep
 the rest.
 
 Every app has the same frame: a header with the app's name, its views and a search; a scope bar; one view at a time,
@@ -14,8 +14,9 @@ out the same.
   are large and light. Labels are small uppercase sans. `reference/fonts.md` ships both as text.
 - **Rules and white space, not boxes.** A card is a column under a thin dark rule, with no border, background or
   shadow. Sections are separated by space and a heading. Only the headline numbers sit on a tinted panel.
-- **Colour has meaning, and the app chooses it.** The page is light and its neutrals are fixed; the accent, the
-  categories and the ramp are chosen for this app's subject, as "Colour" below says, and checked.
+- **Colour comes from a theme, chosen for the subject.** Ten themes, each with a light and a dark mode, carry the
+  page tone, the accent, the categories and the ramp, every one checked; the app chooses one, as "Colour" below says,
+  and gives each colour its meaning.
 - **A change is coloured by what it means to the reader, not by its direction.** A falling price is good news for
   a buyer and bad for a seller; `.delta--up` and `.delta--down` name the colour, and you choose which applies. When
   the meaning is not clear, keep the change neutral.
@@ -26,27 +27,47 @@ out the same.
   query, and the rows it returned.
 
 The stylesheet's parts, in order: the tokens on `:root`, the page and its type, the header and scope bar, cards and
-headline numbers, the ranked table and the working, states, motion, the phone layout, then the Looks. Change the
-tokens as "Colour" says and the Looks' attributes on `<body>`; keep the rest.
+headline numbers, the ranked table and the working, states, motion, the phone layout, then the Looks. Choose the
+theme as "Colour" says and the Looks' attributes on `<body>`; keep the rest.
 
 ## Colour
 
-The page is light, and its neutrals are fixed: `--bg` (the accent may tint it), the surfaces, the text greys, the rules
-and the grid. What carries meaning is chosen for this app, from its subject (a coffee app's roast brown, a wildfire
-app's ember red):
+Colour comes from a theme in `themes.css`, copied whole with the chart module (`reference/charts.md`). Each of the
+ten is a complete palette for a light page and a dark one: page tone, accent, six categories, ramp, good and bad
+news. Set the app's on `<html>` in `index.html`: `<html lang="en" data-theme="lagoon">`.
 
-- **The accent**, one colour for the lead number, links and the selection; as text it needs 4.5:1 on `--bg`.
-- **Up to six categories**, `--c1` to `--c6`, each standing for one thing in the domain on every chart, label and
-  chip. The lead category may be the accent itself (`--c1`); no other may. Fewer is better.
-- **`--c-bar`**, the neutral for a count with no category: a dark grey, or a muted shade of the accent.
-- **The ramp**, `--seq-0` to `--seq-5`, light to dark in one hue family, for maps and heatmaps.
-- **`--up` and `--down`**, bad news and good news, different in lightness as well as hue, and 4.5:1 on `--bg`, since
-  they colour the deltas' text.
+| Theme | Page | Accent | Suits |
+|---|---|---|---|
+| `ember` | warm paper | rust | heat, fire, energy, prices, the cost of living |
+| `harbor` | cool grey | navy | water, shipping, weather, cities, transport |
+| `meadow` | warm paper | forest green | nature, farming, food, birds, land, health |
+| `dusk` | cool grey | indigo | space, night, sleep, technology, science, culture |
+| `coral` | white | coral, with teal | oceans, beaches, tourism, people and places |
+| `ink` | white | newspaper red | politics, elections, courts, news, history |
+| `desert` | sand | gold | drought, mining, the West, dry land |
+| `orchard` | warm paper | plum | wine, fruit, fashion, the arts, retail |
+| `lagoon` | cool grey | teal | climate, coasts, public health, ecology |
+| `graphite` | cool grey | electric blue | technology, finance, markets, infrastructure |
 
-Pick the accent first, then categories of similar weight spread around the colour wheel, darker than they look in a
-swatch, since marks are small. Keep every token six-digit hex. Then copy and run `reference/palette-check.md`: fix
-everything it prints as a problem before you hand over; a note means label those two categories directly wherever
-both appear. Say in the hand-over which accent and categories you chose, and why.
+- **Choose from the subject, then make the gallery varied.** Of the themes that suit the subject, prefer one no other
+  community app uses; list theirs first:
+
+  ```sh
+  for p in $(curl -s https://api.github.com/repos/credibledata/community-apps/contents/packages | python3 -I -c "import json,sys; print(' '.join(x['name'] for x in json.load(sys.stdin) if x['type'] == 'dir' and x['name'] != 'studio'))"); do printf '%s ' "$p"; curl -s "https://raw.githubusercontent.com/credibledata/community-apps/main/packages/$p/public/index.html" | grep -o 'data-theme="[a-z]*"' | head -1; echo; done
+  ```
+
+  An app with no `data-theme` predates the themes. Say in the hand-over which theme you chose and why.
+- **Light and dark.** With no `data-mode` the reader's system setting decides; `?mode=dark` in the address shows the
+  dark page, and `?theme=` another theme. The frame draws every chart again when either changes. Shoot both modes.
+- **Meanings are the app's; colours are the theme's.** Write what each category means in a comment at the top of
+  `styles.css` (`/* --c1 as paid, --c2 in today's dollars, --c6 a year ago */`) and keep it the same on every chart,
+  label and chip. Only `--c1` may be the accent; fewer categories are better. `--c-bar` is the neutral for a count
+  with no category, the ramp `--seq-0` to `--seq-5` is for maps and heatmaps, and `--up` and `--down` are bad news and
+  good news, not up and down.
+- **Don't hand-pick colours.** Override a token only for a subject with its own colour (a party): on
+  `:root[data-theme="<theme>"]` and on `:root[data-theme="<theme>"][data-mode="dark"]` in `styles.css`, never in
+  `themes.css`, then run `reference/palette-check.md` for both modes. The tokens on `:root` in `styles.css` are only a
+  fallback for a page with no theme.
 
 ## Looks
 

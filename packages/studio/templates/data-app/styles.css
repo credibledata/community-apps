@@ -84,10 +84,12 @@ strong { color: var(--text-strong); font-weight: 650; }
 .app-name { display: flex; flex-direction: column; gap: 2px; color: inherit; }
 .app-name:hover { text-decoration: none; }
 .app-name__eyebrow { font: 600 var(--fs-xs)/1.3 var(--font-ui); letter-spacing: var(--tr-caps); text-transform: uppercase; }
-/* Credible's logo in the credit line: always dark with its blue dot, so on the dark band it sits on a white chip */
+/* Credible's logo in the credit line. Its letters are dark on a light header and white on a dark one (the Band look's
+   header, or any header in dark mode): the theme sets --logo-ink for the page. The dot keeps its blue; no chip. */
 .credible-logo { display: inline-block; height: 1.35em; width: auto; margin-left: 0.3em; vertical-align: -0.4em; }
-.app-header .credible-logo { padding: 2px 4px; background: #ffffff; border-radius: 2px; box-sizing: content-box; }
-:is([data-masthead="light"], [data-masthead="bar"]) .app-header .credible-logo { padding: 0; background: none; }
+.credible-logo path[fill="#1a1a1a"] { fill: var(--logo-here, #1a1a1a); }
+.app-header { --logo-here: #ffffff; }
+:is([data-masthead="light"], [data-masthead="bar"]) .app-header { --logo-here: var(--logo-ink, #1a1a1a); }
 .app-name__title { font: 400 var(--fs-2xl)/1.1 var(--font-display); letter-spacing: -0.015em; }
 .app-nav { display: flex; gap: var(--sp-4); flex: 1; }
 .app-nav a { color: var(--band-text); padding: var(--sp-1) 0; border-bottom: 2px solid transparent; font-weight: 400; }

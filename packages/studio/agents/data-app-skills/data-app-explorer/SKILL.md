@@ -139,8 +139,8 @@ under about 5,000 px at desktop width, so a long Explore splits a section into i
   module's bar: marks labelled directly, a tooltip on hover and keyboard focus, `onPick` where it filters, the
   card's working, and a check at phone width.
 - **Design:** `reference/design.md`, with the fonts from `reference/fonts.md`. Choose the accent, the categories and
-  the ramp from the subject as its "Colour" says, run `reference/palette-check.md` until it passes, and keep each
-  colour's meaning the same on every view.
+  the ramp by choosing a theme for the subject as its "Colour" says, and keep each colour's meaning the same on
+  every view.
 
 ## Work in phases
 
@@ -173,7 +173,8 @@ On top of the checks in `data-app-page`:
   in ledes and descriptions.
 - No label overlaps another or runs off its chart in any shot, at either width.
 - Every card has a finding and a method note, and its working opens with a definition for every query.
-- `reference/palette-check.md` prints `palette ok`.
+- The app names its theme on `<html>`, and every view reads well with `?mode=dark` too; after any colour override,
+  `reference/palette-check.md` prints `palette ok` in both modes.
 - Every scope control changes every card that should respond; a card that ignores a key says so.
 - A link opened from low on a view lands at the top of the next view.
 - Search finds an entity by part of its name and opens its page; Back returns to where the reader was.
