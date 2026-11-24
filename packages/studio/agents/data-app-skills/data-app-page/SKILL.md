@@ -13,60 +13,49 @@ question. In ten seconds the page should answer it with data,
 then let them dig one level deeper. A visitor who wants to go further should find it natural to sign in and
 ask Credible's agent.
 
-This is the whole page at low effort. At high effort, the page below the answer is an explorer: read
-`data-app-explorer`, which replaces the limits in items 3 and 4 and adds its own checks.
+This is the whole app at low effort: an Overview and About the data, built on the studio's dashboard kit
+(`data-app-explorer`'s `reference/app-frame.md` for the kit, `reference/dashboard-design.md` for the design). At
+high effort it grows into pages a reader moves between: read `data-app-explorer`, which replaces the limits in items
+3 and 4 and adds its own checks.
 
 ## The page, top to bottom
 
-1. **Title and lead.** Above the title, the credit: "Made by" and Credible's logo, copied from the header in
-   `data-app-explorer`'s `reference/app-frame.md`. A plain title naming the subject, and one sentence stating the question the brief raises. "How does this year's measles count compare with the last five years?"
-2. **The answer.** Two to four numbers that answer the lead question, each with its unit, period and a
-   comparison: this year against a baseline, or one place against the rest. Each number is one query result, from a
-   bare view of the source that carries the question's scope (`data-app-explorer`, "The model comes first"), and
-   every sentence about them is written from the rows, never typed.
-3. **Three to five views.** Each answers one of the questions you wrote down while reading the brief, in
-   the order a reader would ask them. A view's title says what it shows, plainly: "Cases per month, 2019 to
-   2026". A title may state a finding only when the number in it comes from the query. Before writing the page,
-   query the model for what stands out and choose the views by what the rows show, as `data-app-explorer`'s "Plan
-   the app" says; drop a view whose finding is weak, and name it in the hand-over.
-4. **One or two filters**, at most: usually place and period. Every view on the page responds to them, or
-   the page says which ones do not.
-5. **In the news**, when the brief is a story. The example articles: headline, outlet and date, each linked. No quoted text beyond the
-   headline.
-6. **Sources and caveats.** Each dataset with its publisher, license, link and fetch date, the attribution
-   wording `dataset-scout` requires, and a note that the data was reshaped. Then a line or two on what the
-   data cannot tell you: reporting lags, changes in how it was counted, places with no data. When a number
-   on the page differs from one the articles quote, say why in one line: a different source, survey day or
-   benchmark.
-7. **As of.** The latest date in the data, read from a query, not typed in.
+1. **The masthead.** A plain title naming the subject, a few words under it, and the credit, "Made by" and
+   Credible's logo (`credit: true`). The page's lede is the question the brief raises: "How does this year's
+   measles count compare with the last five years?"
+2. **The answer.** The kit's `subject`: two to four numbers that answer the lead question, each with its unit, its
+   period and its comparison, from measures on the app's source. Its sentence is written from the rows.
+3. **Three to five sections.** Each answers one of the questions you wrote down while reading the brief, in the order
+   a reader would ask them, with a headline written from its rows. Before writing the page, query the model for what
+   stands out and choose the sections by what the rows show, as `data-app-explorer`'s "Plan the app" says; drop a
+   section whose finding is weak, and name it in the hand-over.
+4. **One or two filters**, at most: usually place and the period. Every section responds to them, or its `ignore`
+   says which it leaves out and its info mark says so.
+5. **In the news**, when the brief is a story: the articles in the config's `articles` and `news()` at the end of the
+   page. Headline, outlet and date, each linked; no quoted text beyond the headline.
+6. **About the data**, a page of its own (`aboutPage`, `period: false, filters: false`): each dataset in the
+   config's `sources` with its publisher, licence and link, the attribution wording `dataset-scout` requires, and
+   notes on what was reshaped and what the data cannot tell you: reporting lags, changes in how it was counted,
+   places with no data. When a number on the page differs from one the articles quote, say why in one line.
+7. **As of.** The kit shows the latest date in the data in the masthead, read from a query.
 
 ## Rules
 
-- **Every number comes from a Malloy view or measure** in the package's model. Never compute a total, rate or
-  change in JavaScript; add a measure.
-- **Few queries at load.** One query per view, run in parallel. Prefer one view that returns the answer
-  numbers together over several single-number queries.
-- **Charts:** drawn with the d3 chart module, vendored and copied as the `data-app-explorer` skill's
-  `reference/charts.md` says. Choose each chart for its finding, as `data-app-explorer`'s "Plan the app" says: a line
-  for change over time, bars for comparing places or categories, sorted. A map only when the pattern in space is the
-  finding and the boundaries ship with the package. No pie charts with more than three
-  slices. Label units on axes. The module reads its colours and type from the page's tokens, so start `styles.css` from the
-  `:root` block in that skill's `reference/design.md`, link `themes.css` after it and choose a theme on `<html>` as its
-  "Colour" says, and write `fonts.css` as its `reference/fonts.md` says, linked before `styles.css`.
-- **Every state has an address.** Keep the page's state (a toggle, a tab, a filter) in the URL hash, for example
-  `#fuel=diesel&area=states`, and read it on load. A visitor can share a view, and you can screenshot it.
-- **Phone first.** One column under 640 px wide, with charts at full width and readable at 390 px. No `100vh`;
-  Credible sizes the frame to the content.
-- **Accessible.** Text contrast of at least 4.5:1, chart colors that differ in lightness as well as hue, and
-  every chart's finding also stated in text.
+- **Every number comes from a Malloy measure** in the package's model. Never compute a total, rate or change in
+  JavaScript; add a measure.
+- **The kit draws it.** Its blocks and chart module, never another chart library; its theme, chosen from the
+  subject (`reference/dashboard-design.md`), never colours of your own except for a meaning the theme lacks.
+- **Every state has an address.** The kit keeps the period, the filters and the page in the address; a visitor can
+  share a view, and you can screenshot it.
+- **Phone first.** Check every page at 390 px. No `100vh`; Credible sizes the frame to the content.
+- **Accessible.** Every chart's finding is also a sentence: the section's headline.
 - **Neutral voice.** State what the data shows. No adjectives the data does not support, and no advice.
 
 ## Hand-off to the agent
 
-When the app runs inside Credible, add an "Ask about this" action under the lead and on each view. It sends a
-specific question to Credible's agent with the `credible:chat-message` event described in
-`credible-data-apps`, such as "Which states had the largest rise in measles cases this year?". This is how a
-visitor goes from reading the app to using Credible.
+Inside Credible, every section's info mark offers "Ask Credible about this", which opens Credible's chat with a
+question about that section and its queries attached (`credible-data-apps` describes the events). A specific
+question of your own, under the answer, goes through the kit's `askCredible(prompt, context)`.
 
 ## Before hand-over
 
@@ -76,14 +65,13 @@ after `packages/`. Never look for the address in the box's configuration files.
 
 1. Load the page in the box's Publisher and confirm every view shows data and the browser console has no
    errors.
-2. List the page's states first: the page as it loads, plus each value of every toggle, tab or filter. Then
-   screenshot every state at desktop and phone width (`box-shot '<package>/index.html#fuel=diesel' …`). Every
+2. List the page's states first: each page as it loads, plus the Overview with each filter set and with another period. Then
+   screenshot every state at desktop and phone width (`box-shot '<package>/index.html#/?grade=Diesel' …`). Every
    state at both widths, with no exceptions: a shot takes seconds. If the turn runs short, finish the shots in the
    next turn; never hand over with a state unshot.
-   `box-shot <package>/index.html --viewport 1280x800 --full --wait <selector>` and
-   `box-shot <package>/index.html --viewport 390x844 --full --wait <selector>`, where the selector is an
-   element the page adds only once its data has drawn. Charts paint before their data arrives, so a shot
-   without `--wait` can show an empty page that is not broken.
+   `box-shot <package>/index.html --viewport 1280x6000 --full --wait 'body[data-ready="true"]'` and
+   `box-shot <package>/index.html --viewport 390x12000 --full --wait 'body[data-ready="true"]'`. The kit sets
+   `data-ready` once every section has drawn; a shot without `--wait` can show an empty page that is not broken.
    The tool prints where each shot is saved, under `.credible/shots/` in the checkout. Open both and look at
    them: empty charts, overflowing labels, text that wraps badly, a lead that falls below the fold on a phone.
    Every image you open must be a JPEG under 600 KB, one per Read: a larger one, or several in one message, passes

@@ -1,6 +1,6 @@
 ---
 name: data-app-explorer
-description: The high-effort data app - an app with views at their own addresses (an overview that answers the brief, an explorer whose cards filter each other, a page per entity, records, compare, about the data), a header with search, labelled d3 charts chosen for what the data shows and that filter on click, in an editorial design with real type, over a model deep enough to carry it. Use when the task asks for effort high. Sources, caveats, the hand-off to Credible's agent and the screenshot rules come from data-app-page.
+description: The high-effort data app, built on the studio's dashboard kit - pages a reader moves between (an Overview that answers the brief, a page per area, a page per entity, About the data), every chart clickable and every section explaining itself, in a theme chosen from the subject, over a model deep enough to carry it and stored by Credible so it opens fast. Use when the task asks for effort high. Sources, caveats, the hand-off to Credible's agent and the screenshot rules come from data-app-page.
 ---
 
 # Data app explorer
@@ -8,11 +8,12 @@ description: The high-effort data app - an app with views at their own addresses
 **Only in a data app's own package** (a root `publisher.json` with no `agents`); anywhere else, do nothing and say so.
 
 At high effort the brief is the way in, and the app is the product. A visitor lands on the answer to the brief's
-question, then uses the app: narrows to a place or a period, clicks a bar to filter everything else, searches for
-an entity and opens its page, compares two, reads the rows behind a number. It should feel like a product someone
-designed, like the avalanche explorer in this repository (`packages/avalanche`) or the FeederWatch explorer (`packages/feederwatch`), not like an article
-with charts. Everything `data-app-page` says about sources, caveats, the hand-off to Credible's agent and
-screenshots still holds; its limits of three to five views and one or two filters do not.
+question, then uses the app: changes the period, filters to a place, clicks a bar to open that entity's page,
+searches for one by name, turns a section over to see how it is made, reads the rows behind a number. It should feel
+like a product someone designed, not like an article with charts. The kit (`reference/app-frame.md`) draws all of
+that to one design (`reference/dashboard-design.md`); the app is the config, the pages and the findings.
+Everything `data-app-page` says about sources, caveats, the hand-off to Credible's agent and
+screenshots still holds; its limit of one page and one or two filters does not.
 
 ## The model comes first
 
@@ -28,11 +29,12 @@ An app is only as deep as its model. Before writing the app:
 - **Correct denominators.** Every rate is a measure whose doc names its numerator and denominator. Subsets are
   filtered measures (`count() { where: ... }`), never arithmetic in JavaScript. When the publisher defines a
   headline measure, define it the same way and say so in its doc.
-- **The headline question is a source.** When the question has a scope of its own (passenger cars, one state), it
-  is a source that extends the main one with that `where:`, documented as the question's and exported first in
-  `index.malloy`. Its `kpis` view is the app's headline, so the Credible agent and an analyst get the same numbers.
-- **A date in one place.** Periods come from the scope or the data's latest date; a date the story turns on (a
-  policy's end) is written once, in the dimension that splits the periods, and every measure filters on it.
+- **The app's source is one source at record grain**, with the dimensions the app filters, ranks and splits by as
+  its own fields and a day dimension for its date (`reference/app-frame.md`, "The model the kit needs"), exported
+  from `index.malloy`. When the brief's question has a scope of its own (passenger cars, one state), say so in its
+  doc and start the app filtered to it with `defaults.filters`, so a reader can widen it.
+- **A date in one place.** Periods count back from the data's latest date; a date the story turns on (a policy's
+  end) is written once, in the dimension that splits the periods, and every measure filters on it.
 - **A story around a date is compared like for like.** A `vs_year_before` view puts each month beside the same month
   a year earlier (`calculate: x is lag(m, 12)`, months in order), and `like_for_like` sums the matched months in a
   second stage and subtracts in a third. A pull-forward window is a documented dimension, left out of the clean
@@ -40,10 +42,11 @@ An app is only as deep as its model. Before writing the app:
 - **Thresholds carry their evidence.** A minimum count for a change between groups, a window, a cutoff: each is a
   measure or dimension whose doc gives the evidence and says it is this model's choice. A caveat about what a code
   covers (fuel, class, status) is read from the source's own data dictionary first.
-- **One view per card**, grouped by the card's axis and named for what it shows; a `kpis` view with every
-  measure the headline numbers show; a `records` view listing the fields a reader would check, newest first.
+- **A measure for every number on a page**, named for what it counts, so the kit can filter it to any period and
+  place; a `kpis` view with the measures the subject shows, so the Credible agent and an analyst get the same
+  numbers; views for what a block of your own needs.
 
-Query every view and look at the rows before you build on them.
+Query every measure by each dimension the app splits it by, and look at the rows before you build on them.
 
 ## Plan the app
 
@@ -55,19 +58,21 @@ against its denominator and its threshold: a fall from five to two is not a find
 Then write the plan into that turn's `**Progress:**` note, so the person sees it before the build:
 
 - **The lead finding** the Overview opens on: one sentence, its number, the view it comes from.
-- **Each Explore card**: the question, the finding the rows show in one line with its number, two or three forms
-  that could show it, the one you pick and why it beats the others, and the view that feeds it.
-- **The native chart** and why the field draws it that way.
+- **The pages and the paths**: each page, what leads it, its sections in order, and which page a click on each list
+  opens (`reference/dashboard-design.md`, "Pages, and the paths between them"). The theme, from the subject.
+- **Each section**: the question, the finding the rows show in one line with its number, two or three forms that
+  could show it, the one you pick (a kit block, or a chart of your own) and why it beats the others.
+- **The native form** and why the field draws it that way.
 - **Left out**: what you looked at and dropped, and why (too few rows, the same as another card, no change).
 
-Build from the plan. A card whose finding turns out weak, or repeats another, is cut, not padded with a weaker
-chart. A finding worth a card that the brief did not ask about goes in, under the question it answers.
+Build from the plan. A section whose finding turns out weak, or repeats another, is cut, not padded with a weaker
+chart. A finding worth a section that the brief did not ask about goes in, under the question it answers.
 
 **Charts are chosen, not slotted.** Ask what this data could show that is worth seeing, and which chart shows it
 plainest; never where a chart goes in the layout. A change across many entities is a slope or a dumbbell, a ranking
 with a gap is sorted bars or dots, a share that flipped is shares over time, a break is a line with before and after
-marked, a total moved by its parts is a waterfall. The templates and the chart module are where you start, not the
-whole choice: when a finding deserves a form they lack, draw it (Mechanics, below).
+marked, a total moved by its parts is a waterfall. The kit's blocks and its chart module are where you start, not the
+whole choice: when a finding deserves a form they lack, draw it as a block of your own (`reference/app-frame.md`).
 
 **A map earns its place.** Being about places is not a reason for a map. Draw one only when the pattern in space is
 the finding: neighbours that move together, a gradient across a region, a cluster along a border or a coast. The
@@ -76,110 +81,68 @@ is the story, and never a map beside a ranked table of the same measure.
 
 ## The app
 
-Build it in the frame in `reference/app-frame.md`: a header with the app's name, nav and a search box for the
-entity; a scope bar; one view at a time at its own address; a footer. Its views:
+Build it on the kit, as `reference/app-frame.md` says, with `credit: true` (it is published by Credible), the brief's
+articles in `articles`, and every dataset in `sources`. Its pages:
 
-- **Overview** (`#/`): the brief's question, the answer in a sentence or two, then the lede; headline numbers with
-  sparklines from bare views of the headline source, no filter added in the app; the chart the plan chose to show
-  the lead finding; the ranked table of the entity when a ranking is part of the answer; two or three cards that
-  lead into the app ("Biggest falls: ZIP 10035 →"), and, when the brief has articles, the articles. No scope bar: it shows the brief's own
-  comparison.
-- **Explore** (`#/explore`): the scope bar, then sections named for what the plan found ("Texas pulls ahead",
-  "Clubs take share"), each a grid of cards. Every card with a category or time axis filters the app when clicked,
-  and a second click clears it; a card ignores its own key, so it highlights the selection. A click filters in place
-  and never opens a page: a page opens from a name drawn as a link. Six to ten cards.
-- **An entity's page** (`#/<entity>/<id>`): the entity the domain is about, a zone, a species, a ZIP code or a
-  state. Its numbers against the whole, its trend, its chart native to the field, its latest records, "Add to
-  compare". Reached from search, every ranked list, the records and the overview.
-- **Compare** (`#/compare?ids=a,b`), when the domain has entities people compare: up to four side by side. It has
-  a link in the header, which counts what is picked, and every ranked list of entities passes `inCompare` and
-  `onCompare: toggleCompare`, so its + adds there. The frame declares `picked`, `inCompare`, `goCompare` and
-  `toggleCompare`; never declare them again in the views, as earlier apps did, or the module stops with a
-  SyntaxError and the page is blank. An app with no entities to compare drops the link, the +, "Add to
-  compare", and `compare` from `VIEWS` in `scope.js`, which leaves `#/compare` unreachable; keep the `compare()`
-  function, which the frame names.
-- **Records** (`#/records`): the rows in scope, 50 more at a time, each linking to its entity.
-- **About the data** (`#/about`): sources and licenses with attribution, what was reshaped, caveats, how to rebuild,
-  the date of the latest record.
+- **Overview** (`#/`): the brief's question as the page's lede, the subject (the numbers that answer it, from bare
+  views of the question's source), then four to six sections of evidence in the order a reader asks, the native
+  form among them, and `news()` at the end when the brief has articles.
+- **A page per area a reader works in** (`lists: '<entity>'`): every entity of that kind ranked, the sections that
+  compare them, and a `table` of the rows. Two such pages at most; most apps have one.
+- **A page per entity** (`entity: '<key>'`): the zone, species, ZIP code or state the domain is about. `entityHead`,
+  its subject against the whole, its own parts, its rows. Reached from every list of it and from search
+  (`search: '<key>'` when a reader would look one up by name).
+- **About the data** (`aboutPage`, with `period: false, filters: false`): the sources with their licences, what was
+  reshaped, what is left out, caveats, how to rebuild it.
 
-**One chart form native to the field.** Before drawing, ask what chart the field itself uses, and draw one: a rose
-of slope aspect, a calendar heatmap for seasons, an hour-by-weekday grid for calls and complaints, an epidemic
-curve, a curve of days until closed. Pick from the data's shape, and say in the hand-over why this form.
+**One form native to the field**, as a block of your own: a rose of slope aspect, a calendar of seasons, an
+hour-by-weekday grid for calls, an epidemic curve, a curve of days until closed. Say in the hand-over why this form.
 
-**Each finding its own form**, as the plan chose it. Two cards share a form only when they show different kinds of
-finding. Label marks directly rather than with legends, keeping a key only where `reference/charts.md` allows one.
-
-**The words carry the method.** The lede of each view and each card's finding are sentences built from the data,
-with the entity they name in bold ("**Idaho** grew fastest, +6.1%"). Every card has a method note saying what it
-leaves out and why: a threshold, a missing period, rows without a place, "associations, not causes". A reader who
-checks a number should find the rule that made it on the same card. **No sentence is typed:** a verdict ("Yes."), a
-count of months, a period, a superlative ("the most of any month") comes from the rows, and a claim the rows do not
-support is left out; no number goes in a static caption, sub-line or legend, where a refresh would leave it wrong. A
-change between small groups shows only where the model's threshold says there is enough, and the card says how many
-it left out.
+**The words carry the method.** Each section's headline is written by code from its rows, with the entity it names
+in bold; the kit writes a standard one, and you write your own where the domain says what matters ("Two zones are
+past the line"). Each section's `what` says what it shows and what it leaves out: a threshold, a missing period, rows
+without a place, "associations, not causes". **No sentence is typed:** a verdict, a count, a period, a superlative
+comes from the rows, and a claim the rows do not support is left out; no number goes in a static caption.
 
 **Credible's viewer shapes the frame.** The app runs in a frame as tall as its content, at most 20,000 px, and the
-host page scrolls. So: no drawers, popups or `position: fixed`; nothing that only works when it sticks; each view
-under about 5,000 px at desktop width, so a long Explore splits a section into its own view. The frame handles the rest: a new view scrolls the reader to its top.
+host page scrolls: no drawers, popups or `position: fixed`, and each page under about 5,000 px at desktop width. The
+kit already follows this.
 
-## Mechanics
-
-- **Every query and the address are built in one module**, `public/scope.js`, from `reference/scope-module.md`. A
-  value from the address reaches a query only after it is checked against a list from a distinct-value query.
-- **Queries** go through the frame's `query()`: one request per distinct text, at most four in flight, results kept
-  for the session, so moving between views is instant the second time.
-- **Cards load lazily** and drop a stale answer; each has a loading, an empty and an error state, as the frame's
-  `tile()` does, and shows its working: what each query counts (`explain`), the query, its rows and a CSV of them.
-  A new scope on the same view draws every card again in place: marks move, numbers count, and the card the reader
-  clicked holds still. Keep the frame's `tile()`, `chartBox()` and `paint()` as they are; they do this.
-- **Charts:** one d3 chart module, vendored and copied whole, never read, as `reference/charts.md` says; choose each
-  chart with its table. Nearly every mark filters the page or opens a page, so pass `onPick` and `selected` to every
-  chart that takes them. The ranked table is in `reference/charts.md`; maps and their pinned boundaries in `reference/maps.md`.
-  When a finding deserves a form the module does not have, draw it yourself with d3 in a file of its own, to the
-  module's bar: marks labelled directly, a tooltip on hover and keyboard focus, `onPick` where it filters, the
-  card's working, and a check at phone width.
-- **Design:** `reference/design.md`, with the fonts from `reference/fonts.md`. Choose the accent, the categories and
-  the ramp by choosing a theme for the subject as its "Colour" says, and keep each colour's meaning the same on
-  every view.
+**Fast because Credible stores it.** The app's source is a managed table, so it is materialized with rollups, as
+`reference/app-frame.md` "Make it fast" says, and each section's info mark then says which table answered. Persist
+only a source over a managed table; a source over a file in `data/` is never materialized.
 
 ## Work in phases
 
 Each phase is one turn, and each turn ends with a `**Progress:**` note until the last:
 
 1. Read the brief, find, fetch and shape the data. This can take two turns.
-2. Build the model as above, query every view, and plan the app (above).
-3. The frame, the design, colours and fonts, d3 and the chart module (and the map files when the plan has a map),
-   the Overview and Explore.
-4. The entity's page, the native chart, Records, Compare if it fits, About the data.
-5. Check every state and shoot it, then the README, the community card, and the hand-over.
+2. Build the model as above, materialize it, query every view, and plan the app (above).
+3. Copy the kit, write the config and the Overview.
+4. The area and entity pages, the native form, About the data.
+5. Check every page and shoot it, then the README, the community card, and the hand-over.
 
 ## States to shoot
 
-Every view: Overview, Explore, one entity's page, Records, Compare if built, About. Then Explore with each scope
-control set to one value, Explore after one card is clicked, and one entity's page with a scope. Shoot each at both
-widths, as `data-app-page` says, named for the view and state, such as `final-explore-borough-brooklyn-desktop.jpg`
-and `final-zip-10035-phone.jpg`. Cards load as they near the screen, so shoot with a viewport taller than the
-view (`--viewport 1280x6000` and `--viewport 390x12000`) and `--wait '[data-loaded]'`.
+Every page: the Overview, each area page, one entity's page, About. Then the Overview with one filter set, the
+Overview with another period, and one entity's page with a filter. Shoot each at both widths, as `data-app-page`
+says, named for the page and state, such as `final-areas-desktop.jpg` and `final-zone-front-range-phone.jpg`. Blocks
+load as they near the screen, so shoot with a viewport taller than the page (`--viewport 1280x6000` and
+`--viewport 390x12000`) and `--wait 'body[data-ready="true"]'`.
 
 ## Before hand-over
 
 On top of the checks in `data-app-page`:
 
-- Every view loads from its address alone, with no console errors.
-- `index.html?check=1#/` shows a banner that says the headline check passed: every number the answer and the headline
-  card show is a value bare views of the model return, and no placeholder is on the page. Shoot it.
-- The fonts load: `[...document.fonts].some((f) => f.family === 'Source Serif 4 Variable' && f.status === 'loaded')`
-  is true in the page (`document.fonts.check` is true even when the face is missing), and the shots show the serif
-  in ledes and descriptions.
+- Every page loads from its address alone, with no console errors.
+- `index.html?check=1#/` shows a banner that says the check passed: no section failed and no placeholder is on the
+  page. Shoot it.
 - No label overlaps another or runs off its chart in any shot, at either width.
-- Every card has a finding and a method note, and its working opens with a definition for every query.
-- The app names its theme on `<html>`, and every view reads well with `?mode=dark` too; after any colour override,
-  `reference/palette-check.md` prints `palette ok` in both modes.
-- Every scope control changes every card that should respond; a card that ignores a key says so.
-- A link opened from low on a view lands at the top of the next view.
+- Every section has a headline from its rows and a `what`; every metric has a `#(doc)` in the model or a `doc`.
+- Every page reads well with `?mode=dark` too.
+- Every list opens its entity's page, every line zooms the period, and the native form does something when clicked.
 - Search finds an entity by part of its name and opens its page; Back returns to where the reader was.
-- Clearing every chip returns Explore to how it loads.
+- A section's info mark says where the answer came from; once the app is published, a ranked list's says a summary.
 
-Add to your hand-over: the views, the scope keys, the entity, the native chart and why, the accent and categories you
-chose and why, any card that ignores a key, each chart's form and the form it beat, and how the app differs from
-the plan.
+Add to your hand-over: the pages and the paths between them, the theme and why, the native form and why, each
+section's form and the form it beat, and how the app differs from the plan.

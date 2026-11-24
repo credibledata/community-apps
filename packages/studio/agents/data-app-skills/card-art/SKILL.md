@@ -23,9 +23,9 @@ The card should look like the app a visitor is about to open, at a glance and at
   share, a rate) is expected; check it against a number the app shows. It is a picture of the app, not a chart of
   live data, so it never needs updating.
 - **The app's palette, nothing else.** Use its theme's light colours, the `:root[data-theme="<theme>"]` block in
-  `public/themes.css` (and any override in `public/styles.css`): its background, its ink, its `--accent`, its ramp. Echo the header the page actually shows (its `data-masthead` in `index.html` says which:
-  a stylesheet can define a dark band the page does not use): a dark band becomes a band of that colour across the
-  top (about 34 units); a light header with an accent rule becomes a thin accent strip.
+  `public/kit/themes.css` for the theme the app's config names: its `--paper`, its `--ink`, its `--accent`, its
+  chart colours. Echo its masthead: when the theme sets a `--mast-bg` other than `transparent`, draw a band of that
+  colour across the top (about 34 units); when it sets a `--mast-top`, a thin strip of it.
 - **Fill the frame.** A background `rect` of 320 x 200 first. Keep the drawing about 16 units in from the edges. No
   border: the card has its own.
 - **Bold enough to read at 160 x 100.** In the 320 x 200 units you draw in, no line under 1.5 and no shape under 4. Fewer, larger marks beat many

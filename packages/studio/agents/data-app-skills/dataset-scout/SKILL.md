@@ -43,7 +43,10 @@ Stop on a dataset when:
 
 - no license is stated, or it is stated only for the website and not the data,
 - the license is on the refused list,
-- getting the data needs an API key, a login, or clicking through terms,
+- getting the data needs a login or clicking through terms,
+- getting it needs an API key the environment does not hold (your briefing lists the ones it does, each as an
+  environment variable with the hosts it may be sent to): keep it as a source for later, with the key's name, its
+  host and where to get a free one, and carry on without it,
 - the data is about identifiable people.
 
 ## What to hand to the next step
@@ -59,6 +62,7 @@ For each dataset you keep, at most three:
 | Grain and span | weekly by state, 2019-01 to 2026-10 |
 | Fields you will use | `week`, `state`, `cases` |
 | The question it answers | from your list |
+| Key | the environment variable it reads and the host it goes to, or none |
 
 If nothing passes, stop the build. Report each candidate you rejected and the reason, and suggest what kind
 of source would answer the brief's questions.

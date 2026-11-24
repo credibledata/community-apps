@@ -1,7 +1,12 @@
-# Maps
+<!--
+Copyright (c) Credible Data Inc.
+SPDX-License-Identifier: MIT
+-->
 
-When the data has places, draw them. A choropleth of states, counties or countries answers "where" at a glance, and
-a click on a place filters the app or opens its page. Boundaries ship as TopoJSON, which is text, and are drawn by the
+# Maps With the d3 Chart Module
+
+When the pattern in space is the finding, draw a map. A choropleth of states, counties or countries answers "where" at
+a glance, and a click on a place filters the app or opens its page. Boundaries ship as TopoJSON, which is text, and are drawn by the
 chart module's `choropleth` with d3 and topojson-client. Every file is pinned and checked, like d3. Data with
 coordinates and no boundaries (a complaint's latitude and longitude) is drawn with `hexMap`, below.
 
@@ -22,12 +27,11 @@ Canadian provinces and other regions have no packaged open file here; draw those
 
 ## Vendor
 
-d3 is already in the page (`reference/charts.md`). Copy topojson-client from the templates, and fetch the one
-boundary file the app needs:
+d3 and topojson-client are already in the kit (`public/kit/vendor/`). Fetch the one boundary file the app needs, from
+the package directory:
 
 ```sh
-T=$(ls -d /workspace/siblings/*/templates/data-app | head -1)
-mkdir -p public/vendor/maps && chmod -R u+w public && cp "$T"/vendor/topojson-client.min.js public/vendor/ && chmod -R u+w public
+mkdir -p public/vendor/maps
 cd public/vendor
 base=https://cdn.jsdelivr.net/npm
 curl -sSL --fail --max-time 60 -o maps/states-albers-10m.json $base/us-atlas@3.0.1/states-albers-10m.json
@@ -36,8 +40,11 @@ sha256sum -c - <<'SUMS'
 6e7bb086a3c791490361968a3094f377f7726c5d0c4900fec03cc42db2305a3d  maps/states-albers-10m.json
 8048290dfdb6e83fbed17e8985c8cfc4ce9da9b842642f3d3e497280790cfa31  maps/LICENSE-atlas.txt
 SUMS
+[ $? -eq 0 ] || { rm -f maps/states-albers-10m.json maps/LICENSE-atlas.txt; echo "sum differs: draw a ranked table instead"; exit 1; }
 cd ../..
 ```
+
+On a Mac without `sha256sum`, use `shasum -a 256 -c -` in its place.
 
 The other two boundary files, with their sums:
 
@@ -46,19 +53,21 @@ a674dfa31b625e92635f32684a61ae135b05a91507f17f2d5164833237fecf46  maps/counties-
 2516c915867c7baf18ddec727aec46c315541a07cfb3d79a6559b05d5e94eee8  maps/countries-110m.json        (world-atlas@2.0.2)
 ```
 
-Never keep a file whose sum differs. Add to `public/vendor/README.md`: topojson-client 3.1.0, ISC license, by Mike
+Never keep a file whose sum differs. If the fetch fails or the sum differs, draw the places as a ranked table instead and say so. Add to `public/vendor/README.md`: topojson-client 3.1.0, ISC license, by Mike
 Bostock; the boundary file, ISC license, from us-atlas (US Census Bureau cartographic boundaries, public domain) or
-world-atlas (Natural Earth, public domain). Credit the boundaries in About the data. Load topojson-client after d3:
-`<script src="./vendor/topojson-client.min.js"></script>`.
+world-atlas (Natural Earth, public domain). Credit the boundaries in About the data. Load topojson-client with a
+plain script before `app.js` in `index.html`: `<script src="./kit/vendor/topojson-client.min.js"></script>`.
+It is 7 KB, and the module calls it only once d3 is in.
 
 ## Drawing a map
 
-A tile draws a choropleth like this; the SVG keeps its proportions as the width changes:
+A `block()` of your own draws a choropleth like this; the SVG keeps its proportions as the width changes, and a
+click filters or opens the place:
 
 ```js
 draw: ([rows], body) => C.loadTopo('./vendor/maps/states-albers-10m.json').then((topo) =>
-  C.choropleth(chartBox(body), topo, new Map(rows.map((r) => [r.state, r.production])), {
-    object: 'states', legendTitle: 'Million lb', selected: scope.state, onPick: (s) => toggleScope('state', s),
+  C.choropleth(body.appendChild(document.createElement('div')), topo, new Map(rows.map((r) => [r.state, r.production])), {
+    object: 'states', legendTitle: 'Million lb', onPick: (s) => store.toggleFilter('state', s),
   })),
 ```
 
@@ -68,3 +77,8 @@ Points with coordinates go on `hexMap`: one row per location with its count, `gr
 the number of locations (a query without one stops at the server's default row cap), and the same query with no
 filters as `opts.base`, drawn grey underneath so the place keeps its shape. It needs no boundary file. Its hexagons are
 clicked, not tabbed to: put a ranked table beside it.
+
+A map earns its place only when the pattern in space is the finding: neighbours that move together, a gradient
+across a region, a cluster along a border. Being about places is not a reason for a map. A map is not a ranking either: where the shapes take no
+keyboard focus (counties, hexagons), the ranked table beside it is how a keyboard reader reaches each place; a
+ranked table beside a states map that says the same thing is a repeat.

@@ -46,7 +46,8 @@ already there; never change either.
 - `<topic>.malloy`: the sources, dimensions, measures and views, each with a `#(doc)`.
 - `index.malloy`: the root model. It imports `<topic>.malloy` and exports only the sources the app and a
   reader should query.
-- `public/index.html` and its files: the data app.
+- `public/`: the data app, on the studio's dashboard kit (`public/kit/`, copied whole), with its own `index.html`
+  and `app.js`.
 - `README.md`: what the app shows, the articles it responds to, and the sources table from `data-fetch`.
 - `community-card.json`: the catalogue card, described below.
 - `card.svg`: the card's art, a 320 x 200 drawing of the app's lead view (`card-art`).
@@ -89,13 +90,14 @@ hand-over. The progress note's last line is `Queued: <summary>, as <package_agen
    once, in `<topic>.malloy`. Compile and query through this box's own Publisher with the `malloy` MCP
    server; the briefing in `CLAUDE.md` names its environment. Query every view and look at the rows before
    you build on them.
-5. **Make it fast.** Read `credible-materialization` before adding any `#@ persist`. Sources over files in
-   `data/` are DuckDB sources, which Credible never materializes, so for those the speed comes from step 3:
-   narrow columns and coded values, and each view one pass over the data. Persist only sources
-   Credible can materialize, such as a source over a managed table.
-6. **Build the app.** Use `data-app-page` for what the page should say and how it is laid out, and at high
-   effort `data-app-explorer` as well, which also sets the model's depth and the order of turns. Use
-   `malloy-html-data-apps` for the mechanics and `credible-data-apps` for how it runs inside Credible.
+5. **Make it fast.** The app's source reads a managed table, so it is materialized by default: `#(materialize)`
+   on the source and `#(rollup) grain=[…]` on the measures that add up, as `data-app-explorer`'s
+   `reference/app-frame.md` "Make it fast" says; read `credible-materialization` first. Publishing builds both,
+   and each section's info mark then says which table answered. A source over a file in `data/` is never
+   materialized; its speed comes from step 3: narrow columns and coded values.
+6. **Build the app** on the studio's dashboard kit. Use `data-app-page` for what it should say and how it is laid
+   out, and at high effort `data-app-explorer` as well, which also sets the model's depth and the order of turns;
+   its `reference/` holds the kit and the design. `credible-data-apps` says how it runs inside Credible.
 7. **Check it.** Every view the page uses returns rows. Screenshot the page at desktop and phone width with
    the box's screenshot tool and look at both. Fix what is broken, cramped or empty, then look again.
 8. **Write the card, draw its art with `card-art`, and write the README.** Then stop and hand over (below).
@@ -114,8 +116,9 @@ request merges, a workflow in credibledata/community-apps reads it and opens the
 ```
 
 `tag` is `Explore`, `Analyse` or `Simulate`. Write the blurb as a fact a visitor can check in the app, not as
-marketing. The card is drawn in the app's `--accent` from `public/styles.css`, which must be a six-digit hex colour;
-add `"accent": "#rrggbb"` only to draw it in another. No other keys: a card with any is not listed.
+marketing. Add `"accent": "#rrggbb"`, the light `--accent` of the app's theme in `public/kit/themes.css` (the
+`:root[data-theme="<theme>"]` block), so the card is drawn in the app's colour. No other keys: a card with any is
+not listed.
 
 Its picture is `card.svg`, which you draw with `card-art` and check with
 `python3 /workspace/siblings/studio/scripts/card_art.py card.svg`. If it is missing or fails that check, the app is
@@ -153,14 +156,15 @@ says. Never call GitHub yourself.
 
 When the app is done, your last message starts with `**Ready for review:**` and has these parts, in this order:
 
-1. **The app in one sentence**, the question it leads with, and, at high effort, its look: the starting look from
-   `data-app-explorer`'s `reference/design.md` "Looks", and the choices you changed and why.
+1. **The app in one sentence**, the question it leads with, its theme and why it suits the subject, and its pages.
 2. **Sources**: each dataset with its publisher, license and fetch date.
 3. **For the reviewer to check**: the two or three numbers most likely to be quoted, with the view each comes
    from, so the reviewer can open the source and compare. Copy each from the final page or its headline check,
    never from memory. Name anything you trimmed or could not verify.
 4. **Screenshots**: the final ones, named as `data-app-page` says, one per state of the page.
-5. **What is next**: a missing dataset, or a view you left out.
+5. **What is next**: a missing dataset, or a section you left out. For a source that needs a key the environment
+   does not have, name the key as `topics.md` does (its name, the hosts it is sent to, where to get a free one) and
+   what the app would gain from it.
 
 ## Hard rules
 
@@ -168,7 +172,12 @@ When the app is done, your last message starts with `**Ready for review:**` and 
   name the URL in your hand-over.
 - Open licenses only, as `dataset-scout` defines them. If a dataset's license is unstated or unclear, do not
   use it, except the federal compilations its `reference/licenses.md` accepts.
-- No source that needs an API key, a login, or acceptance of terms beyond its license.
+- No source that needs a login or acceptance of terms beyond its license. A source that needs a free API key is
+  allowed only when the environment holds the key: your briefing lists each one the environment has as an
+  environment variable and the hosts it may be sent to. Send it only to those hosts, and only from that variable;
+  never print it, write it to a file, or put it in a script's text (a script reads it from the variable). When the
+  key is not there, build without that source and say so under "What is next". An environment admin adds it once,
+  under API keys in Credible.
 - Never invent or estimate a number. Every number on the page comes from a Malloy view or measure.
 - Quote at most a headline from an article. Link to it; never copy its text into the package.
 - Write only inside the checkout, `/tmp/raw/`, `/tmp/shaped/`, `/tmp/scripts/` and a job's own

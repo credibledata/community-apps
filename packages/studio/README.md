@@ -18,13 +18,15 @@ listing it. Merging that one deploys the site.
 - `agents/app-builder/instructions.md`: what the agent does and the rules it keeps.
 - `agents/data-app-skills/`: how it finds and fetches data, builds an app, and draws its card art.
 - `scripts/card_art.py`: the check a card's art must pass, run by the agent and by the listing workflow.
-- `templates/data-app/`: the page, frame, chart module and styles each app starts from. The agent computer mounts
-  this package read-only beside the app, and the skills copy from here.
+- `templates/data-app/`: the dashboard kit every app is built on (`kit/`, copied whole into each app), its page,
+  and a worked example app. The agent computer mounts this package read-only beside the app, and the skills copy
+  from here. The kit's source is the `malloy-html-data-apps` skill's `assets/data-app/kit/` in malloydata/publisher;
+  copy it again from there to take a fix.
 
 The skills and the templates live here: change them in this package. Running the agent needs the right to edit
 this package, since its agent computer mounts it.
 
-## Its two tasks
+## Its three tasks
 
 - **Propose topics** (`agents/app-builder/tasks/propose-topics.md`) refreshes `topics.md` here: three to five
   topics in the news with open data behind them, ranked, each with the package name it would get. It runs only on
@@ -36,11 +38,21 @@ this package, since its agent computer mounts it.
   Then open the run's chat and start the work it staged. A build takes several turns of up to 10 minutes each;
   when one ends with a **Progress:** note and nothing queued, send "continue". It ends by opening the app's pull
   request.
+- **Revisit an app** (`agents/app-builder/tasks/revisit-app.md`) picks the published app gone longest without a
+  change, or the one named in a Run now note, and stages a revisit in its package: fresh data, the latest kit, and
+  one more source. It ends with a pull request on the app, like a build. Meant to run monthly.
 
 The builder opens its pull request with `publish_package`. Credible holds that publish until the pull request can
 merge, so **approving the pull request publishes the app**: request changes rather than approve with a note. Keep
 the rule on `main` that a pull request needs an approval; without it the app would go live as soon as it is built.
 Running Build next topic also asks for the app's data in managed tables; in a chat, the builder asks first.
 
-`publisher.json` needs a `cron` beside each task. It is only the intended rhythm, weekly for proposals; nothing
-runs until someone adds a schedule on the agent's page.
+`publisher.json` needs a `cron` beside each task. It is only the intended rhythm, weekly for proposals and monthly
+for revisits; nothing runs until someone adds a schedule on the agent's page.
+
+## Sources that need a key
+
+A topic or a revisit may name a source that needs a free API key. The agent never signs up for one. An environment
+admin adds the key once, under API keys in Credible, with the hosts it may be sent to; from then on the builder's
+agent computer can use it and never sees it written down. Until then the builder builds without that source and
+says so.

@@ -1,32 +1,30 @@
-# Charts
+<!--
+Copyright (c) Credible Data Inc.
+SPDX-License-Identifier: MIT
+-->
+
+# The d3 Chart Module
 
 Every chart is drawn with d3 into SVG by one chart module, which you copy whole into the app and never read: bars,
 lines, areas, scatters, heatmaps, maps, the ranked table, and the forms a specialist reaches for (slope, bump,
 beeswarm, flow, treemap, waterfall and the rest). Each sizes itself to its box, redraws when the box changes width,
 takes a click (`onPick`; not `sparkline`, `waterfall`, `multiples` or `connectedScatter`, and `rankTable` opens a row
 with `onOpen`), shows a tooltip on hover and on keyboard focus, and writes under itself what it could not
-draw. Both efforts use it; the page skill uses the standard charts and the ranked table.
+draw. It ships inside the dashboard kit, `public/kit/charts.js` (`reference/app-frame.md`), and the kit's own
+blocks cover the common forms (the subject's line, ranked lists, shares, lines by a field, tables, grids, watchlists).
+Reach for this module for the rest, inside a `block()` of your own.
 
-## Copy the module and d3
+It is part of the kit, copied whole and never
+edited, so a fixed version can be copied over it. The kit loads d3 beside its first queries (`malloy-html-data-apps`' `reference/performance.md`).
 
-The module, its styles and d3 are files in the templates (`reference/app-frame.md`). d3 is vendored into the package,
-never loaded from a CDN: the app runs with its viewer's data authority, and Credible's viewer must not depend on a
-third-party host. Never edit the module in the app; copy it again to take a fixed one.
+## Using it from the kit
 
-```sh
-T=$(ls -d /workspace/siblings/*/templates/data-app | head -1)
-mkdir -p public/vendor && chmod -R u+w public && cp "$T"/charts.js "$T"/charts.css "$T"/themes.css public/ && cp "$T"/vendor/d3.min.js public/vendor/ && chmod -R u+w public
-grep -qs "^d3.min.js:" public/vendor/README.md || echo "d3.min.js: d3 v7.9.0, ISC license, unmodified, from the data app templates." >> public/vendor/README.md
-```
-
-Load it before the app's module: `<script src="./vendor/d3.min.js"></script>`.
-
-Link the styles after `styles.css`, `<link rel="stylesheet" href="./charts.css">`, and import the module as
-`import * as C from './charts.js'`. To learn a function's arguments, read only its comment and signature, never the code:
-`awk -v f=bump '/^\/\*\*/{b="";c=1} c{b=b $0 "\n"; if (/\*\//) c=0; next} $0 ~ "^export (function|const) " f "[ (=]" {i=index($0, "){"); printf "%s%s\n", b, substr($0, 1, i && i < 200 ? i + 1 : 200); exit} {b=""}' public/charts.js`.
-Its helpers are `C.fmt`, `C.pct`, `C.token`, `C.sparkline`
-(for a headline number's trend), `C.loadTopo` (boundary files) and `C.tercile`; `C.ABBR` maps state names to
-postal codes. Add to the module only what no function covers, in its own file.
+The kit's copy step copies it with d3 and the styles it reads; `index.html` already links `kit/charts.css`, and
+`kit.css` maps the module's colour names onto the kit's palette. Import it from the kit, `import { C } from
+'./kit/kit.js'`. To learn a function's arguments, read only its comment and signature, never the code:
+`awk -v f=bump '/^\/\*\*/{b="";c=1} c{b=b $0 "\n"; if (/\*\//) c=0; next} $0 ~ "^export (function|const) " f "[ (=]" {i=index($0, "){"); printf "%s%s\n", b, substr($0, 1, i && i < 200 ? i + 1 : 200); exit} {b=""}' public/kit/charts.js`.
+Its helpers are `C.fmt`, `C.pct`, `C.token`, `C.loadTopo` (boundary files) and `C.tercile`; `C.ABBR` maps state
+names to postal codes. Its `rankTable` is superseded by the kit's `rank()` block; use that.
 
 ## Choose the form by the question
 
@@ -64,16 +62,13 @@ postal codes. Add to the module only what no function covers, in its own file.
 
 Pick the form a specialist in the field would draw, not the first one the columns suggest and not the one the
 template already holds. This table is where you start, not the whole choice: when a finding deserves a form it lacks,
-draw it, as `data-app-explorer`'s "Plan the app" says. Never the same form for two questions next to each other.
+draw it in a `block()` of your own (`reference/app-frame.md`, "A block of your own"). Never the same form for two questions next to each other.
 
-## The ranked table
+## The ranked list
 
-Most apps have one list readers come for: the species, the states, the ZIP codes, ranked. Draw it as a ranked table,
-not a bar chart: each row carries the value as a bar with its number, its trend as a sparkline, its change since a
-baseline as a bar either side of zero, and a button to add it to Compare. The first rows show; "Show all" opens the
-rest. On the Overview a click on a row opens the entity's page; on a view with filters it filters, and `href`
-makes the name a link to the page. Use it where a ranking is part of the answer; it needs no map beside it.
-It is `C.rankTable`; its styles are the `.rt` rules in the templates' `styles.css`.
+Most apps have one list readers come for: the categories, the carriers, the hospitals, ranked. Draw it with the
+kit's `rank()` block: each row carries its value as a thin bar over a pale one for the comparison, its number and
+its change, and opens the entity's page (or filters) on a click. Use `extra` for a second metric column.
 
 ## Everything clicks
 
@@ -85,7 +80,9 @@ It is `C.rankTable`; its styles are the `.rt` rules in the templates' `styles.cs
 - **The tooltip is built in**: the value, its share, the total it is part of, and what a click does. Hover and
   keyboard focus both show it.
 - **Marks move.** A chart drawn again into the same box moves each mark from where it was, and a first chart rises in;
-  `C.MOTION` is false when the reader asks for less motion, and `C.DUR` is the time a move takes. `C.countTo`
+  `C.MOTION` is false when the reader asks for less motion or the address has `?motion=0`, and `C.DUR` (380 ms) is
+  the time a mark takes to move between two answers. That is longer than a UI transition (`malloy-html-data-apps`' `reference/visual-craft.md`)
+  on purpose: the reader is following a mark, not waiting for a control. `C.countTo`
   (node, from, to) counts a number in text to its new value. Hovering a mark lights the marks and ranked rows that stand for
   the same thing in every chart, by the key `onPick` gets (a map's `linkOf` names its shapes the same way).
 - **Marks are named buttons** a keyboard reaches, and focus comes back after a pick. Large sets (counties, hexagons,
@@ -93,7 +90,7 @@ It is `C.rankTable`; its styles are the `.rt` rules in the templates' `styles.cs
 
 ## Using the module
 
-- Draw into `chartBox(body)` from the frame: a box with no fixed height, which each chart fills at its own height.
+- Draw into a box you append to the block's body, `body.appendChild(document.createElement('div'))`: no fixed height, the chart fills it at its own height. Give the block a `reserve` close to that height.
 - Colours are token names (`'--accent'`, `'--c2'`), so a part keeps one colour on every chart. The bivariate map's
   nine colours mix `--accent` and `--c2`, so the app's accent reaches them.
 - Changes are neutral unless `good` ('rise' or 'fall') says which way is good news.
@@ -135,8 +132,11 @@ Each form needs its numbers ready from the model, in the shape the last column g
 - **Show the scope on the chart.** When the app's scope selects a period, every time chart shades it (`band`).
   Where a number has a meaning (a target, the national rate, last year's level), draw it as a labelled reference
   line (`refs`).
-- **Colours come from the design tokens** (`reference/design.md`, "Colour"), each with one meaning across the app.
+- **Colours come from the kit's tokens** (`reference/dashboard-design.md`, "Colour"), each with one meaning across the app.
   Neutral bars use `--c-bar`; the accent is for the lead number and the selection.
 - **Every chart's finding is also a sentence** in the tile, from a query, for readers who cannot see the chart.
 - **Every query behind a chart says what it counts**, in the tile's `explain`, so the working under the card reads
   as a definition, the query and its rows.
+- **Verification reads SVG, not pixels.** The module draws SVG, so a check counts marks (`svg path`, `svg rect`,
+  `svg circle`) and reads their labels, where a canvas library's check reads pixels
+  (`malloy-html-data-apps`' `reference/verification-harness.md`).
