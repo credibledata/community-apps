@@ -55,7 +55,8 @@ high effort it grows into pages a reader moves between: read `data-app-explorer`
 
 Inside Credible, every section's info mark offers "Ask Credible about this", which opens Credible's chat with a
 question about that section and its queries attached (`credible-data-apps` describes the events). A specific
-question of your own, under the answer, goes through the kit's `askCredible(prompt, context)`.
+question of your own, under the answer, goes through the kit's `askCredible(prompt, context)`; show its button only
+when `inCredible()` is true, since outside Credible it does nothing.
 
 ## Before hand-over
 

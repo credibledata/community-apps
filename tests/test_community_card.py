@@ -61,7 +61,8 @@ class CardTest(unittest.TestCase):
         css = (Path(__file__).resolve().parents[1] / "packages/studio/templates/data-app/kit/themes.css").read_text()
         self.assertEqual(theme_accent("dashboard({ title: 'x', theme: 'transit' })", css), "#1f4fbf")
         self.assertEqual(theme_accent("dashboard({ title: 'x' })", css), "#2e6a8e")  # paper, the default
-        self.assertIsNone(theme_accent("dashboard({ theme: 'nosuch' })", css))
+        self.assertEqual(theme_accent("dashboard({ theme: 'nosuch' })", css), "#2e6a8e")  # drawn in the default
+        self.assertEqual(theme_accent("// theme: 'ledger'\ndashboard({ theme: 'transit' })", css), "#1f4fbf")
 
     def test_the_entry_goes_last_links_with_credible_and_escapes_quotes(self):
         card = {**CARD, "name": "Coffee's\nprice"}
@@ -161,6 +162,13 @@ class MainTest(unittest.TestCase):
 
     def test_a_kit_app_with_no_card_accent_is_drawn_in_its_theme(self):
         (self.pkg / "public/styles.css").unlink()
+        (self.pkg / "public/kit").mkdir()
+        (self.pkg / "public/kit/themes.css").write_text(':root {\n  --accent: #2e6a8e;\n}\n:root[data-theme="harvest"] {\n  --accent: #2f5d3a;\n}\n')
+        (self.pkg / "public/app.js").write_text("dashboard({ theme: 'harvest' })")
+        self.assertEqual(self.run_main(), 0)
+        self.assertIn("accent: '#2f5d3a',", (self.site / "src/content/apps.ts").read_text())
+
+    def test_a_kit_app_takes_its_theme_over_a_leftover_stylesheet(self):
         (self.pkg / "public/kit").mkdir()
         (self.pkg / "public/kit/themes.css").write_text(':root {\n  --accent: #2e6a8e;\n}\n:root[data-theme="harvest"] {\n  --accent: #2f5d3a;\n}\n')
         (self.pkg / "public/app.js").write_text("dashboard({ theme: 'harvest' })")

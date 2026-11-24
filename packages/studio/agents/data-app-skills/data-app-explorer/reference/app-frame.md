@@ -19,13 +19,13 @@ holds:
 | File | What it is | Copy into `public/` |
 |---|---|---|
 | `kit/` | The kit: `kit.js` (import everything from it), its modules, `kit.css`, `themes.css` (nine themes, light and dark), `charts.js`/`charts.css` (more chart forms), `fonts.css` and `fonts/`, `vendor/` (d3, topojson-client, the font licences) | Whole; never edit, copy again to take a fix |
-| `index.html` | The page: links the kit's styles, loads `/sdk/publisher.js` and `app.js` | Once, then it is the app's own |
+| `index.html` | The page: links the kit's styles, loads `/sdk/publisher.js` and `app.js` | Once, then it is the app's own: set its `<title>` |
 | `app.js` | A worked app: gasoline prices, with an Overview, an Areas page, a page per area and About the data | Once, then rewrite it for this app |
 
 Run the copy from the package's own directory, the one holding `publisher.json`:
 
 ```sh
-T=$(ls -d /workspace/siblings/*/templates/data-app | head -1)
+T=/workspace/siblings/studio/templates/data-app
 test -f publisher.json || { echo "run this from the package directory, the one with publisher.json"; exit 1; }
 test -d "$T/kit" || { echo "No templates under /workspace/siblings: stop, and say so in the hand-over."; exit 1; }
 mkdir -p public && rm -rf public/kit && cp -R "$T/kit" public/kit
@@ -35,7 +35,7 @@ chmod -R u+w public
 
 An app built before the kit (a `scope.js` and `styles.css` in `public/`) moves to it by copying the template's
 `index.html` over its own (the kit draws into its `#app`), rewriting `public/app.js` on the kit, and removing the old
-frame's files; see the studio's `revisit-app` task.
+frame's files: `public/scope.js`, `styles.css`, `fonts.css`, `charts.js`, `charts.css`, `themes.css` if any, and from `public/vendor/` the d3, topojson-client and font files the kit now carries (keep the map boundary files, and leave `vendor/README.md` listing only what is still there). See the studio's `revisit-app` task.
 
 ## The model the kit needs
 
@@ -155,7 +155,7 @@ dashboard({
   names with the ids and uses them in every list, chip and title. `name: (id) => text` formats an id that needs no
   lookup.
 - **`pages`**: each `render(state)` returns its blocks. A page with `entity` is that entity's page, reached at
-  `#/<id>/<value>` and not listed in the navigation; every query on it is scoped to the entity. `lists: 'category'`
+  `#/<page id>/<value>` and not listed in the navigation; every query on it is scoped to the entity. `lists: 'category'`
   marks the page that lists an entity, which its pages' breadcrumbs return to. `period: false` and `filters: false`
   hide those controls on a page they do not apply to, such as the About page.
 - **`defaults.filters`**: values a reader starts filtered to, when one slice is the whole story by default (regular

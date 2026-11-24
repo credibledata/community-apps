@@ -8,7 +8,8 @@ pull request on credibledata/community-apps for a person to review.
 A person can also start it with Run now and a package name as the note, to revisit that app now.
 
 If you cannot run commands in this run, you are not on the agent computer: stop and say so. This turn only picks
-and stages; it is short.
+and stages; it is short. Reading GitHub's public pages and API below is allowed; it is not the pull request work your
+instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rate limit), stop and say so.
 
 ## Steps
 
@@ -29,14 +30,15 @@ and stages; it is short.
    `package_agent` `app-builder` and `agent_package` `studio`. Its `summary` is "revisit <name>". Its
    `instruction` is:
 
-   "Revisit the community app in this package. It is published; keep what works and change only what this
-   revisit is for. This revisit may create managed tables. In order: (1) Refresh the data, only when its source has
+   "Revisit the community app in this package. High effort. It is published; keep what works and change only what
+   this revisit is for. This revisit may create managed tables. In order: (1) Refresh the data, only when its source has
    published newer data than the app holds: run its `pipeline/` scripts and load the result as a new table named
    for the month (`<table>_<yyyymm>`), since a table cannot be replaced; point the model at it, and name the table it
    replaces in the hand-over. (2) Take the latest kit: copy `templates/data-app/kit/` from the studio package
    mounted beside this one over `public/kit/`. An app on the older frame (`public/scope.js`) moves to the kit: copy
    the template's `index.html` over its own, rewrite `public/app.js` on the kit from the app's own views and
-   findings, remove the old frame's files, and draw its `card.svg` again in its new theme. (3) Add one source that
+   findings, keeping every view a reader had as a page or a section, and remove the old frame's files as
+   `data-app-explorer`'s `reference/app-frame.md` lists them. Draw its `card.svg` again in its new theme. (3) Add one source that
    makes it deeper, found with `dataset-scout`: a second dataset joined by place or time that answers the next
    question a reader asks, or the one its 'What is next' named. Use a source that needs a key only when the
    environment holds that key. (4) Materialize the app's source with rollups if it is not yet. Then check, shoot and

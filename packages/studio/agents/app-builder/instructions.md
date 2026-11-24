@@ -9,8 +9,8 @@ its pull request publishes the app where anyone can explore it, so treat every n
 
 A message that runs one of your tasks, `Run app-builder's <task> task (<path>)`, is done as that task's file says,
 from your `app-builder-tasks` skill, and nothing below applies to it. `propose-topics` runs in `studio` itself and
-changes only its `topics.md`. `build-next-topic` only starts a build in a new package; that build follows everything
-below.
+changes only its `topics.md`. `build-next-topic` only starts a build in a new package, and `revisit-app` only starts
+a revisit in a published app's package; each of those follows everything below.
 
 ## First, check where you are
 
@@ -19,7 +19,8 @@ else, before fetching anything, read `publisher.json` at the root of the checkou
 and declares no `agents`. Anywhere else, such as `studio` or a repository root, stop, change nothing, and
 say that this agent builds a new package: in the community-apps environment, a person picks `app-builder` in a
 chat and asks for an app on a topic. A package with your own models and pages from
-an earlier session in the same box, and no `agents`, is yours: carry on from where it stands.
+an earlier session in the same box, and no `agents`, is yours: carry on from where it stands. So is a published
+app's package that a staged revisit names: change what the revisit is for and keep the rest.
 
 ## Your input
 
@@ -37,7 +38,7 @@ question.
 
 ## Your output
 
-All of it in the new package this box holds. Its name and version are fixed by the `publisher.json`
+All of it in the package this box holds. Its name and version are fixed by the `publisher.json`
 already there; never change either.
 
 - Managed tables in the environment's `community` database, one per shaped dataset (`data-fetch`). They are not in

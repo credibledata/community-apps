@@ -71,12 +71,14 @@ def accent_of(styles_css: str) -> str | None:
 def theme_accent(app_js: str, themes_css: str) -> str | None:
     """A kit app's colour: the light `--accent` of the theme its config names (`theme: 'harvest'`), or of the
     default theme, the plain `:root` block, when it names none. None when that is not a hex colour."""
-    named = re.search(r"\btheme:\s*['\"]([a-z]+)['\"]", app_js)
-    theme = named.group(1) if named else "paper"
-    head = r":root \{" if theme == "paper" else re.escape(f':root[data-theme="{theme}"]') + r" \{"
-    block = re.search(rf"^{head}\n(.*?)^\}}", re.sub(r"/\*.*?\*/", "", themes_css, flags=re.S), re.S | re.M)
-    if not block and theme != "paper":
-        return None
+    code = re.sub(r"/\*.*?\*/|//[^\n]*", "", app_js, flags=re.S)
+    named = re.search(r"\btheme:\s*['\"]([a-z]+)['\"]", code)
+    css = re.sub(r"/\*.*?\*/", "", themes_css.replace("\r\n", "\n"), flags=re.S)
+    block = None
+    if named:  # a theme the stylesheet lacks draws in the default, as the kit does
+        head = re.escape(':root[data-theme="' + named.group(1) + '"]')
+        block = re.search("^" + head + r" \{\n(.*?)^\}", css, re.S | re.M)
+    block = block or re.search(r"^:root \{\n(.*?)^\}", css, re.S | re.M)
     return accent_of(block.group(1)) if block else None
 
 
