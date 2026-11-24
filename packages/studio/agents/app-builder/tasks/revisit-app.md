@@ -48,8 +48,9 @@ instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rat
    `styles.css` as an override of that theme, and the palette check in `reference/palette-check.md` passes in both
    modes. Keep every view the app has. Load every view in the box and check that each
    card's info mark opens and closes and Credible's logo shows, at both widths, in light and dark. (3) Add one source that
-   makes it deeper, found with `dataset-scout`: a second dataset joined by place or time that answers the next
-   question a reader asks, or the one its 'What is next' named. Use a source that needs a key only when the
+   makes it deeper, found with `dataset-scout`: a dataset joined by place or time, as `data-fetch`'s "Shared place
+   and time" says, that answers a question the README's "The questions" leaves open, or the one its 'What is next'
+   named. An app built before "The questions" existed gets that section first, written from what the app answers. Use a source that needs a key only when the
    environment holds that key. Then check, shoot and
    hand over as a build does, with `publish_package` opening the pull request for review. Its description says that
    approving it republishes the live app (the app is already listed), and starts

@@ -20,8 +20,10 @@ find more, so a turn that is stopped still leaves a list.
   to millions of rows) with things a reader opens one at a time: a state, a species, a company, a station. A table
   of a few dozen numbers is a chart in an article; drop it. Size is no reason to drop a topic: large data goes into
   managed tables, which Credible stores and summarises so the app stays fast.
-- **Deeper with a second source.** A second dataset that joins the first by place or time and answers the next
-  question: prices beside incomes, cases beside population, emissions beside output. Name it when there is one.
+- **A domain, not a dataset.** Beside the core dataset, at least two supplemental ones that join it by place or
+  time and answer the questions it cannot: prices beside incomes, cases beside population, an early signal beside
+  the outcome, the years before the core begins. A topic with fewer says so in its `More data` line and ranks
+  below one that has them.
 - **Open data behind it.** Each dataset from the body that collects it, under a license `dataset-scout` accepts, that
   a script can fetch (see `data-fetch`). No login or terms to accept. A source that needs a free API key is
   allowed when the key goes in a request header, as `dataset-scout` says: name the key (below), and say whether the
@@ -39,7 +41,8 @@ find more, so a turn that is stopped still leaves a list.
 3. **Find new topics.** Read this week's news. Without a web search tool, fetch the news feed
    https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en and its search feed
    `https://news.google.com/rss/search?q=<terms>&hl=en-US&gl=US&ceid=US:en`. For each candidate, use
-   `dataset-scout` far enough to name one dataset and confirm its license on the publisher's own page. Judge the
+   `dataset-scout` far enough to name the core dataset and the supplemental ones, each with its license confirmed
+   on the publisher's own page and the question it answers. Judge the
    size and fields from that page or the first rows; never download a whole dataset here.
 4. **Rank and write.** Put the person's topics first, then yours, best first. Write `topics.md` in the shape below.
 5. **Publish it** with `publish_package`, which opens the pull request on `studio`: summary "propose topics for
@@ -62,7 +65,7 @@ add a topic with `Added by:` your name.
 - Package: `<name>` (lowercase, hyphens, at most 40 characters, not taken)
 - Why now: <one sentence>, <link to one recent article>
 - Data: <dataset> from <publisher>, <link>, <license as the page names it>, <rough size in rows>
-- More data: <a second dataset that deepens it, from <publisher>, <link>, <license>, and the question it answers>, or none
+- More data: <each supplemental dataset, from <publisher>, <link>, <license>, the place and period it joins on, and the question it answers>, one per line; fewer than two says which questions stay open
 - Needs a key: `<NAME>` sent to <host>, free at <signup link>, <what the app loses without it>, or none
 - Lead view: <the one chart the app opens on>
 - Pages: <the entity a reader opens one at a time, and the pages beyond the Overview>

@@ -1,6 +1,6 @@
 ---
 name: data-app-explorer
-description: The high-effort data app - an app with views at their own addresses (an overview that answers the brief, an explorer whose cards filter each other, a page per entity, records, compare, about the data), a header with search, labelled d3 charts chosen for what the data shows and that filter on click, in an editorial design with real type, over a model deep enough to carry it. Use when the task asks for effort high. Sources, caveats, the hand-off to Credible's agent and the screenshot rules come from data-app-page.
+description: The high-effort data app - an app with views at their own addresses (an overview that answers the brief's questions, an explorer whose cards filter each other, a page per entity, records and compare when a question needs them, about the data), over a model that joins the core dataset with its supplemental ones, a header with search, labelled d3 charts chosen for what the data shows and that filter on click, in an editorial design with real type, over a model deep enough to carry it. Use when the task asks for effort high. Sources, caveats, the hand-off to Credible's agent and the screenshot rules come from data-app-page.
 ---
 
 # Data app explorer
@@ -20,6 +20,12 @@ An app is only as deep as its model. Before writing the app:
 
 - **Record grain.** The main source is one row per record, as `data-fetch` stores it, with a `primary_key` when
   the data has one. Lookup files are joined and decoded into readable dimensions.
+- **Every dataset a source, and one that joins them.** Each supplemental dataset is a source of its own over its
+  table. The places table is joined by code, never by name. Then a source at the grain the datasets share (state
+  and week, county and year) brings them together: the core summed to that grain, each supplemental dataset joined
+  on place and period. A measure that uses two sources, such as admissions per 100,000 or cases beside vaccination,
+  says in its doc which source gives each part and how the periods line up. A period or place one source lacks is
+  null there, never zero.
 - **Every field documented.** A `#(doc)` on each dimension and measure: what it means, its unit, and where it
   comes from. `#(index)` on the dimensions a reader would search by name.
 - **Quirks become fields.** Sentinels become null. "Unknown" and "Unspecified" stay as their own value, and
@@ -54,6 +60,8 @@ against its denominator and its threshold: a fall from five to two is not a find
 
 Then write the plan into that turn's `**Progress:**` note, so the person sees it before the build:
 
+- **Each question from "The questions"**: its answer in one sentence with its number, the view it comes from, the
+  sources it combines, and its baseline. A question the data cannot answer says so.
 - **The lead finding** the Overview opens on: one sentence, its number, the view it comes from.
 - **Each Explore card**: the question, the finding the rows show in one line with its number, two or three forms
   that could show it, the one you pick and why it beats the others, and the view that feeds it.
@@ -77,15 +85,19 @@ is the story, and never a map beside a ranked table of the same measure.
 ## The app
 
 Build it in the frame in `reference/app-frame.md`: a header with the app's name, nav and a search box for the
-entity; a scope bar; one view at a time at its own address; a footer. Its views:
+entity; a scope bar; one view at a time at its own address; a footer. The views follow the questions: every view
+answers at least one, and a question that needs more room than a section gets a view of its own (its name in
+`VIEWS` in `scope.js`, a function, an entry in `paint()`'s `views`, and a nav link). Its views:
 
-- **Overview** (`#/`): the brief's question, the answer in a sentence or two, then the lede; headline numbers with
+- **Overview** (`#/`): the lead question, the answer in a sentence or two, then the lede, and each other question
+  in a line with its answer, linking to where the app shows it; headline numbers with
   sparklines from bare views of the headline source, no filter added in the app; the chart the plan chose to show
   the lead finding; the ranked table of the entity when a ranking is part of the answer; two or three cards that
   lead into the app ("Biggest falls: ZIP 10035 →"), and, when the brief has articles, the articles. No scope bar: it shows the brief's own
   comparison.
-- **Explore** (`#/explore`): the scope bar, then sections named for what the plan found ("Texas pulls ahead",
-  "Clubs take share"), each a grid of cards. Every card with a category or time axis filters the app when clicked,
+- **Explore** (`#/explore`): the scope bar, then a section per question, named for its answer ("Texas pulls
+  ahead", "Clubs take share"), each a grid of cards; a card from a supplemental dataset sits under the question it
+  answers. Every card with a category or time axis filters the app when clicked,
   and a second click clears it; a card ignores its own key, so it highlights the selection. A click filters in place
   and never opens a page: a page opens from a name drawn as a link. Six to ten cards.
 - **An entity's page** (`#/<entity>/<id>`): the entity the domain is about, a zone, a species, a ZIP code or a
@@ -98,9 +110,12 @@ entity; a scope bar; one view at a time at its own address; a footer. Its views:
   SyntaxError and the page is blank. An app with no entities to compare drops the link, the +, "Add to
   compare", and `compare` from `VIEWS` in `scope.js`, which leaves `#/compare` unreachable; keep the `compare()`
   function, which the frame names.
-- **Records** (`#/records`): the rows in scope, 50 more at a time, each linking to its entity.
-- **About the data** (`#/about`): sources and licenses with attribution, what was reshaped, caveats, how to rebuild,
-  the date of the latest record.
+- **Records** (`#/records`), when a reader would check single records: the rows in scope, 50 more at a time, each
+  linking to its entity. An app without it drops the link and `records` from `VIEWS` in `scope.js`, and keeps the
+  `records()` function, which the frame names.
+- **About the data** (`#/about`): sources and licenses with attribution, each with the questions it answers, how
+  the datasets were joined and what did not match, what was reshaped, caveats, how to rebuild, the date of the
+  latest record.
 
 **One chart form native to the field.** Before drawing, ask what chart the field itself uses, and draw one: a rose
 of slope aspect, a calendar heatmap for seasons, an hour-by-weekday grid for calls and complaints, an epidemic
@@ -146,16 +161,19 @@ under about 5,000 px at desktop width, so a long Explore splits a section into i
 
 Each phase is one turn, and each turn ends with a `**Progress:**` note until the last:
 
-1. Read the brief, find, fetch and shape the data. This can take two turns.
+1. Map the domain, then find, fetch, shape and join the data. With a core and supplemental datasets this can take
+   three turns.
 2. Build the model as above, query every view, and plan the app (above).
 3. The frame, the design, colours and fonts, d3 and the chart module (and the map files when the plan has a map),
    the Overview and Explore.
-4. The entity's page, the native chart, Records, Compare if it fits, About the data.
+4. The entity's page, the native chart, a view of its own for any question that needs one, Records and Compare if
+   a question needs them, About the data.
 5. Check every state and shoot it, then the README, the community card, and the hand-over.
 
 ## States to shoot
 
-Every view: Overview, Explore, one entity's page, Records, Compare if built, About. Then Explore with each scope
+Every view: Overview, Explore, one entity's page, each view of a question's own, Records and Compare if built,
+About. Then Explore with each scope
 control set to one value, Explore after one card is clicked, and one entity's page with a scope. Shoot each at both
 widths, as `data-app-page` says, named for the view and state, such as `final-explore-borough-brooklyn-desktop.jpg`
 and `final-zip-10035-phone.jpg`. Cards load as they near the screen, so shoot with a viewport taller than the
