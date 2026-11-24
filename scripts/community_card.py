@@ -11,8 +11,9 @@ The card, written by whoever builds the app:
 
     {"name": "at most 40 characters", "blurb": "at most 60 words", "tag": "Explore", "accent": "#7a4520"}
 
-`tag` is one of TAGS. `accent` is optional; without it the app's `--accent` in public/styles.css is used, and
-without that the site draws the card in grey.
+`tag` is one of TAGS. `accent` is optional; without it the card takes the app's own colour: the light `--accent` of
+the theme its public/index.html names (`<html data-theme="…">`), from public/themes.css, or for an app without a
+theme the `--accent` in public/styles.css. Without either, the site draws the card in grey.
 
 Card art, also optional, is the package's `card.svg`: a 320 x 200 drawing the builder makes of the app. The site never
 gets the file as written. It is parsed, and only drawing elements and attributes with plain values are written into a
@@ -65,6 +66,19 @@ def accent_of(styles_css: str) -> str | None:
     found = re.findall(r"--accent:\s*([^;]+);", re.sub(r"/\*.*?\*/", "", styles_css, flags=re.S))
     value = found[-1].strip() if found else ""
     return value.lower() if HEX.fullmatch(value) else None
+
+
+def theme_accent(index_html: str, themes_css: str) -> str | None:
+    """A themed app's colour: the light `--accent` of the theme `<html data-theme="…">` names. None when the page
+    names no theme, or the stylesheet has no light block for it."""
+    named = re.search(r"<html\b[^>]*\bdata-theme=[\"']([a-z]+)[\"']", re.sub(r"<!--.*?-->", "", index_html, flags=re.S))
+    if not named:
+        return None
+    css = re.sub(r"/\*.*?\*/", "", themes_css.replace("\r\n", "\n"), flags=re.S)
+    head = re.escape(':root[data-theme="' + named.group(1) + '"]')
+    # Every block for the theme, in file order, as one: the last --accent wins, as in the browser.
+    blocks = [m.group(1) for m in re.finditer(head + r"\s*\{([^}]*)\}", css)]
+    return accent_of("\n".join(blocks)) if blocks else None
 
 
 def takes_drawn_cards(apps_ts: str) -> bool:
@@ -129,8 +143,14 @@ def read_card(package: Path) -> tuple[str, dict, str | None]:
     problems = card_problems(card)
     if problems:
         raise SystemExit(f"Not listed: {slug}'s card: {'; '.join(problems)}")
-    styles = package / "public" / "styles.css"
-    accent = card.get("accent") or (accent_of(styles.read_text()) if styles.is_file() else None)
+    public = package / "public"
+    accent = card.get("accent")
+    if not accent and (public / "themes.css").is_file() and (public / "index.html").is_file():
+        # styles.css after themes.css, as the page links them, so an app's own override of its theme's accent wins.
+        styles = (public / "styles.css").read_text() if (public / "styles.css").is_file() else ""
+        accent = theme_accent((public / "index.html").read_text(), (public / "themes.css").read_text() + "\n" + styles)
+    if not accent and (public / "styles.css").is_file():
+        accent = accent_of((public / "styles.css").read_text())
     return slug, card, accent
 
 

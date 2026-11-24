@@ -15,6 +15,10 @@
         {
           "cron": "0 15 * * TUE",
           "task": "agents/app-builder/tasks/build-next-topic.md"
+        },
+        {
+          "cron": "0 15 1 * *",
+          "task": "agents/app-builder/tasks/revisit-app.md"
         }
       ]
     }

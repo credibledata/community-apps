@@ -24,7 +24,7 @@ listing it. Merging that one deploys the site.
 The skills and the templates live here: change them in this package. Running the agent needs the right to edit
 this package, since its agent computer mounts it.
 
-## Its two tasks
+## Its three tasks
 
 - **Propose topics** (`agents/app-builder/tasks/propose-topics.md`) refreshes `topics.md` here: three to five
   topics in the news with open data behind them, ranked, each with the package name it would get. It runs only on
@@ -36,11 +36,23 @@ this package, since its agent computer mounts it.
   Then open the run's chat and start the work it staged. A build takes several turns of up to 10 minutes each;
   when one ends with a **Progress:** note and nothing queued, send "continue". It ends by opening the app's pull
   request.
+- **Revisit an app** (`agents/app-builder/tasks/revisit-app.md`) picks the app this agent built that has gone longest
+  without a change (its README ends with `Built by Credible's app-builder.`), or the one named in a Run now note,
+  and stages a revisit in its package: fresh data, the card's info mark and the theme, and one more source. It ends with a
+  pull request on the app, like a build. Meant to run monthly.
 
 The builder opens its pull request with `publish_package`. Credible holds that publish until the pull request can
 merge, so **approving the pull request publishes the app**: request changes rather than approve with a note. Keep
 the rule on `main` that a pull request needs an approval; without it the app would go live as soon as it is built.
 Running Build next topic also asks for the app's data in managed tables; in a chat, the builder asks first.
 
-`publisher.json` needs a `cron` beside each task. It is only the intended rhythm, weekly for proposals; nothing
-runs until someone adds a schedule on the agent's page.
+`publisher.json` needs a `cron` beside each task. It is only the intended rhythm, weekly for proposals and monthly
+for revisits; nothing runs until someone adds a schedule on the agent's page.
+
+## Sources that need a key
+
+A topic or a revisit may name a source that needs a free API key. The agent never signs up for one. An environment
+admin adds the key once, under API keys in Credible, with the hosts it may be sent to; from then on the builder's
+agent computer can use it and never sees it written down. Credible adds the key only to a request header, so a
+source that wants its key in the address cannot be used. Until a key is added the builder builds without that
+source and says so.

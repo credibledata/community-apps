@@ -22,8 +22,8 @@ The card should look like the app a visitor is about to open, at a glance and at
   how the line moves. Round it and drop detail. Computing a measure from the data files the way the model does (a
   share, a rate) is expected; check it against a number the app shows. It is a picture of the app, not a chart of
   live data, so it never needs updating.
-- **The app's palette, nothing else.** Use the colours in `public/styles.css`: its background, its ink, its
-  `--accent`, its colour ramp. Echo the header the page actually shows (its `data-masthead` in `index.html` says which:
+- **The app's palette, nothing else.** Use its theme's light colours, the `:root[data-theme="<theme>"]` block in
+  `public/themes.css` (and any override in `public/styles.css`): its background, its ink, its `--accent`, its ramp. Echo the header the page actually shows (its `data-masthead` in `index.html` says which:
   a stylesheet can define a dark band the page does not use): a dark band becomes a band of that colour across the
   top (about 34 units); a light header with an accent rule becomes a thin accent strip.
 - **Fill the frame.** A background `rect` of 320 x 200 first. Keep the drawing about 16 units in from the edges. No

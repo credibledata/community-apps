@@ -45,9 +45,10 @@ const lum = (color) => {
   return [c.r, c.g, c.b].map((v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0)
 }
 const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
-/** Text on a fill: white or the page's darkest text, whichever has the higher contrast. */
+/** Text on a fill: white or near-black, whichever has the higher contrast. Never the page's text colour, which is
+ * light on a dark page, as white is. */
 function inkOn(fill) {
-  const dark = token('--text-strong') || '#1a1714'
+  const dark = '#1a1714'
   return ratio(fill, '#ffffff') >= ratio(fill, dark) ? '#ffffff' : dark
 }
 /** A series colour darkened until it reads as text on the page, at 4.5:1. */

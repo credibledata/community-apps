@@ -23,6 +23,35 @@ const known = {} // filled by boot() from distinct-value queries
 let route = { view: 'overview', id: null, compare: [] }
 let scope = { ...S.DEFAULT_SCOPE }
 
+// ---- Theme and mode: the app's theme is data-theme on <html>; data-mode fixes light or dark, else the reader's
+// system setting decides. ?theme= and ?mode= in the address override both, for a preview or a screenshot. ----
+{
+  const p = new URLSearchParams(location.search)
+  if (p.get('theme')) document.documentElement.dataset.theme = p.get('theme')
+  if (['light', 'dark'].includes(p.get('mode'))) document.documentElement.dataset.mode = p.get('mode')
+}
+// The host's mode. Credible shows the app in a frame and tells it which mode its reader chose
+// (credible:color-scheme, on load and on every change). The frame follows it unless the address fixes one (?mode=),
+// and answers credible:color-scheme-applied, so the host knows this app draws dark itself and stops holding its
+// frame light. It also asks once on start, in case the host spoke before the frame was listening.
+if (window.parent !== window) {
+  const fixed = ['light', 'dark'].includes(new URLSearchParams(location.search).get('mode'))
+  addEventListener('message', (e) => {
+    const d = e.data
+    if (e.source !== window.parent || !d || d.type !== 'credible:color-scheme' || !['light', 'dark'].includes(d.mode)) return
+    if (!fixed && document.documentElement.dataset.mode !== d.mode) document.documentElement.dataset.mode = d.mode // the same mode again redraws nothing
+    e.source.postMessage({ type: 'credible:color-scheme-applied', mode: fixed ? document.documentElement.dataset.mode : d.mode }, e.origin === 'null' ? '*' : e.origin)
+  })
+  // The request carries nothing; it goes to the host's own origin where the browser says it, else to any.
+  window.parent.postMessage({ type: 'credible:color-scheme-request' }, location.ancestorOrigins?.[0] || '*')
+}
+/** Charts read their colours when they draw, so a new theme or mode draws every loaded card again, in place. */
+function recolour() {
+  for (const c of document.querySelectorAll('#main article.card')) if (c.__loaded && c.__spec) c.__update?.(c.__spec)
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', recolour)
+new MutationObserver(recolour).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-mode'] })
+
 // ---- Queries: one request per distinct text, at most four in flight ----
 
 const cache = new Map()
@@ -116,6 +145,7 @@ window.addEventListener('popstate', () => {
 // ---- Tiles: a card that loads its queries when it comes near the screen ----
 
 let epoch = 0
+let backs = 0
 const io = new IntersectionObserver(
   (entries) => {
     for (const e of entries) {
@@ -141,26 +171,43 @@ function tile(spec) {
   const found = h('p', { class: 'card__finding' })
   const methodEl = h('p', { class: 'card__method', text: spec.method || '' })
   let results = []
-  const details = h('details', {}, h('summary', {}, h('span', { class: 'when-closed', text: 'Show the working' }), h('span', { class: 'when-open', text: 'Hide the working' })))
-  details.addEventListener('toggle', () => {
-    details.querySelector('.working')?.remove()
-    if (details.open) details.append(working(current.queries(), current.explain || [], results))
-  })
+  // The info mark turns the card over to how it is made: what it covers and leaves out, each query with what it
+  // counts and its rows, and, inside Credible, a question to Credible's agent about it.
+  const backId = `back-${++backs}`
+  const back = h('div', { class: 'card__back', id: backId, role: 'region', 'aria-label': `How “${title}” is made`, hidden: true })
+  const info = h('button', { type: 'button', class: 'card__info', 'aria-expanded': 'false', 'aria-controls': backId, 'aria-label': `How “${title}” is made`, title: 'How it’s made' }, infoIcon())
+  let status = 'loading' // 'loading', 'ok', or the error's message: what the back says about the rows
+  const fill = () => back.replaceChildren(...howMade(current, results, found.textContent, title, status))
+  const flip = (open) => {
+    // Closing with focus inside the back would drop it to the page: it goes back to the info mark first.
+    if (!open && back.contains(document.activeElement)) info.focus()
+    if (open) {
+      back.style.minHeight = `${card.offsetHeight - card.querySelector('.card__head').offsetHeight}px`
+      fill()
+    }
+    back.hidden = !open
+    card.classList.toggle('card--back', open)
+    info.setAttribute('aria-expanded', String(open))
+  }
+  info.onclick = () => flip(back.hidden)
   const card = h(
     'article',
     { class: `card ${cls}`, 'data-key': `${cls}|${title}` },
-    h('h3', { class: 'card__title', text: title }),
+    h('div', { class: 'card__head' }, h('h3', { class: 'card__title', text: title }), info),
+    back,
     sub && h('p', { class: 'card__sub', text: sub }),
     body,
     found,
     spec.method && methodEl,
-    h('div', { class: 'card__foot' }, h('span', { text: note || '' }), details)
+    note && h('div', { class: 'card__foot' }, h('span', { text: note }))
   )
   card.__spec = spec
+  card.addEventListener('keydown', (e) => e.key === 'Escape' && !back.hidden && flip(false))
   const run = (updating) => {
     const mine = epoch
     const s = current
     card.__loaded = true
+    status = 'loading'
     if (updating) card.classList.add('is-updating')
     return Promise.all(s.queries().map(query))
       .then((rs) => {
@@ -195,12 +242,22 @@ function tile(spec) {
         })
       })
       .then(() => {
-        if (mine === epoch) card.dataset.loaded = '1'
+        if (mine !== epoch) return
+        status = 'ok'
+        card.dataset.loaded = '1'
+        if (!back.hidden) {
+          // Opened while loading: now it has the rows. Focus inside the back goes to the info mark first.
+          if (back.contains(document.activeElement)) info.focus()
+          fill()
+        }
       })
       .finally(() => mine === epoch && card.classList.remove('is-updating'))
       .catch((err) => {
         if (mine !== epoch) return
         body.replaceChildren(h('div', { class: 'state state--error', text: `Could not load: ${err.message}` }))
+        status = err.message || 'an error'
+        results = []
+        if (!back.hidden) fill()
         console.error(`[${title}]`, err)
       })
   }
@@ -212,7 +269,7 @@ function tile(spec) {
   card.__respec = respec // not loaded yet: it draws with the new scope when it comes into view
   card.__update = (next) => {
     respec(next)
-    details.open = false
+    flip(false)
     return run(true)
   }
   return card
@@ -250,18 +307,86 @@ function settleInPlace(body, was) {
   }
 }
 
+function infoIcon() {
+  const ns = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(ns, 'svg')
+  svg.setAttribute('viewBox', '0 0 16 16')
+  svg.setAttribute('aria-hidden', 'true')
+  for (const [tag, attrs] of [['circle', { cx: 8, cy: 8, r: 6.5 }], ['path', { d: 'M8 7.2v4' }], ['circle', { cx: 8, cy: 4.9, r: 0.6, class: 'dot' }]]) {
+    const el = document.createElementNS(ns, tag)
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
+    svg.append(el)
+  }
+  return svg
+}
+
+/** The back of a card: how it is made. */
+function howMade(spec, results, finding, title, status = 'ok') {
+  const part = (head, ...kids) => h('section', { class: 'back__part' }, h('h4', { text: head }), ...kids)
+  // What the card's own queries apply, read from the queries themselves: a filter whose clause is in none of them
+  // (the card ignores it, or always shows the whole) is said to be left out, never claimed.
+  const qs = spec.queries()
+  const keys = Object.keys(S.SCOPE || {})
+  const applied = (key) => {
+    const [clause] = S.scopeClauses(scope, known, keys.filter((k) => k !== key))
+    if (!clause) return false
+    // The clause as a whole expression, never part of a longer name or after a "not".
+    const re = new RegExp(`(?<!not\\s)(?<![\\w.])${clause.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w.])`)
+    return qs.some((q) => re.test(q))
+  }
+  const set = S.scopeChips(scope)
+  const chips = set.filter((c) => applied(c.key)).map((c) => c.label)
+  // An entity's page, or Compare, narrows every query to its entities before any filter.
+  if (S.ENTITY && route.view === S.ENTITY.view && route.id != null) chips.unshift(S.ENTITY.label(route.id))
+  if (route.view === 'compare' && route.compare?.length) chips.unshift(route.compare.map((id) => (S.ENTITY ? S.ENTITY.label(id) : id)).join(' against '))
+  const ignored = set.filter((c) => !applied(c.key)).map((c) => c.label)
+  return [
+    spec.sub && part('What it shows', h('p', { text: spec.sub })),
+    part('What it covers', h('p', { text: `${chips.length ? `${chips.join(', ')}.` : 'All of the data.'}${ignored.length ? ` It does not apply the filter${ignored.length > 1 ? 's' : ''} ${ignored.join(', ')}.` : ''}` })),
+    spec.method && part('What it leaves out', h('p', { text: spec.method })),
+    part('How it is counted', working(qs, spec.explain || [], results, status)),
+    inCredible() && h('button', { type: 'button', class: 'btn back__ask', text: 'Ask Credible about this', onclick: () => askCredible(
+      `${document.title}, "${title}": ${finding ? `${finding} ` : ''}What is behind this, and what should I look at next?`,
+      { scope: { package: decodeURIComponent(location.pathname.match(/\/packages\/([^/]+)/)?.[1] || ''), model: S.MODEL }, view: { type: 'card', id: title, title },
+        entities: [{ kind: 'source', name: S.SOURCE }], items: [{ label: 'what it covers', value: chips.join(', ') || 'everything' }, ...qs.slice(0, 3).map((q, i) => ({ label: `query ${i + 1}`, value: q.slice(0, 900) }))] }) }),
+  ].filter(Boolean)
+}
+
+/** True inside Credible's viewer: in a frame, on a Credible data host ("data" or "<env>-data"). */
+function inCredible(loc = location) {
+  const parts = loc.host.split('.')
+  const plane = parts[1] || ''
+  return window.parent !== window && parts.length >= 3 && (plane === 'data' || plane.endsWith('-data'))
+}
+/** Opens Credible's chat with `prompt`, after attaching `context`; Credible drops a context over 8,000 characters. */
+function askCredible(prompt, context) {
+  const text = String(prompt ?? '').trim().slice(0, 4000)
+  if (!text || !inCredible()) return false
+  const parts = location.host.split('.')
+  parts[1] = parts[1].replace(/data$/, 'app')
+  const origin = `${location.protocol}//${parts.join('.')}`
+  let c = context
+  while (JSON.stringify(c).length > 7800 && (c.items || []).length > 1) c = { ...c, items: c.items.slice(0, -1) }
+  if (JSON.stringify(c).length > 7800) c = { scope: c.scope, view: { ...c.view, id: String(c.view.id).slice(0, 200), title: String(c.view.title).slice(0, 200) } }
+  window.parent.postMessage({ type: 'credible:chat-context', context: c }, origin)
+  window.parent.postMessage({ type: 'credible:chat-message', prompt: text }, origin)
+  return true
+}
+
 /** The working behind a card: for each query, what it counts, the query itself, and the rows it returned. */
-function working(qs, explain, results) {
+function working(qs, explain, results, status = 'ok') {
   const cell = (v) => (v === null || v === undefined ? '∅' : typeof v === 'number' ? String(Number.isInteger(v) ? v : Number(v.toPrecision(4))) : String(v))
   return h('div', { class: 'working' }, ...qs.map((q, i) => {
-    const rows = results[i] || []
+    // Rows only from an answer to this query: while it loads, or when it failed, there are none to show.
+    const rows = status === 'ok' ? results[i] || [] : []
     const cols = rows.length ? Object.keys(rows[0]) : []
+    const said = status === 'loading' ? 'Loading.' : status !== 'ok' ? `Could not load: ${status}` : `${rows.length} row${rows.length === 1 ? '' : 's'}${rows.length > 100 ? ', the first 100 shown' : ''}`
     return h('div', { class: 'working__item' },
       explain[i] && h('p', { text: explain[i] }),
       h('pre', { text: q }),
-      h('span', { text: `${rows.length} row${rows.length === 1 ? '' : 's'}${rows.length > 100 ? ', the first 100 shown' : ''}` }),
-      cols.length && h('button', { type: 'button', class: 'btn btn--small', text: 'Download CSV', onclick: () => downloadCsv(rows, cols, i) }),
-      cols.length && h('div', { class: 'working__rows' }, h('table', {},
+      h('span', { class: status !== 'ok' && status !== 'loading' ? 'state--error' : null, text: said }),
+      cols.length > 0 && h('button', { type: 'button', class: 'btn btn--small', text: 'Download CSV', onclick: () => downloadCsv(rows, cols, i) }),
+      cols.length > 0 && h('div', { class: 'working__rows' }, h('table', {},
         h('thead', {}, h('tr', {}, ...cols.map((c) => h('th', { text: c })))),
         h('tbody', {}, ...rows.slice(0, 100).map((r) => h('tr', {}, ...cols.map((c) => h('td', { class: typeof r[c] === 'number' ? 'num' : null, text: cell(r[c]) }))))))))
   }))

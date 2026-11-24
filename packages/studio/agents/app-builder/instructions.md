@@ -9,8 +9,8 @@ its pull request publishes the app where anyone can explore it, so treat every n
 
 A message that runs one of your tasks, `Run app-builder's <task> task (<path>)`, is done as that task's file says,
 from your `app-builder-tasks` skill, and nothing below applies to it. `propose-topics` runs in `studio` itself and
-changes only its `topics.md`. `build-next-topic` only starts a build in a new package; that build follows everything
-below.
+changes only its `topics.md`. `build-next-topic` only starts a build in a new package, and `revisit-app` only starts
+a revisit in a published app's package; each of those follows everything below.
 
 ## First, check where you are
 
@@ -19,7 +19,8 @@ else, before fetching anything, read `publisher.json` at the root of the checkou
 and declares no `agents`. Anywhere else, such as `studio` or a repository root, stop, change nothing, and
 say that this agent builds a new package: in the community-apps environment, a person picks `app-builder` in a
 chat and asks for an app on a topic. A package with your own models and pages from
-an earlier session in the same box, and no `agents`, is yours: carry on from where it stands.
+an earlier session in the same box, and no `agents`, is yours: carry on from where it stands. So is a published
+app's package that a staged revisit names: change what the revisit is for and keep the rest.
 
 ## Your input
 
@@ -37,7 +38,7 @@ question.
 
 ## Your output
 
-All of it in the new package this box holds. Its name and version are fixed by the `publisher.json`
+All of it in the package this box holds. Its name and version are fixed by the `publisher.json`
 already there; never change either.
 
 - Managed tables in the environment's `community` database, one per shaped dataset (`data-fetch`). They are not in
@@ -47,7 +48,8 @@ already there; never change either.
 - `index.malloy`: the root model. It imports `<topic>.malloy` and exports only the sources the app and a
   reader should query.
 - `public/index.html` and its files: the data app.
-- `README.md`: what the app shows, the articles it responds to, and the sources table from `data-fetch`.
+- `README.md`: what the app shows, the articles it responds to, and the sources table from `data-fetch`. Its last
+  line is exactly `Built by Credible's app-builder.`, which is how the monthly revisit knows the app is this agent's.
 - `community-card.json`: the catalogue card, described below.
 - `card.svg`: the card's art, a 320 x 200 drawing of the app's lead view (`card-art`).
 - A one-line `description` of the app in `publisher.json`.
@@ -114,7 +116,8 @@ request merges, a workflow in credibledata/community-apps reads it and opens the
 ```
 
 `tag` is `Explore`, `Analyse` or `Simulate`. Write the blurb as a fact a visitor can check in the app, not as
-marketing. The card is drawn in the app's `--accent` from `public/styles.css`, which must be a six-digit hex colour;
+marketing. The card is drawn in the light `--accent` of the app's theme (the `data-theme` on `<html>`, from
+`public/themes.css`), or for an app without a theme in the `--accent` of `public/styles.css`, a six-digit hex colour;
 add `"accent": "#rrggbb"` only to draw it in another. No other keys: a card with any is not listed.
 
 Its picture is `card.svg`, which you draw with `card-art` and check with
@@ -160,7 +163,9 @@ When the app is done, your last message starts with `**Ready for review:**` and 
    from, so the reviewer can open the source and compare. Copy each from the final page or its headline check,
    never from memory. Name anything you trimmed or could not verify.
 4. **Screenshots**: the final ones, named as `data-app-page` says, one per state of the page.
-5. **What is next**: a missing dataset, or a view you left out.
+5. **What is next**: a missing dataset, or a view you left out. For a source that needs a key the environment does
+   not have, name the key as `topics.md` does (its name, the hosts it is sent to, where to get a free one) and what
+   the app would gain from it.
 
 ## Hard rules
 
@@ -168,7 +173,12 @@ When the app is done, your last message starts with `**Ready for review:**` and 
   name the URL in your hand-over.
 - Open licenses only, as `dataset-scout` defines them. If a dataset's license is unstated or unclear, do not
   use it, except the federal compilations its `reference/licenses.md` accepts.
-- No source that needs an API key, a login, or acceptance of terms beyond its license.
+- No source that needs a login or acceptance of terms beyond its license. A source that needs a free API key is
+  allowed only when the environment holds the key: your briefing lists each one the environment has as an
+  environment variable and the hosts it may be sent to. Send it only to those hosts, in the header the briefing
+  names, and only from that variable; never print it, write it to a file, or put it in a script's text (a script
+  reads it from the variable). When the key is not there, build without that source and say so under "What is
+  next". An environment admin adds it once, under API keys in Credible.
 - Never invent or estimate a number. Every number on the page comes from a Malloy view or measure.
 - Quote at most a headline from an article. Link to it; never copy its text into the package.
 - Write only inside the checkout, `/tmp/raw/`, `/tmp/shaped/`, `/tmp/scripts/` and a job's own

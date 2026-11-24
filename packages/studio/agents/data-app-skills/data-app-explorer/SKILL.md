@@ -129,7 +129,7 @@ under about 5,000 px at desktop width, so a long Explore splits a section into i
 - **Queries** go through the frame's `query()`: one request per distinct text, at most four in flight, results kept
   for the session, so moving between views is instant the second time.
 - **Cards load lazily** and drop a stale answer; each has a loading, an empty and an error state, as the frame's
-  `tile()` does, and shows its working: what each query counts (`explain`), the query, its rows and a CSV of them.
+  `tile()` does, and has an info mark (ⓘ) in its corner that turns it over to how it is made: what it shows, what it covers, what it leaves out, each query with what it counts (`explain`), its rows and a CSV of them, and, inside Credible, "Ask Credible about this".
   A new scope on the same view draws every card again in place: marks move, numbers count, and the card the reader
   clicked holds still. Keep the frame's `tile()`, `chartBox()` and `paint()` as they are; they do this.
 - **Charts:** one d3 chart module, vendored and copied whole, never read, as `reference/charts.md` says; choose each
@@ -137,10 +137,10 @@ under about 5,000 px at desktop width, so a long Explore splits a section into i
   chart that takes them. The ranked table is in `reference/charts.md`; maps and their pinned boundaries in `reference/maps.md`.
   When a finding deserves a form the module does not have, draw it yourself with d3 in a file of its own, to the
   module's bar: marks labelled directly, a tooltip on hover and keyboard focus, `onPick` where it filters, the
-  card's working, and a check at phone width.
+  card's info mark, and a check at phone width.
 - **Design:** `reference/design.md`, with the fonts from `reference/fonts.md`. Choose the accent, the categories and
-  the ramp from the subject as its "Colour" says, run `reference/palette-check.md` until it passes, and keep each
-  colour's meaning the same on every view.
+  the ramp by choosing a theme for the subject as its "Colour" says, and keep each colour's meaning the same on
+  every view.
 
 ## Work in phases
 
@@ -172,13 +172,14 @@ On top of the checks in `data-app-page`:
   is true in the page (`document.fonts.check` is true even when the face is missing), and the shots show the serif
   in ledes and descriptions.
 - No label overlaps another or runs off its chart in any shot, at either width.
-- Every card has a finding and a method note, and its working opens with a definition for every query.
-- `reference/palette-check.md` prints `palette ok`.
+- Every card has a finding and a method note, and its info mark's back gives a definition for every query.
+- The app names its theme on `<html>`, and every view reads well with `?mode=dark` too; after any colour override,
+  `reference/palette-check.md` prints `palette ok` in both modes.
 - Every scope control changes every card that should respond; a card that ignores a key says so.
 - A link opened from low on a view lands at the top of the next view.
 - Search finds an entity by part of its name and opens its page; Back returns to where the reader was.
 - Clearing every chip returns Explore to how it loads.
 
-Add to your hand-over: the views, the scope keys, the entity, the native chart and why, the accent and categories you
-chose and why, any card that ignores a key, each chart's form and the form it beat, and how the app differs from
+Add to your hand-over: the views, the scope keys, the entity, the native chart and why, the theme you chose and why, and
+what each category colour means, any card that ignores a key, each chart's form and the form it beat, and how the app differs from
 the plan.

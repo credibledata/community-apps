@@ -1,4 +1,5 @@
 import json
+import re
 import os
 import sys
 import tempfile
@@ -7,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-from community_card import accent_of, add_entry, card_problems, clean_art, entry, listed, main, takes_drawn_cards  # noqa: E402
+from community_card import accent_of, theme_accent, add_entry, card_problems, clean_art, entry, listed, main, takes_drawn_cards  # noqa: E402
 
 APPS_TS = """import type { ComponentType } from 'react'
 
@@ -56,6 +57,14 @@ class CardTest(unittest.TestCase):
         self.assertEqual(accent_of(":root {\n  --accent: #7A4520;\n  --accent-soft: #f3e8dd;\n}"), "#7a4520")
         self.assertIsNone(accent_of(":root { --accent: var(--c1); }"))
         self.assertEqual(accent_of(":root { --accent: #2f6b9a; }\n/* --accent: #000000; */\n:root { --accent: #7a4520; }"), "#7a4520")
+
+    def test_a_themed_app_takes_its_themes_light_accent(self):
+        css = (Path(__file__).resolve().parents[1] / "packages/studio/templates/data-app/themes.css").read_text()
+        light = re.search(r'^:root\[data-theme="harbor"\] \{\n(.*?)^\}', css, re.S | re.M).group(1)
+        want = re.search(r"--accent:\s*(#[0-9a-fA-F]{6});", light).group(1).lower()
+        self.assertEqual(theme_accent('<html lang="en" data-theme="harbor">', css), want)
+        self.assertIsNone(theme_accent('<!-- <html data-theme="harbor"> --><html lang="en">', css))
+        self.assertIsNone(theme_accent('<html data-theme="nosuch">', css))
 
     def test_the_entry_goes_last_links_with_credible_and_escapes_quotes(self):
         card = {**CARD, "name": "Coffee's\nprice"}
@@ -152,6 +161,26 @@ class MainTest(unittest.TestCase):
         out = (self.site / "src/content/apps.ts").read_text()
         self.assertIn("slug: 'coffee-prices-2026',", out)
         self.assertIn("accent: '#7a4520',", out)
+
+    def test_a_themed_app_is_drawn_in_its_theme_over_its_stylesheet(self):
+        (self.pkg / "public/themes.css").write_text(':root[data-theme="meadow"] {\n  --accent: #2f5d3a;\n}\n')
+        (self.pkg / "public/index.html").write_text('<!doctype html>\n<html lang="en" data-theme="meadow">')
+        self.assertEqual(self.run_main(), 0)
+        self.assertIn("accent: '#2f5d3a',", (self.site / "src/content/apps.ts").read_text())
+
+    def test_an_apps_own_override_of_its_theme_accent_is_listed(self):
+        (self.pkg / "public/themes.css").write_text(':root[data-theme="meadow"] {\n  --accent: #2f5d3a;\n}\n')
+        (self.pkg / "public/styles.css").write_text(':root { --accent: #7a4520; }\n:root[data-theme="meadow"] {\n  --accent: #8a1c2b;\n}\n')
+        (self.pkg / "public/index.html").write_text('<html data-theme="meadow">')
+        self.assertEqual(self.run_main(), 0)
+        self.assertIn("accent: '#8a1c2b',", (self.site / "src/content/apps.ts").read_text())
+
+    def test_the_cards_own_accent_wins_over_the_theme(self):
+        (self.pkg / "public/themes.css").write_text(':root[data-theme="meadow"] {\n  --accent: #2f5d3a;\n}\n')
+        (self.pkg / "public/index.html").write_text('<html data-theme="meadow">')
+        (self.pkg / "community-card.json").write_text(json.dumps({**CARD, "accent": "#123456"}))
+        self.assertEqual(self.run_main(), 0)
+        self.assertIn("accent: '#123456',", (self.site / "src/content/apps.ts").read_text())
 
     def test_listing_twice_adds_one_entry(self):
         self.run_main()

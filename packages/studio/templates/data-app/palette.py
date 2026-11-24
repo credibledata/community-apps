@@ -1,7 +1,11 @@
+# Copyright (c) Credible Data Inc.
+# SPDX-License-Identifier: MIT
 """Check a data app's colour tokens: contrast on the page, categories a reader can tell apart (also with red-green
-colour blindness), a sequential ramp that darkens step by step, and one meaning per colour.
+colour blindness), a sequential ramp that darkens step by step (brightens, on a dark page), and one meaning per colour.
 
-Usage: python3 -I palette.py <styles.css> [more.css ...]: a later file's tokens override an earlier one's.
+Usage: python3 -I palette.py <themes.css> <styles.css> [more.css ...] [--theme NAME [--mode light|dark]]: a later file's tokens
+override an earlier one's. With --theme, a file's :root[data-theme="NAME"] block counts too, and with --mode dark its
+:root[data-theme="NAME"][data-mode="dark"] block after it: run it once per mode for an app on a theme.
 """
 import re
 import sys
@@ -13,8 +17,9 @@ APART, APART_CVD = 18.0, 10.0  # least CIELAB distance between two categories, n
 COLOURS = re.compile(r"(?:bg|panel|band(?:-text)?|text(?:-strong|-muted)?|accent|c-bar|up|down|c[1-6]|seq-[0-5])")
 
 
-def tokens(css):
-    """Every --token in the top-level :root blocks, later ones winning; a :root inside @media is not the page."""
+def tokens(css, theme=None, mode="light", system=False):
+    """Every --token in the top-level :root blocks, later ones winning; a :root inside @media is not the page. With a
+    theme, that theme's light block, then its dark block for mode dark, after the plain :root blocks."""
     css, found, depth, i = re.sub(r"/\*.*?\*/", "", css, flags=re.S), {}, 0, 0
     while i < len(css):
         if depth == 0 and css.startswith(":root", i) and (m := re.match(r":root\s*\{([^}]*)\}", css[i:])):
@@ -23,6 +28,13 @@ def tokens(css):
             continue
         depth += {"{": 1, "}": -1}.get(css[i], 0)
         i += 1
+    if theme:
+        for dark in ([False, True] if mode == "dark" else [False]):
+            # Dark chosen in the address, or (system=True) a reader whose system is dark: the block inside @media.
+            dark_sel = re.escape(':not([data-mode="light"])') if system else re.escape('[data-mode="dark"]')
+            sel = re.escape(f':root[data-theme="{theme}"]') + (dark_sel if dark else "")
+            for m in re.finditer(sel + r"\s*\{([^}]*)\}", css):
+                found.update((k, v.strip().lower()) for k, v in re.findall(r"--([\w-]+)\s*:\s*([^;]+)", m.group(1)))
     return found
 
 
@@ -71,13 +83,34 @@ def distance(a, b, kind=None):
 
 
 def main(paths):
-    if not paths:
+    flag = lambda f, default: paths[paths.index(f) + 1] if f in paths and paths.index(f) + 1 < len(paths) else (default if f not in paths else "")
+    theme = flag("--theme", None) or None
+    mode = flag("--mode", "light")
+    if "--theme" in paths and not theme:
+        print("--theme needs a theme's name")
+        return 2
+    if mode == "dark" and not theme:
+        print("--mode dark needs --theme: the dark colours live in the theme's blocks")
+        return 2
+    paths = [p for i, p in enumerate(paths) if p not in ("--theme", "--mode") and (i == 0 or paths[i - 1] not in ("--theme", "--mode"))]
+    if not paths or mode not in ("light", "dark"):
         print(__doc__)
         return 2
-    t = {}
-    for path in paths:
-        t.update(tokens(open(path, encoding="utf-8").read()))
+    # One stylesheet, as the browser cascades the files: every plain :root first, then the theme's blocks in file order,
+    # so an app's override in styles.css wins over themes.css and the template's fallback :root never does.
+    css = "\n".join(open(path, encoding="utf-8").read() for path in paths)
+    # data-theme='x' and data-theme=x select the same as data-theme="x": read them all one way.
+    css = re.sub(r"""\[data-(theme|mode)=['"]?([\w-]+)['"]?\]""", r'[data-\1="\2"]', css)
+    if theme and f':root[data-theme="{theme}"]' not in css:
+        print(f"no theme {theme!r} in {', '.join(paths)}")
+        return 1
+    t = tokens(css, theme, mode)
     fails, notes = [], []
+    if theme and mode == "dark":
+        # A reader whose system is dark gets the @media block, not [data-mode="dark"]: an override needs both.
+        sys_dark = tokens(css, theme, mode, system=True)
+        for name in sorted(k for k in t if COLOURS.fullmatch(k) and sys_dark.get(k) != t[k]):
+            fails.append(f"--{name} is {t[name]} in dark chosen in the address but {sys_dark.get(name)} for a reader whose system is dark: give the override under @media (prefers-color-scheme: dark) too")
     for name in [k for k in t if COLOURS.fullmatch(k)]:
         if not re.fullmatch(r"#[0-9a-f]{6}", t[name]):
             fails.append(f"--{name} is {t.pop(name)}: write it as six-digit hex so it can be checked")
@@ -108,12 +141,15 @@ def main(paths):
         for kind in CVD:
             if distance(t["up"], t["down"], kind) < APART_CVD:
                 fails.append(f"--up and --down look alike with {NAMES[kind]}: change one's lightness, not only its hue")
+    # On a light page the ramp darkens step by step; on a dark page it brightens, so a high value always stands out.
+    dark = luminance(bg) < 0.2
     ramp = [t.get(f"seq-{i}") for i in range(6)]
     if all(ramp):
         lights = [seen(c)[0] for c in ramp]
         for i in range(5):
-            if lights[i] - lights[i + 1] < 5:
-                fails.append(f"--seq-{i + 1} {ramp[i + 1]} is not clearly darker than --seq-{i} {ramp[i]} (lightness {lights[i]:.0f} to {lights[i + 1]:.0f})")
+            step = lights[i + 1] - lights[i] if dark else lights[i] - lights[i + 1]
+            if step < 5:
+                fails.append(f"--seq-{i + 1} {ramp[i + 1]} is not clearly {'brighter' if dark else 'darker'} than --seq-{i} {ramp[i]} (lightness {lights[i]:.0f} to {lights[i + 1]:.0f})")
     if "accent" in t:
         for n in cats[1:]:
             if distance(t["accent"], t[n]) < APART:

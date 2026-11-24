@@ -22,7 +22,8 @@ mkdir -p public && for f in index.html app.js scope.js styles.css; do [ -e publi
 chmod -R u+w public
 ```
 
-Then the chart module and d3 as `reference/charts.md` says, and `fonts.css` as `reference/fonts.md` says.
+Then the chart module, `themes.css` and d3 as `reference/charts.md` says, and `fonts.css` as `reference/fonts.md`
+says. Those are shared, not the app's own: copy them again whenever the templates change, as a revisit does.
 
 ## What `app.js` holds
 
@@ -33,7 +34,7 @@ Read it once. Everything above `// ---- Views` is the frame; keep it as it is:
 - **Compare**: `picked`, `inCompare()`, `toggleCompare()`, `goCompare()`. The header's Compare link carries the
   picks and counts them, "Compare · 2", so the + on a ranked list shows where it went.
 - **`tile()`**: a card that loads as it nears the screen, with loading, empty and error states, a finding, a method
-  note and its working (each query, what it counts, its rows and a CSV of them). When the scope changes on the same
+  note and an info mark (ⓘ) in its corner that turns it over to how it is made: what it shows, what it covers, what it leaves out, each query with what it counts (`explain`), its rows and a CSV of them, and, inside Credible, "Ask Credible about this". When the scope changes on the same
   view, every card is drawn again in place: its chart stays, dimmed, until the rows arrive, then marks move and
   numbers count.
 - **`chartBox()`**, the scope bar, search.
