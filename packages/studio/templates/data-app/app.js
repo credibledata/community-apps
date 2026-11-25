@@ -664,6 +664,7 @@ async function selfCheck() {
   if (!qs.length || !shown.length) fails.push('The headline card shows no queries or no numbers to check')
   // The first screen: the headline, the lead chart and the find control are all in view before any scrolling.
   if (!$('#main .headline')) fails.push('The Overview has no .headline')
+  if (!$('#main .lead .chart')) fails.push('The Overview has no lead chart (a .lead card with a chart)')
   for (const [sel, what] of [['#main .headline', 'the headline'], ['#main .lead .chart', 'the lead chart'], ['#main .find', 'the find control']]) {
     const n = $(sel)
     if (n && n.getBoundingClientRect().bottom + scrollY > innerHeight) fails.push(`${what} ends ${Math.round(n.getBoundingClientRect().bottom + scrollY)} px down, below the first screen (${innerHeight} px)`)
