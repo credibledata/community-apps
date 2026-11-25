@@ -280,6 +280,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .headline { font-size: var(--fs-2xl); }
   .view:has(> .first) { padding-top: var(--sp-5); }
   .find input { max-width: none; }
+  /* On a phone the Overview's find box stands in for the header's, which would sit just above it. */
+  body:has(#main .find) .app-header .search { display: none; }
   .kpi__value { font-size: var(--fs-2xl); }
   .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
   .span-2 { grid-column: auto; }
