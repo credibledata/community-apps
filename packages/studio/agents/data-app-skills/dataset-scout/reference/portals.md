@@ -36,12 +36,12 @@ that key (`SKILL.md`). Each one's license still has to be read per dataset, as i
 ## Money, work and companies
 
 Public records that agencies publish carry subjects people argue about: pay, prices, companies, complaints. Several
-name people (donors, filers' contacts): keep companies, places and amounts, never a person's name, as `SKILL.md`
-says of data about identifiable people.
+name people (donors, filers' contacts): keep companies, places and amounts, never a person's name, as `SKILL.md`'s
+license gate says.
 
 | Source | Good for | Notes |
 |---|---|---|
-| SEC EDGAR | company filings and financial statements | `https://data.sec.gov/api/xbrl/frames/...` and `https://www.sec.gov/cgi-bin/browse-edgar`; public domain. SEC refuses a request without a `User-Agent` naming the app and a contact address: use the project's public contact, never a person's. At most 10 requests a second. |
+| SEC EDGAR | company filings and financial statements | `https://data.sec.gov/api/xbrl/frames/...` and `https://www.sec.gov/cgi-bin/browse-edgar`; public domain. SEC refuses a request whose `User-Agent` gives no contact email, so it is usable only when the environment holds a key for `www.sec.gov` and `data.sec.gov` sent as the `User-Agent` header, added like any key; never write an address into a script. At most 10 requests a second. |
 | US Department of Labor, foreign labor certification (H-1B and other visa filings) | wages employers file by job, employer and city | `https://www.dol.gov/agencies/eta/foreign-labor/performance`, yearly and quarterly spreadsheets; public domain |
 | CFPB Consumer Complaint Database | complaints about banks, lenders and card issuers, by company and product, updated daily | `https://www.consumerfinance.gov/data-research/consumer-complaints/`; public domain |
 | FEC | campaign money by candidate, committee and donor's employer | `https://www.fec.gov/data/browse-data/` bulk files; public domain |

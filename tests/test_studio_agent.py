@@ -23,7 +23,9 @@ class StudioAgentSize(unittest.TestCase):
             for rel in texts:
                 size = (STUDIO / rel).stat().st_size
                 self.assertLessEqual(size, TEXT_MAX, f"{name}: {rel} is {size} bytes, over Publisher's {TEXT_MAX}")
-            skills = sum(f.stat().st_size for d in agent.get("skills", []) for f in (STUDIO / d).rglob("*") if f.is_file())
+            # Publisher counts each skill's SKILL.md and the .md files directly in its reference/ folder.
+            files = [f for d in agent.get("skills", []) for pattern in ("*/SKILL.md", "*/reference/*.md") for f in (STUDIO / d).glob(pattern)]
+            skills = sum(f.stat().st_size for f in files if not any(part.startswith(".") for part in f.parts))
             self.assertLessEqual(skills, SKILLS_MAX, f"{name}: skill files total {skills} bytes, over {SKILLS_MAX}")
 
 

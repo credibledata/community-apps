@@ -641,39 +641,54 @@ function paint(toTop, same) {
 // ---- The headline check: open the app at ?check=1#/ and the page says whether its headline is the model's ----
 
 async function selfCheck() {
-  // The cards it checks: the lead chart (.lead) and the headline numbers (.numbers), loaded even when below the
-  // screen. A card or sentence that has not loaded in 20 s fails the check rather than leaving it waiting.
-  const checked = () => [...document.querySelectorAll('#main article.card')].filter((c, i) => i === 0 || c.matches('.lead, .numbers'))
-  for (const c of checked()) if (c.__load && !c.__loaded) { io.unobserve(c); c.__load() }
-  const cards = await new Promise((done) => {
-    const t0 = Date.now()
-    const look = () => {
-      const cs = checked()
-      if (cs.every((c) => c.dataset.loaded) && !$('#main .headline:empty')) done(cs)
-      else if (Date.now() - t0 > 20000) done(null)
-      else setTimeout(look, 200)
-    }
+  // Each number in bold in a first-screen sentence is checked against the view its data-query names, and each number
+  // in the lead chart's card (.lead) and the headline numbers card (cls: 'numbers') against that card's own views.
+  // Every wait has one deadline: a card or query that fails or has not answered in 20 s fails the check.
+  const deadline = Date.now() + 20000
+  const late = 'no answer in 20 s'
+  const within = (p) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(late)), Math.max(0, deadline - Date.now())))])
+  const fails = []
+  // Every card on the Overview is loaded, so headline numbers outside a checked card are seen.
+  const all = [...document.querySelectorAll('#main article.card')]
+  for (const c of all) if (c.__load && !c.__loaded) { io.unobserve(c); c.__load() }
+  const checked = all.filter((c) => c.matches('.lead, .numbers'))
+  const waiting = () => [...($('#main .headline:empty') ? ['the headline'] : []), ...checked.filter((c) => !c.dataset.loaded).map((c) => `the card "${c.__spec?.title}"`)]
+  await new Promise((done) => {
+    const look = () => (!waiting().length || Date.now() > deadline ? done() : setTimeout(look, 200))
     look()
   })
-  const fails = []
-  if (!cards) fails.push('The headline, the lead chart or the headline numbers did not load within 20 s: a query failed or never ran')
-  // Their queries, and those the first screen's sentences name in data-query.
-  const qs = [...new Set([...(cards || []).flatMap((c) => c.__spec.queries()), ...[...document.querySelectorAll('#main [data-query]')].map((n) => n.dataset.query)])]
-  for (const q of qs) if (!/^run: \w+ -> \w+$/.test(q)) fails.push(`The headline adds to a view: ${q}`)
-  const values = (await Promise.all(qs.map((q) => query(q).catch(() => (fails.push(`A headline query failed: ${q}`), []))))).flat().flatMap((r) => Object.values(r)).filter((v) => typeof v === 'number')
-  // A number shown agrees with a model value when the value, or its percentage, rounds to it at the shown decimals.
-  const agrees = (t) => {
+  if (waiting().length) fails.push(`Not loaded in 20 s: ${waiting().join(', ')}`)
+  const groups = [
+    ...[...document.querySelectorAll('#main [data-query]')].map((n) => ({ nodes: [...n.querySelectorAll('strong, b')], qs: [n.dataset.query] })),
+    ...checked.filter((c) => c.dataset.loaded).map((c) => ({ nodes: [...c.querySelectorAll('.kpi__value, .kpi__sub strong, .card__finding :is(strong, b)')], qs: c.__spec.queries() })),
+  ]
+  const qs = [...new Set(groups.flatMap((g) => g.qs))]
+  // The answer's sentences name no view of their own: their numbers are checked against all of these.
+  groups.push({ nodes: [...document.querySelectorAll('#main .answer :is(strong, b)')].filter((n) => !n.closest('[data-query]')), qs })
+  for (const q of qs) if (!/^run: \w+ -> \w+$/.test(q)) fails.push(`A headline number comes from a view with more added: ${q}`)
+  const answers = new Map(await Promise.all(qs.map((q) => within(query(q)).then(
+    (rows) => [q, rows],
+    (err) => (fails.push(`A headline query ${err.message === late ? 'did not answer in 20 s' : 'failed'}: ${q}`), [q, []])))))
+  // A number shown agrees with a value when the value, or its percentage, rounds to it at the shown decimals.
+  const agrees = (t, values) => {
     const m = /([−-]?)([\d,]*\.?\d+)/.exec(t)
     const n = Number(m[2].replace(/,/g, '')) * (m[1] ? -1 : 1)
     const d = (m[2].split('.')[1] || '').length
     const near = (v) => Math.abs(v - n) <= 0.5 * 10 ** -d + 1e-9 || Math.abs(Math.abs(v) - Math.abs(n)) <= 0.5 * 10 ** -d + 1e-9
     return values.some((v) => near(v) || near(v * 100))
   }
-  const shown = [...document.querySelectorAll('#main :is(.headline, .dek, .changed, .answer) :is(strong, b)')].concat((cards || []).flatMap((c) => [...c.querySelectorAll('.kpi__value, .kpi__sub strong')])).map((n) => n.textContent).filter((t) => /\d/.test(t))
-  for (const t of shown) if (!agrees(t)) fails.push(`"${t}" is not a value the headline queries return`)
+  let shown = 0
+  for (const g of groups) {
+    const values = g.qs.flatMap((q) => answers.get(q) || []).flatMap((r) => Object.values(r)).filter((v) => typeof v === 'number')
+    for (const t of g.nodes.map((n) => n.textContent).filter((x) => /\d/.test(x))) {
+      shown++
+      if (!agrees(t, values)) fails.push(`"${t}" is not a value its own view returns (${g.qs.join(', ')})`)
+    }
+  }
+  if ([...document.querySelectorAll('#main .kpi__value')].some((n) => !n.closest('.lead, .numbers'))) fails.push("Headline numbers sit outside a card with cls: 'numbers', so they are not checked")
   const text = document.body.innerText
   for (const bad of [/\bundefined\b/, /\bNaN\b/, /\bTODO\b/, /placeholder/i, /returned no text/i]) if (bad.test(text)) fails.push(`The page says ${bad}`)
-  if (!qs.length || !shown.length) fails.push('The headline card shows no queries or no numbers to check')
+  if (!shown) fails.push('No headline number to check')
   // The first screen: the headline, the lead chart and the find control are all in view before any scrolling.
   if (!$('#main .headline')) fails.push('The Overview has no .headline')
   else if (![...document.querySelectorAll('#main .headline :is(strong, b)')].some((n) => /\d/.test(n.textContent))) fails.push('The headline has no number from the model in bold')
@@ -682,8 +697,12 @@ async function selfCheck() {
     const n = $(sel)
     if (n && n.getBoundingClientRect().bottom + scrollY > innerHeight) fails.push(`${what} ends ${Math.round(n.getBoundingClientRect().bottom + scrollY)} px down, below the first screen (${innerHeight} px)`)
   }
+  checkBanner(fails, `Headline check passed: ${shown} numbers from ${qs.length} bare views of the model, and the first screen fits ${innerWidth} x ${innerHeight}.`)
+}
+
+function checkBanner(fails, passed) {
   document.body.dataset.check = fails.length ? 'fail' : 'ok'
-  document.body.prepend(h('pre', { class: 'self-check', text: fails.length ? `Headline check failed:\n${fails.join('\n')}` : `Headline check passed: ${shown.length} numbers from ${qs.length} bare views of the model, and the first screen fits ${innerWidth} x ${innerHeight}.` }))
+  document.body.prepend(h('pre', { class: 'self-check', text: fails.length ? `Headline check failed:\n${fails.join('\n')}` : passed }))
 }
 
 async function boot() {
@@ -704,6 +723,7 @@ async function boot() {
     known.entity = values(zips, 'incident_zip')
   } catch (err) {
     $('#main').replaceChildren(h('div', { class: 'wrap state state--error', text: `Could not reach the model: ${err.message}` }))
+    if (new URLSearchParams(location.search).has('check')) checkBanner([`Could not reach the model: ${err.message}`])
     return
   }
   ;({ route, scope } = S.parseHash(location.hash, known))

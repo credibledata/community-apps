@@ -68,7 +68,8 @@ Stop on a dataset when:
   host and where to get a free one, and carry on without it,
 - its key goes in the address (`?api_key=…`) rather than a header: Credible adds a key to a request's
   `Authorization` header or the header the key names, never to the address, so such a source cannot be used,
-- the data is about identifiable people.
+- the data is about identifiable people. A record that names a person beside what the app uses (a donor on a
+  filing, a contact on a form) passes only when the shaped data keeps no name.
 
 ## What to hand to the next step
 

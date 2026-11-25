@@ -144,8 +144,7 @@ select, .btn { font: 500 var(--fs-sm)/1.2 var(--font-ui); padding: 7px 12px; bor
   .headline { font-size: var(--fs-2xl); }
   .view:has(> .first) { padding-top: var(--sp-5); }
   .find input { max-width: none; }
-  /* On a phone the Overview's find box stands in for the header's, which would sit just above it. */
-  body:has(#main .find) .app-header .search { display: none; }
+  body:has(#main .find) .app-header .search { display: none; } /* the find box stands in for the header's */
 }
 
 /* Headline numbers: the one tinted panel */
