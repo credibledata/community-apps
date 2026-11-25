@@ -504,24 +504,23 @@ function renderScope() {
 const range = (lo, hi) => Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
 const parse = (spec, v) => (v === '' ? null : spec.type === 'pick' ? v : Number(v))
 
-// ---- Search: find an entity by name or id, open its page ----
+// ---- Search: find an entity by name or id, open its page. The header's box, and the first screen's "find yours". ----
 
-function wireSearch() {
-  const input = $('#search')
-  const list = $('#search-list')
+function wireSearch(input = $('#search'), list = $('#search-list')) {
   let hits = []
   let active = -1
   const close = () => {
     list.hidden = true
     input.setAttribute('aria-expanded', 'false')
+    input.setAttribute('aria-activedescendant', '')
     active = -1
   }
   const show = () => {
     list.replaceChildren(...hits.map((id, i) =>
-      h('li', { role: 'option', id: `opt-${i}`, 'aria-selected': String(i === active), text: S.ENTITY.label(id), onmousedown: (e) => (e.preventDefault(), pick(id)) })))
+      h('li', { role: 'option', id: `${list.id}-${i}`, 'aria-selected': String(i === active), text: S.ENTITY.label(id), onmousedown: (e) => (e.preventDefault(), pick(id)) })))
     list.hidden = !hits.length
     input.setAttribute('aria-expanded', String(!list.hidden))
-    input.setAttribute('aria-activedescendant', active >= 0 ? `opt-${active}` : '')
+    input.setAttribute('aria-activedescendant', active >= 0 ? `${list.id}-${active}` : '')
   }
   const pick = (id) => {
     input.value = ''
@@ -538,11 +537,11 @@ function wireSearch() {
     show()
   })
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && hits.length) {
       e.preventDefault()
       active = (active + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % Math.max(1, hits.length)
       show()
-    } else if (e.key === 'Enter' && active >= 0) pick(hits[active])
+    } else if (e.key === 'Enter' && hits[active] !== undefined) pick(hits[active])
     else if (e.key === 'Escape') close()
   })
   input.addEventListener('blur', close)
@@ -642,29 +641,71 @@ function paint(toTop, same) {
 // ---- The headline check: open the app at ?check=1#/ and the page says whether its headline is the model's ----
 
 async function selfCheck() {
-  const card = await new Promise((done) => {
-    const look = () => { const c = $('#main .card'); if (c?.dataset.loaded) done(c); else setTimeout(look, 200) }
+  // Each number in bold in a first-screen sentence is checked against the view its data-query names, and each number
+  // in the lead chart's card (.lead) and the headline numbers card (cls: 'numbers') against that card's own views.
+  // Every wait has one deadline: a card or query that fails or has not answered in 20 s fails the check.
+  const deadline = Date.now() + 20000
+  const late = 'no answer in 20 s'
+  const within = (p) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(late)), Math.max(0, deadline - Date.now())))])
+  const fails = []
+  // Every card on the Overview is loaded and waited for, so headline numbers outside a checked card are seen.
+  const all = [...document.querySelectorAll('#main article.card')]
+  for (const c of all) if (c.__load && !c.__loaded) { io.unobserve(c); c.__load() }
+  const checked = all.filter((c) => c.matches('.lead, .numbers'))
+  const waiting = () => [...($('#main .headline:empty') ? ['the headline'] : []), ...all.filter((c) => c.__load && !c.dataset.loaded).map((c) => `the card "${c.__spec?.title}"`)]
+  await new Promise((done) => {
+    const look = () => (!waiting().length || Date.now() > deadline ? done() : setTimeout(look, 200))
     look()
   })
-  const fails = []
-  const qs = card.__spec.queries()
-  for (const q of qs) if (!/^run: \w+ -> \w+$/.test(q)) fails.push(`The headline card adds to a view: ${q}`)
-  const values = (await Promise.all(qs.map(query))).flat().flatMap((r) => Object.values(r)).filter((v) => typeof v === 'number')
-  // A number shown agrees with a model value when the value, or its percentage, rounds to it at the shown decimals.
-  const agrees = (t) => {
+  if (waiting().length) fails.push(`Not loaded in 20 s: ${waiting().join(', ')}`)
+  const groups = [
+    ...[...document.querySelectorAll('#main [data-query]')].map((n) => ({ nodes: [...n.querySelectorAll('strong, b')], qs: [n.dataset.query] })),
+    ...checked.filter((c) => c.dataset.loaded).map((c) => ({ nodes: [...c.querySelectorAll('.kpi__value, .kpi__sub strong, .card__finding :is(strong, b)')], qs: c.__spec.queries() })),
+  ]
+  const qs = [...new Set(groups.flatMap((g) => g.qs))]
+  // The answer's sentences name no view of their own: their numbers are checked against all of these.
+  groups.push({ nodes: [...document.querySelectorAll('#main .answer :is(strong, b)')].filter((n) => !n.closest('[data-query]')), qs })
+  for (const q of qs) if (!/^run: \w+ -> \w+$/.test(q)) fails.push(`A headline number comes from a view with more added: ${q}`)
+  const answers = new Map(await Promise.all(qs.map((q) => within(query(q)).then(
+    (rows) => [q, rows],
+    (err) => (fails.push(`A headline query ${err.message === late ? 'did not answer in 20 s' : 'failed'}: ${q}`), [q, []])))))
+  // A number shown agrees with a value when the value, or its percentage, rounds to it at the shown decimals.
+  const agrees = (t, values) => {
     const m = /([−-]?)([\d,]*\.?\d+)/.exec(t)
     const n = Number(m[2].replace(/,/g, '')) * (m[1] ? -1 : 1)
     const d = (m[2].split('.')[1] || '').length
     const near = (v) => Math.abs(v - n) <= 0.5 * 10 ** -d + 1e-9 || Math.abs(Math.abs(v) - Math.abs(n)) <= 0.5 * 10 ** -d + 1e-9
     return values.some((v) => near(v) || near(v * 100))
   }
-  const shown = [...document.querySelectorAll('.answer strong, .answer b')].concat([...card.querySelectorAll('.kpi__value, .kpi__sub strong')]).map((n) => n.textContent).filter((t) => /\d/.test(t))
-  for (const t of shown) if (!agrees(t)) fails.push(`"${t}" is not a value the headline queries return`)
+  let shown = 0
+  for (const g of groups) {
+    const values = g.qs.flatMap((q) => answers.get(q) || []).flatMap((r) => Object.values(r)).filter((v) => typeof v === 'number')
+    for (const t of g.nodes.map((n) => n.textContent)) {
+      if (/\bn\/a\b/i.test(t)) fails.push(`A headline number shows "${t}": its value is missing`)
+      if (!/\d/.test(t)) continue
+      shown++
+      if (!agrees(t, values)) fails.push(`"${t}" is not a value its own view returns (${g.qs.join(', ')})`)
+    }
+  }
+  if ([...document.querySelectorAll('#main .kpi__value')].some((n) => !n.closest('.lead, .numbers'))) fails.push("Headline numbers sit outside a card with cls: 'numbers', so they are not checked")
+  for (const n of document.querySelectorAll('#main :is(.headline, .dek, .changed):not([data-query])')) if (/\d/.test(n.textContent)) fails.push(`A first-screen line names no view in data-query: "${n.textContent.slice(0, 60)}"`)
   const text = document.body.innerText
   for (const bad of [/\bundefined\b/, /\bNaN\b/, /\bTODO\b/, /placeholder/i, /returned no text/i]) if (bad.test(text)) fails.push(`The page says ${bad}`)
-  if (!qs.length || !shown.length) fails.push('The headline card shows no queries or no numbers to check')
+  if (!shown) fails.push('No headline number to check')
+  // The first screen: the headline, the lead chart and the find control are all in view before any scrolling.
+  if (!$('#main .headline')) fails.push('The Overview has no .headline')
+  else if (![...document.querySelectorAll('#main .headline :is(strong, b)')].some((n) => /\d/.test(n.textContent))) fails.push('The headline has no number from the model in bold')
+  if (!$('#main .lead .chart')) fails.push('The Overview has no lead chart (a .lead card with a chart)')
+  for (const [sel, what] of [['#main .headline', 'the headline'], ['#main .lead .chart', 'the lead chart'], ['#main .find', 'the find control']]) {
+    const n = $(sel)
+    if (n && n.getBoundingClientRect().bottom + scrollY > innerHeight) fails.push(`${what} ends ${Math.round(n.getBoundingClientRect().bottom + scrollY)} px down, below the first screen (${innerHeight} px)`)
+  }
+  checkBanner(fails, `Headline check passed: ${shown} numbers from ${qs.length} bare views of the model, and the first screen fits ${innerWidth} x ${innerHeight}.`)
+}
+
+function checkBanner(fails, passed) {
   document.body.dataset.check = fails.length ? 'fail' : 'ok'
-  document.body.prepend(h('pre', { class: 'self-check', text: fails.length ? `Headline check failed:\n${fails.join('\n')}` : `Headline check passed: ${shown.length} numbers from ${qs.length} bare views of the model.` }))
+  document.body.prepend(h('pre', { class: 'self-check', text: fails.length ? `Headline check failed:\n${fails.join('\n')}` : passed }))
 }
 
 async function boot() {
@@ -685,6 +726,7 @@ async function boot() {
     known.entity = values(zips, 'incident_zip')
   } catch (err) {
     $('#main').replaceChildren(h('div', { class: 'wrap state state--error', text: `Could not reach the model: ${err.message}` }))
+    if (new URLSearchParams(location.search).has('check')) checkBanner([`Could not reach the model: ${err.message}`])
     return
   }
   ;({ route, scope } = S.parseHash(location.hash, known))
@@ -704,22 +746,40 @@ function viewHead(title, lede, crumbs) {
 }
 
 function overview() {
-  // The headline runs bare views of the source that carries the question's scope, and every word of the answer comes
-  // from their rows: so the page, the Credible agent and an analyst get the same numbers.
+  // The first screen: what a stranger who opens the app from a post sees before scrolling, on a phone as on a
+  // desktop. The headline is the strongest true finding, a sentence with its number and what it is compared with;
+  // under it, what the data is and what changed in its latest period; the one chart that shows the headline; and the
+  // box that finds the reader's own entity. Every word comes from the rows of bare views of the headline source, which
+  // each sentence names in data-query, so the headline check (?check=1) can test each number and that all of it fits.
   const qK = `run: ${S.HEADLINE} -> kpis`
-  const answer = h('p', { class: 'answer' })
-  query(qK).then(([k]) => answer.replaceChildren(...prose([`Complaints ${k.change < 0 ? 'fell' : 'rose'} by `, { b: C.pct(Math.abs(k.change), 0) }, ` from ${k.prior_year} to ${k.latest_year}.`])))
-  const [kicker, title, lede] = viewHead('Did the drop in rat complaints reach every neighborhood?', 'The city counts every rodent complaint to 311. Here is where they fell, and whether it is holding.').filter(Boolean)
+  const headline = h('h1', { class: 'headline', 'data-query': qK })
+  const dek = h('p', { class: 'dek', 'data-query': qK })
+  const changed = h('p', { class: 'changed', 'data-query': qK })
+  query(qK).then(([k]) => {
+    // ADAPT: the headline the plan picked, the dek, and the latest period against the one before.
+    headline.replaceChildren(...prose(['Rat complaints ', k.change < 0 ? 'fell ' : 'rose ', { b: C.pct(Math.abs(k.change), 0) }, ` from ${k.prior_year} to ${k.latest_year}.`]))
+    dek.replaceChildren(...prose(`Every rodent complaint New Yorkers made to 311, through ${k.latest_month}.`))
+    changed.replaceChildren(...prose([`${k.latest_month}: `, { b: C.fmt(k.latest_month_count) }, ' complaints, ', { b: C.fmt(Math.abs(k.latest_month_change)) }, ` ${k.latest_month_change < 0 ? 'fewer' : 'more'} than the month before.`]))
+  })
+  const find = h('div', { class: 'find', role: 'search' },
+    h('label', { for: 'find', text: 'Find your ZIP code' }), // ADAPT: the entity, as a reader names their own
+    h('input', { id: 'find', type: 'search', placeholder: 'Type a ZIP code', autocomplete: 'off', role: 'combobox', 'aria-expanded': 'false', 'aria-controls': 'find-list', 'aria-autocomplete': 'list' }),
+    h('ul', { id: 'find-list', role: 'listbox', hidden: true }))
+  wireSearch($('input', find), $('ul', find))
   return h('div', { class: 'view wrap' },
-    kicker, title, answer, lede,
-    h('div', { class: 'grid-2' },
+    h('div', { class: 'first' }, headline, dek, changed,
       tile({
-        title: 'Complaints per month', sub: 'All rodent complaints to 311.', cls: 'span-2',
+        title: 'Complaints per month', sub: 'All rodent complaints to 311.', cls: 'lead',
         queries: () => [S.viewQuery('by_month', S.DEFAULT_SCOPE, known)],
         explain: ['Complaints per month, all of them, closed as duplicates left out.'],
-        draw: ([rows], body) => C.lines(chartBox(body), rows.map((r) => r.m.slice(0, 7)), [{ name: 'Complaints', values: rows.map((r) => r.complaint_count), color: '--accent' }]),
+        draw: ([rows], body) => C.lines(chartBox(body), rows.map((r) => r.m.slice(0, 7)), [{ name: 'Complaints', values: rows.map((r) => r.complaint_count), color: '--accent' }], { height: innerWidth < 640 ? 200 : 260 }),
         method: 'Duplicates closed as "already reported" are left out.',
-      })))
+      }),
+      find),
+    // ADAPT: below the first screen, each question from "The questions" in a line with its answer, the headline
+    // numbers in a tile with cls: 'numbers' (the headline check reads them), and two or three cards that lead into
+    // the app.
+    h('p', { class: 'more' }, h('a', { href: linkTo('explore'), text: 'Explore the data →' })))
 }
 
 function explore() {

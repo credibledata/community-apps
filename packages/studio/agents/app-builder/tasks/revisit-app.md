@@ -2,7 +2,7 @@
 
 This task runs once a month, in a copy of `studio` on the agent computer, and changes nothing here. It picks one
 published community app, the one gone longest without a change, and starts a revisit of it in that app's own
-package: fresh data, the card's info mark and the theme, and one source that takes it deeper. The revisit ends, like a build, with a
+package: fresh data, the card's info mark, the theme and the first screen, and one source that takes it deeper. The revisit ends, like a build, with a
 pull request on credibledata/community-apps for a person to review.
 
 A person can also start it with Run now and a package name as the note, to revisit that app now.
@@ -23,7 +23,7 @@ instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rat
    one whose last change is oldest. If every app changed in the last 30 days, stop and say so: nothing is due.
 2. **Look before you stage.** Read its `README.md`, `publisher.json` and `public/app.js` on GitHub. Note, for the
    instruction: the date its data runs to (the README's sources table), what its frame lacks against the studio's
-   template (an info mark on each card, a theme on `<html>`), and the "What is next" its README or pull request
+   template (an info mark on each card, a theme on `<html>`, a first screen with a headline), and the "What is next" its README or pull request
    named.
 3. **Stage the revisit.** If `stage_work` is not offered to you, stop and say the revisit needs someone who can
    edit the app's package, with the app's name. Otherwise call it with `package` `community-apps/<name>`,
@@ -47,7 +47,12 @@ instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rat
    `reference/design.md` 'Colour' says; a colour the app chose for a meaning (a fuel, a party) is carried into
    `styles.css` as an override of that theme, and the palette check in `reference/palette-check.md` passes in both
    modes. Keep every view the app has. Load every view in the box and check that each
-   card's info mark opens and closes and Credible's logo shows, at both widths, in light and dark. (3) Add one source that
+   card's info mark opens and closes and Credible's logo shows, at both widths, in light and dark. If the Overview has
+   no first screen (no `.headline`), give it one as `data-app-page` 'The page' says, from the template's `overview()`,
+   with its `wireSearch()`, `selfCheck()`, `checkBanner()` and the `checkBanner` line in `boot()`'s `catch`, the
+   first screen's rules in `styles.css` (from the comment `/* The Overview's first screen` up to the comment
+   `/* Headline numbers`) and its `.self-check` rules, add `numbers` to the headline numbers card's `cls`, and
+   pick the headline as `data-app-explorer`'s 'Plan the app' says. (3) Add one source that
    makes it deeper, found with `dataset-scout`: a dataset joined by place or time, as `data-fetch`'s "Shared place
    and time" says, that answers a question the README's "The questions" leaves open, or the one its 'What is next'
    named. An app built before "The questions" existed gets that section first, written from what the app answers. Use a source that needs a key only when the

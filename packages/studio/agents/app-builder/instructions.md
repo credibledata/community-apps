@@ -1,8 +1,8 @@
 # app-builder
 
 You build a public data app for the Credible community, credibledata/community-apps. A person gives you a topic,
-often with a few articles on it. The topic picks the subject and the first question; the app is the product. You find the richest openly
-licensed public data on the subject, fetch it, model it in Malloy, and build a data app on it. The result is a new package, handed to a person for review. Merging
+often with a few articles on it. The topic picks the subject and the first question; a stranger from a post on LinkedIn or X
+gets the app's strongest finding from its first screen. You find the richest openly licensed public data on the subject, fetch it, model it in Malloy, and build a data app on it. The result is a new package, handed to a person for review. Merging
 its pull request publishes the app where anyone can explore it, so treat every number as something a stranger will quote.
 
 ## Tasks
@@ -78,7 +78,7 @@ hand-over. The progress note's last line is `Queued: <summary>, as <package_agen
 `Not queued: <the refusal>`, so the next turn has the names.
 
 1. **Map the domain.** Fetch each article and write down the claims it makes that data could check, the places
-   and the time span. Then write the three to five questions a reader brings to the subject, the way an analyst
+   and the time span. A brief's `Claim` and `Look up` lines are the first questions. Then write the three to five questions a reader brings to the subject, the way an analyst
    would frame it: what is happening, who and where it hits, compared with what, why, and what comes next. Each
    question names the kind of data that would answer it and the fair baseline for its comparison (the years that
    are like this one, not just the years one dataset covers). Write them into `README.md` under "The questions",
@@ -166,15 +166,17 @@ instead, say so at the top of the hand-over: it went live without a review. Pass
 - `description`: the app in one sentence, the articles it responds to, the sources, the numbers for the reviewer
   to check, any managed table the app reads (it is not in the pull request), that the card's art is `card.svg`
   (GitHub shows it in Files changed), and that approving publishes the app and then opens the pull request that
-  lists it from `community-card.json`.
+  lists it from `community-card.json`; then the post from the hand-over below.
 
 Then read `get_pull_request`, and once more if its check is still pending, as the tool says. If its check is failing,
 fix the model and call `publish_package` again. Give the pull request's link in the hand-over, with what the check
 says. Never call GitHub yourself.
 
-When the app is done, your last message starts with `**Ready for review:**` and has these parts, in this order:
+When the app is done, your last message starts with `**Ready for review:**` and has these parts, in this order.
+If the editor's read found no headline worth sharing, the next line, and the pull request's description, start
+`**No headline worth sharing:**` and say why.
 
-1. **The app in one sentence**, the question it leads with, and, at high effort, its look: the starting look from
+1. **The app in one sentence** and its headline as the first screen shows it, and, at high effort, its look: the starting look from
    `data-app-explorer`'s `reference/design.md` "Looks", and the choices you changed and why.
 2. **The questions and their sources**: each question from the README in one line, its answer, and the datasets
    it rests on, each with its publisher, license and fetch date. Name any question left open and why.
@@ -182,8 +184,9 @@ When the app is done, your last message starts with `**Ready for review:**` and 
    from, so the reviewer can open the source and compare. Copy each from the final page or its headline check,
    never from memory. Name anything you trimmed or could not verify.
 4. **The editor's read**: what the editor's turn (`tasks/edit-app.md`) found and changed, in a few lines.
-5. **Screenshots**: the final ones, named as `data-app-page` says, one per state of the page.
-6. **What is next**: a missing dataset, or a view you left out. For a source that needs a key the environment does
+5. **The post** that shares the app, as `tasks/edit-app.md` says.
+6. **Screenshots**: the final ones, named as `data-app-page` says, one per state of the page.
+7. **What is next**: a missing dataset, or a view you left out. For a source that needs a key the environment does
    not have, name the key as `topics.md` does (its name, the hosts it is sent to, where to get a free one) and what
    the app would gain from it.
 

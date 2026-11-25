@@ -27,7 +27,8 @@ this package, since its agent computer mounts it.
 ## Its three tasks
 
 - **Propose topics** (`agents/app-builder/tasks/propose-topics.md`) refreshes `topics.md` here: three to five
-  topics in the news with open data behind them, ranked, each with the package name it would get. It runs only on
+  topics people are talking about this week, each with a claim to check or something a reader can look up, and
+  the open data that settles it, ranked, each with the package name it would get. It runs only on
   a schedule: on the agent's page in Credible, Add schedule on the task's row. Each run opens a pull request on
   this package; reorder or edit the list there, add your own with `Added by:`, and merge. While that pull request
   is open, later runs stop.
@@ -38,7 +39,7 @@ this package, since its agent computer mounts it.
   request.
 - **Revisit an app** (`agents/app-builder/tasks/revisit-app.md`) picks the app this agent built that has gone longest
   without a change (its README ends with `Built by Credible's app-builder.`), or the one named in a Run now note,
-  and stages a revisit in its package: fresh data, the card's info mark and the theme, and one more source. It ends with a
+  and stages a revisit in its package: fresh data, the card's info mark, the theme, the first screen, and one more source. It ends with a
   pull request on the app, like a build. Meant to run monthly.
 
 The builder opens its pull request with `publish_package`. Credible holds that publish until the pull request can

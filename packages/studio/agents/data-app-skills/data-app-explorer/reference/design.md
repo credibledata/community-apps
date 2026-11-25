@@ -5,7 +5,7 @@ stylesheet is `templates/data-app/styles.css`, copied with the frame; make it th
 the rest.
 
 Every app has the same frame: a header with the app's name, its views and a search; a scope bar; one view at a time,
-each a title, a lede and sections of cards; a footer with the sources. Type and white space carry the structure, not
+each a title, a lede and sections of cards, except the Overview, which opens on its first screen; a footer with the sources. Type and white space carry the structure, not
 boxes. What varies from app to app is the look, chosen as the section "Looks" below says, so that no two apps come
 out the same.
 

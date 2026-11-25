@@ -41,8 +41,14 @@ Read it once. Everything above `// ---- Views` is the frame; keep it as it is:
 - **`paint()` and `keepInView()`**: a new scope never takes a card out of the page, and the card the reader clicked
   keeps its place on screen; another view fades in. A part of a view that is not a card but follows the address,
   such as Compare's picks, is marked `data-redraw="<name>"` and swapped in place.
-- **`selfCheck()`**: open the app at `?check=1#/` and the page says whether every number in its answer and headline
-  card is a value bare views of the model return.
+- **`selfCheck()`**: open the app at `?check=1#/` in the box and the page says whether every number in its
+  headline, the lines under it, its answer, its lead chart's card and its headline numbers (`cls: 'numbers'`) is a
+  value its own view returns, and whether the headline, the lead chart and the find box fit on the first screen.
+  Each first-screen sentence names its view in `data-query`, which the check reads; a headline number outside the
+  lead card, those sentences and the `numbers` card fails it. Run it in the box at the shot's size: inside Credible the frame is as tall as the app, so nothing is
+  below its first screen.
+- **`wireSearch(input, list)`**: the header's search box, and the Overview's find box, which `overview()` wires
+  the same way.
 
 Below it, `boot()` (its lists and the "Data through" line are marked ADAPT) and the views, a sketch to replace with
 this app's.

@@ -1,6 +1,6 @@
 ---
 name: data-app-page
-description: What a public data app built from a brief (a topic, often a story in the news, and any articles on it) should say and how it is laid out - the lead question, the views, the articles, sources and caveats, and the checks before hand-over. Use when building or reviewing a data app's page, and for the rules every data app follows. The mechanics of Publisher.query, vendoring and embedding are in malloy-html-data-apps and credible-data-apps.
+description: What a public data app built from a brief (a topic, often a story in the news, and any articles on it) should say and how it is laid out - the first screen and its headline, the views, the articles, sources and caveats, and the checks before hand-over. Use when building or reviewing a data app's page, and for the rules every data app follows. The mechanics of Publisher.query, vendoring and embedding are in malloy-html-data-apps and credible-data-apps.
 ---
 
 # Data app page
@@ -8,9 +8,9 @@ description: What a public data app built from a brief (a topic, often a story i
 **Only in a data app's own package** (a root `publisher.json` with no `agents`); anywhere else, do nothing and say so.
 
 The brief is what you were asked to build from: a topic, often a story in the news, and any articles on it. Your
-instructions say what the lead question is. A visitor arrives with that
-question. In ten seconds the page should answer it with data,
-then let them dig one level deeper. A visitor who wants to go further should find it natural to sign in and
+instructions say what the lead question is. Most visitors arrive from a post on LinkedIn or X, knowing nothing but
+the post. In five seconds, without scrolling, the page should give them its strongest finding with data, then let
+them find their own place in it and dig one level deeper. A visitor who wants to go further should find it natural to sign in and
 ask Credible's agent.
 
 This is the whole page at low effort. At high effort, the page below the answer is an explorer: read
@@ -18,9 +18,23 @@ This is the whole page at low effort. At high effort, the page below the answer 
 
 ## The page, top to bottom
 
-1. **Title and lead.** Above the title, the credit: "Made by" and Credible's logo, copied from the header in
-   `data-app-explorer`'s `reference/app-frame.md`. A plain title naming the subject, and one sentence stating the question the brief raises. "How does this year's measles count compare with the last five years?"
-2. **The answer.** Two to four numbers that answer the lead question, each with its unit, period and a
+1. **The first screen.** What a visitor sees before scrolling, on a phone (390 x 844) as on a desktop (1280 x 800):
+   - The credit, "Made by" and Credible's logo, and the app's plain name, in the header copied from
+     `data-app-explorer`'s `reference/app-frame.md`.
+   - **The headline**: the strongest true finding in the data, one sentence with its number and what it is compared
+     with. "Thanksgiving gas ranks 11th of the last 37 years, in today's dollars", not "Gas prices at Thanksgiving".
+     When the brief names a claim in circulation, the headline says whether the data bears it out. It is written
+     from the rows of a view, like every sentence, with each number in bold, and chosen as `data-app-explorer`'s
+     "Plan the app" says.
+   - **One line under it**: what the data is and how recent, in plain words, then what changed in its latest period
+     against the one before ("Week ending Nov 22: 412 more admissions than the week before"), from a view.
+   - **The lead chart**: one chart that shows the headline, short enough that all of this fits.
+   - **The find box**, labelled the way a reader names their own place or thing ("Find your state", "Find your
+     employer"), that opens its page, or at low effort narrows the page to it. Every app with an entity has one;
+     when the brief names a lookup, it is the entity.
+
+   At high effort the template's `overview()` lays this out, and its headline check measures it.
+2. **The answer.** Below the first screen, two to four numbers that answer the lead question, each with its unit, period and a
    comparison: this year against a baseline, or one place against the rest. Each number is one query result, from a
    bare view of the source that carries the question's scope (`data-app-explorer`, "The model comes first"), and
    every sentence about them is written from the rows, never typed.
@@ -60,11 +74,13 @@ This is the whole page at low effort. At high effort, the page below the answer 
   Credible sizes the frame to the content.
 - **Accessible.** Text contrast of at least 4.5:1, chart colors that differ in lightness as well as hue, and
   every chart's finding also stated in text.
-- **Neutral voice.** State what the data shows. No adjectives the data does not support, and no advice.
+- **Plain, sharp voice.** Lead with the most striking thing the data shows, in the fewest words. No adjective the
+  data does not support, and no advice. A claim from the brief or its articles is attributed ("Reports said gas was
+  near a record"), never stated as the app's own.
 
 ## Hand-off to the agent
 
-When the app runs inside Credible, add an "Ask about this" action under the lead and on each view. An app built on
+When the app runs inside Credible, add an "Ask about this" action under the headline and on each view. An app built on
 the frame's cards (`data-app-explorer`) also has "Ask Credible about this" on every card's info mark. It sends a
 specific question to Credible's agent with the `credible:chat-message` event described in
 `credible-data-apps`, such as "Which states had the largest rise in measles cases this year?". This is how a
@@ -87,7 +103,7 @@ after `packages/`. Never look for the address in the box's configuration files.
    element the page adds only once its data has drawn. Charts paint before their data arrives, so a shot
    without `--wait` can show an empty page that is not broken.
    The tool prints where each shot is saved, under `.credible/shots/` in the checkout. Open both and look at
-   them: empty charts, overflowing labels, text that wraps badly, a lead that falls below the fold on a phone.
+   them: empty charts, overflowing labels, text that wraps badly, a first screen that does not fit on a phone.
    Every image you open must be a JPEG under 600 KB, one per Read: a larger one, or several in one message, passes
    the box's 1 MiB message limit and ends the session. Check the size with `ls -l` first. To look closer at a tall
    shot, cut it into JPEG sections with the script below and open them one at a time; never crop to PNG.
@@ -112,6 +128,8 @@ after `packages/`. Never look for the address in the box's configuration files.
    }
    await b.close()
    ```
-3. Fix and shoot again until every shot is right. Then copy each final shot to
+3. Shoot the first screen too, without `--full` and without `?check=1`, with `--wait`: `--viewport 390x844` and
+   `--viewport 1280x800`, kept as `final-first-phone.jpg` and `final-first-desktop.jpg`, the shot a post attaches.
+4. Fix and shoot again until every shot is right. Then copy each final shot to
    `.credible/shots/final-<state>-<desktop|phone>.jpg` (`<state>` is `default` for the page as it loads) and name
    them in your hand-over. Only the `final-` shots are kept.
