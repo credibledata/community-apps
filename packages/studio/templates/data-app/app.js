@@ -648,11 +648,11 @@ async function selfCheck() {
   const late = 'no answer in 20 s'
   const within = (p) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(late)), Math.max(0, deadline - Date.now())))])
   const fails = []
-  // Every card on the Overview is loaded, so headline numbers outside a checked card are seen.
+  // Every card on the Overview is loaded and waited for, so headline numbers outside a checked card are seen.
   const all = [...document.querySelectorAll('#main article.card')]
   for (const c of all) if (c.__load && !c.__loaded) { io.unobserve(c); c.__load() }
   const checked = all.filter((c) => c.matches('.lead, .numbers'))
-  const waiting = () => [...($('#main .headline:empty') ? ['the headline'] : []), ...checked.filter((c) => !c.dataset.loaded).map((c) => `the card "${c.__spec?.title}"`)]
+  const waiting = () => [...($('#main .headline:empty') ? ['the headline'] : []), ...all.filter((c) => c.__load && !c.dataset.loaded).map((c) => `the card "${c.__spec?.title}"`)]
   await new Promise((done) => {
     const look = () => (!waiting().length || Date.now() > deadline ? done() : setTimeout(look, 200))
     look()
@@ -680,12 +680,15 @@ async function selfCheck() {
   let shown = 0
   for (const g of groups) {
     const values = g.qs.flatMap((q) => answers.get(q) || []).flatMap((r) => Object.values(r)).filter((v) => typeof v === 'number')
-    for (const t of g.nodes.map((n) => n.textContent).filter((x) => /\d/.test(x))) {
+    for (const t of g.nodes.map((n) => n.textContent)) {
+      if (/\bn\/a\b/i.test(t)) fails.push(`A headline number shows "${t}": its value is missing`)
+      if (!/\d/.test(t)) continue
       shown++
       if (!agrees(t, values)) fails.push(`"${t}" is not a value its own view returns (${g.qs.join(', ')})`)
     }
   }
   if ([...document.querySelectorAll('#main .kpi__value')].some((n) => !n.closest('.lead, .numbers'))) fails.push("Headline numbers sit outside a card with cls: 'numbers', so they are not checked")
+  for (const n of document.querySelectorAll('#main :is(.headline, .dek, .changed):not([data-query])')) if (/\d/.test(n.textContent)) fails.push(`A first-screen line names no view in data-query: "${n.textContent.slice(0, 60)}"`)
   const text = document.body.innerText
   for (const bad of [/\bundefined\b/, /\bNaN\b/, /\bTODO\b/, /placeholder/i, /returned no text/i]) if (bad.test(text)) fails.push(`The page says ${bad}`)
   if (!shown) fails.push('No headline number to check')

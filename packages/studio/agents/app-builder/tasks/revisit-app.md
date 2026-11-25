@@ -49,9 +49,10 @@ instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rat
    modes. Keep every view the app has. Load every view in the box and check that each
    card's info mark opens and closes and Credible's logo shows, at both widths, in light and dark. If the Overview has
    no first screen (no `.headline`), give it one as `data-app-page` 'The page' says, from the template's `overview()`,
-   with its `wireSearch()`, `selfCheck()` and `checkBanner()`, the first screen's rules in `styles.css` (from the
-   comment `/* The Overview's first screen` to the next comment) and its `.self-check` rules, give the headline
-   numbers card `cls: 'numbers'`, and pick the headline as `data-app-explorer`'s 'Plan the app' says. (3) Add one source that
+   with its `wireSearch()`, `selfCheck()`, `checkBanner()` and the `checkBanner` line in `boot()`'s `catch`, the
+   first screen's rules in `styles.css` (from the comment `/* The Overview's first screen` up to the comment
+   `/* Headline numbers`) and its `.self-check` rules, add `numbers` to the headline numbers card's `cls`, and
+   pick the headline as `data-app-explorer`'s 'Plan the app' says. (3) Add one source that
    makes it deeper, found with `dataset-scout`: a dataset joined by place or time, as `data-fetch`'s "Shared place
    and time" says, that answers a question the README's "The questions" leaves open, or the one its 'What is next'
    named. An app built before "The questions" existed gets that section first, written from what the app answers. Use a source that needs a key only when the

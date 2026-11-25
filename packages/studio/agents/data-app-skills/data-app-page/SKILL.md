@@ -128,7 +128,7 @@ after `packages/`. Never look for the address in the box's configuration files.
    }
    await b.close()
    ```
-3. Shoot the first screen too, without `--full` and without `?check=1`: `--viewport 390x844` and
+3. Shoot the first screen too, without `--full` and without `?check=1`, with `--wait`: `--viewport 390x844` and
    `--viewport 1280x800`, kept as `final-first-phone.jpg` and `final-first-desktop.jpg`, the shot a post attaches.
 4. Fix and shoot again until every shot is right. Then copy each final shot to
    `.credible/shots/final-<state>-<desktop|phone>.jpg` (`<state>` is `default` for the page as it loads) and name

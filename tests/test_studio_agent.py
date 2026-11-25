@@ -1,7 +1,7 @@
 """The studio's agents stay inside the caps Publisher serves an agent under.
 
-Publisher drops an agent from its package, with only a package warning, when its instructions or any task file
-is over 16 KiB or its skill files total over 256 KiB (PACKAGE_AGENT_TEXT_MAX_BYTES and
+Publisher drops an agent from its package, with only a package warning, when its instructions or any scheduled task
+file is over 16 KiB or its skill files total over 256 KiB (PACKAGE_AGENT_TEXT_MAX_BYTES and
 PACKAGE_AGENT_SKILLS_MAX_BYTES in @malloy-publisher/server). A dropped agent cannot run, so an edit that crosses a
 cap breaks every build, proposal and revisit at once.
 """
@@ -24,8 +24,15 @@ class StudioAgentSize(unittest.TestCase):
                 size = (STUDIO / rel).stat().st_size
                 self.assertLessEqual(size, TEXT_MAX, f"{name}: {rel} is {size} bytes, over Publisher's {TEXT_MAX}")
             # Publisher counts each skill's SKILL.md and the .md files directly in its reference/ folder.
-            files = [f for d in agent.get("skills", []) for pattern in ("*/SKILL.md", "*/reference/*.md") for f in (STUDIO / d).glob(pattern)]
-            skills = sum(f.stat().st_size for f in files if not any(part.startswith(".") for part in f.parts))
+            files = [
+                f
+                for d in agent.get("skills", [])
+                for pattern in ("*/SKILL.md", "*/reference/*.md")
+                for f in (STUDIO / d).glob(pattern)
+                if not any(part.startswith(".") for part in f.relative_to(STUDIO / d).parts)
+            ]
+            self.assertTrue(files, f"{name}: no skill files found")
+            skills = sum(f.stat().st_size for f in files)
             self.assertLessEqual(skills, SKILLS_MAX, f"{name}: skill files total {skills} bytes, over {SKILLS_MAX}")
 
 
