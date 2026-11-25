@@ -31,11 +31,25 @@ For each question under "The questions":
 
 Then for the app as a whole:
 
-5. **What would a reader ask next** that the app cannot answer? When a dataset already in the package answers it,
+5. **Does every chart act when a reader uses it?** An app a reader explores, not a report they read: on Explore
+   every chart filters the other cards when a mark is clicked (or a span dragged), says what each mark is on hover,
+   and clears when clicked again; every scope control redraws the cards; a name opens its page. Check it the way a
+   reader would, with the template's interaction check, which clicks, drags and hovers on every view:
+
+   ```sh
+   node /workspace/siblings/studio/templates/data-app/check_interactions.mjs <package>/index.html
+   ```
+
+   It takes three or four minutes; `--views explore` checks one view. Each `FIND` line is a chart with nothing to
+   click, a click that redraws no other card, a filter that does not clear, a tooltip missing, or a control that
+   changes nothing. Fix each (pass `onPick` and `selected`, or `onBrush`, as `data-app-explorer` says), or name it
+   under "The editor's read" with its reason, such as a card that is meant to ignore a filter and says so in its
+   method note. Run it again after the fixes.
+6. **What would a reader ask next** that the app cannot answer? When a dataset already in the package answers it,
    add the card. When it needs a new source, name the source under "What is next" in the hand-over.
-6. **Does every view earn its place?** Each view answers a question. Records or Compare that answer none come out,
+7. **Does every view earn its place?** Each view answers a question. Records or Compare that answer none come out,
    as `data-app-explorer` says.
-7. **Is every sentence from the rows?** No verdict, superlative or count typed by hand, and no claim a card's rows
+8. **Is every sentence from the rows?** No verdict, superlative or count typed by hand, and no claim a card's rows
    do not show.
 
 ## Fix, then hand over

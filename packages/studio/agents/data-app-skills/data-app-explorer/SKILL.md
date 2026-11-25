@@ -149,7 +149,8 @@ under about 5,000 px at desktop width, so a long Explore splits a section into i
   clicked holds still. Keep the frame's `tile()`, `chartBox()` and `paint()` as they are; they do this.
 - **Charts:** one d3 chart module, vendored and copied whole, never read, as `reference/charts.md` says; choose each
   chart with its table. Nearly every mark filters the page or opens a page, so pass `onPick` and `selected` to every
-  chart that takes them. The ranked table is in `reference/charts.md`; maps and their pinned boundaries in `reference/maps.md`.
+  chart that takes them. `onBrush(from, to)` is called with `(null, null)` when the reader clears the span: clear
+  the period then, never set it to `Number(null)`, which is 0. The ranked table is in `reference/charts.md`; maps and their pinned boundaries in `reference/maps.md`.
   When a finding deserves a form the module does not have, draw it yourself with d3 in a file of its own, to the
   module's bar: marks labelled directly, a tooltip on hover and keyboard focus, `onPick` where it filters, the
   card's info mark, and a check at phone width.
@@ -194,6 +195,10 @@ On top of the checks in `data-app-page`:
 - The app names its theme on `<html>`, and every view reads well with `?mode=dark` too; after any colour override,
   `reference/palette-check.md` prints `palette ok` in both modes.
 - Every scope control changes every card that should respond; a card that ignores a key says so.
+- The interaction check prints no `FIND` line, or each one is named in the hand-over with its reason:
+  `node "$T/check_interactions.mjs" <package>/index.html`, with `$T` the templates folder from `reference/app-frame.md`.
+  It clicks a mark in every chart, drags across a chart that takes a span, hovers for the tooltip and tries every
+  control, on every view.
 - A link opened from low on a view lands at the top of the next view.
 - Search finds an entity by part of its name and opens its page; Back returns to where the reader was.
 - Clearing every chip returns Explore to how it loads.
