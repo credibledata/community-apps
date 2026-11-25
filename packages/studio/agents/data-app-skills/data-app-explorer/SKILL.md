@@ -1,18 +1,18 @@
 ---
 name: data-app-explorer
-description: The high-effort data app - an app with views at their own addresses (an overview that answers the brief's questions, an explorer whose cards filter each other, a page per entity, records and compare when a question needs them, about the data), over a model that joins the core dataset with its supplemental ones, a header with search, labelled d3 charts chosen for what the data shows and that filter on click, in an editorial design with real type, over a model deep enough to carry it. Use when the task asks for effort high. Sources, caveats, the hand-off to Credible's agent and the screenshot rules come from data-app-page.
+description: The data app - an app with views at their own addresses (an overview that answers the brief's questions, an explorer whose cards filter each other, a page per entity, records and compare when a question needs them, about the data), over a model that joins the core dataset with its supplemental ones, a header with search, labelled d3 charts chosen for what the data shows and that filter on click, in an editorial design with real type, over a model deep enough to carry it. Use for every community app. Sources, caveats, the hand-off to Credible's agent and the screenshot rules come from data-app-page.
 ---
 
 # Data app explorer
 
 **Only in a data app's own package** (a root `publisher.json` with no `agents`); anywhere else, do nothing and say so.
 
-At high effort the brief is the way in, and the app is the product. A visitor lands on the answer to the brief's
+The brief is the way in, and the app is the product. A visitor lands on the answer to the brief's
 question, then uses the app: narrows to a place or a period, clicks a bar to filter everything else, searches for
 an entity and opens its page, compares two, reads the rows behind a number. It should feel like a product someone
 designed, like the avalanche explorer in this repository (`packages/avalanche`) or the FeederWatch explorer (`packages/feederwatch`), not like an article
 with charts. Everything `data-app-page` says about sources, caveats, the hand-off to Credible's agent and
-screenshots still holds; its limits of three to five views and one or two filters do not.
+screenshots still holds.
 
 ## The model comes first
 

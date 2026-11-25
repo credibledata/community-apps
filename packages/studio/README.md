@@ -6,7 +6,7 @@ The agents that build the apps in this repository. It holds no app of its own.
 
 Turns a topic, and any articles on it, into a public data app in a new package under `packages/`. Start it in the
 community-apps environment in Credible: in a chat, pick `app-builder` and ask for an app, for example "Build an
-app on this year's measles cases in the US. High effort." It finds openly licensed data, loads it into managed
+app on this year's measles cases in the US." It finds openly licensed data, loads it into managed
 tables in the environment's `community` database, models it in Malloy, builds the app in its own agent computer
 and opens a pull request on this repository. The tables are not in the pull request; the app's README names them
 and the scripts that rebuild them.

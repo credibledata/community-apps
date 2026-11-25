@@ -21,11 +21,11 @@ computer reads the topic from the list and builds the app.
    with `dataset-scout` like any other, the key it needs if any, the first screen, the pages and the risk. An older
    entry's `Why now` reads as `Talked about` and its `Lead view` as `First screen`. If no entry has that
    package, or a pull request at https://github.com/credibledata/community-apps/pulls already adds it, stop.
-   <Effort> effort. This build was started with Run now on `build-next-topic`, which asks for the app's data in
+   This build was started with Run now on `build-next-topic`, which asks for the app's data in
    managed tables in the `community` database and for its pull request to be opened for review when it is ready."
    followed by the rest of the person's note.
 
-   The effort is the one the note names, else high. If the name is refused as taken, stop and say so; never pick
+   If the name is refused as taken, stop and say so; never pick
    another name for the same topic.
 3. **Hand over.** Reply with the package name and the instruction you staged. Say the build runs on the agent
    computer over several turns, and that if this chat shows the work waiting to start, starting it there begins

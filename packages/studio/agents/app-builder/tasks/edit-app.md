@@ -62,7 +62,7 @@ Then read it as a stranger who opens it from a post, knowing nothing but the pos
    needs the whole ranking.
 10. **Does the first screen stand on its own?** Shoot it with `--viewport 390x844` and `--viewport 1280x800`,
     without `--full` and without `?check=1`, as `final-first-phone.jpg` and `final-first-desktop.jpg`, and look at
-    both; at high effort `?check=1#/` passes too. Someone who has never heard of
+    both; `?check=1#/` passes too. Someone who has never heard of
     the subject knows from that screen alone what the number means, why it matters this week, and what to do next,
     without opening an info mark.
 11. **Would they repost it?** Write the post: what a person posts on LinkedIn or X to share the app, two or three

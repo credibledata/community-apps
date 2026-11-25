@@ -30,7 +30,7 @@ instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rat
    `package_agent` `app-builder` and `agent_package` `studio`. Its `summary` is "revisit <name>". Its
    `instruction` is:
 
-   "Revisit the community app in this package. High effort. It is published; keep what works and change only what
+   "Revisit the community app in this package. It is published; keep what works and change only what
    this revisit is for. This revisit may create managed tables. In order: (1) Refresh the data, only when its source has
    published newer data than the app holds: run its `pipeline/` scripts and load the result as a new table named
    for the month (`<table>_<yyyymm>`), since a table cannot be replaced; point the model at it, and name the table it

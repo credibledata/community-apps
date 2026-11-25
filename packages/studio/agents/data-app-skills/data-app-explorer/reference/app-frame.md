@@ -1,6 +1,6 @@
 # The app frame
 
-The shell every high-effort app is built in: a header with the app's name, its views and a search box; a scope bar;
+The shell every app is built in: a header with the app's name, its views and a search box; a scope bar;
 one view at a time, each at its own address; a footer. Copy the page and the module below to `public/index.html`
 and `public/app.js`, keep the frame, and write the views for this app. It uses `scope.js`
 (`reference/scope-module.md`), `charts.js` and `charts.css` (the d3 chart module, `reference/charts.md`),
