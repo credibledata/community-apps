@@ -27,6 +27,8 @@ for (let i = 0; i < rest.length; i++) {
 }
 const host = process.env.PUBLISHER_HOST || '127.0.0.1'
 const port = process.env.PUBLISHER_PORT || '4000'
+// A value inside a quoted attribute selector: backslashes first, then quotes.
+const attr = (s) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 const base = (/^https?:\/\//.test(target) ? target : `http://${host}:${port}/environments/box/packages/${target.replace(/^\//, '')}`).split('#')[0]
 const [width, height] = viewport.split('x').map(Number)
 
@@ -195,7 +197,7 @@ async function checkView(page, view) {
       continue
     }
     if (pickLabel) {
-      const again = card().locator(`[role="button"][aria-label="${pickLabel.replace(/"/g, '\\"')}"]`).first()
+      const again = card().locator(`[role="button"][aria-label="${attr(pickLabel)}"]`).first()
       if (await again.count()) {
         const at2 = await again.evaluate((el, fn) => new Function(`return (${fn})`)()(el), pointOn.toString())
         if (at2) await page.mouse.click(at2.x, at2.y)
@@ -234,7 +236,7 @@ async function checkView(page, view) {
   // A link to an entity opens its page, with cards that load.
   const href = await page.evaluate((sel) => document.querySelector(`${sel.split(', ').map((s) => `${s} a[href^="#/"]`).join(', ')}`)?.getAttribute('href') || null, CARDS)
   if (href) {
-    await page.locator(`a[href="${href.replace(/"/g, '\\"')}"]`).first().click()
+    await page.locator(`a[href="${attr(href)}"]`).first().click()
     await page.waitForTimeout(300)
     await settle(page, { scroll: true })
     const cards = await page.locator(CARDS).count()
