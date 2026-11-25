@@ -1,7 +1,8 @@
 # Licenses
 
 The published app is public, and its package may be copied by anyone who can read it. Only data whose
-license allows republishing with attribution, and nothing more, is used.
+license allows republishing with attribution, or with attribution and sharing the reshaped data under the same
+license, is used.
 
 ## Accepted
 
@@ -16,18 +17,28 @@ license allows republishing with attribution, and nothing more, is used.
 | Licence Ouverte / Open Licence (France) 2.0 | "Source: <publisher>, Licence Ouverte 2.0" |
 | Eurostat and the European Commission's reuse policy (Decision 2011/833/EU) | "Source: Eurostat", with the dataset code |
 | World Bank datasets marked CC BY 4.0 | as CC BY |
+| CC BY-SA 4.0, CC BY-SA 3.0 (share-alike), such as Wikipedia's tables | "Source: <publisher>, <dataset or article>, CC BY-SA 4.0", with a link to it and the license, a note that the data was reshaped, and "The shaped data is shared under CC BY-SA 4.0". See "Share-alike" below. |
+| Open Database License (ODbL), such as OpenStreetMap | "Contains information from <dataset>, which is made available under the Open Database License (ODbL)", with a link to it and the license, and "The shaped data is shared under the ODbL". See "Share-alike" below. |
 | A government publisher's own written statement that use of its open data is unrestricted, such as NYC Open Data's FAQ: "There are no restrictions on the use of Open Data." | The statement quoted word for word, with a link to where the publisher says it, beside "Source: <publisher>" |
 
 ## Refused
 
-- **Share-alike** licenses: CC BY-SA and the Open Database License (ODbL). They are open, but they would require
-  the shaped data the app republishes to carry the same license, which this repository does not take on. This rules out
-  Wikipedia tables and OpenStreetMap extracts.
 - **NonCommercial or NoDerivatives** terms of any kind (CC BY-NC, CC BY-ND and their mixes).
 - "Free for personal use", "for research only", or any terms that limit who may use or redistribute it.
 - No stated license. A portal being public is not a license, and neither is a website's footer: the statement of
   unrestricted use above must come from the publisher, about its data. A federal agency's compilation of state and
   local reports is the one dataset accepted without one.
+
+## Share-alike
+
+A share-alike license lets the app use the data on one condition: what the app makes from it, the shaped table and
+the files in `pipeline/` that build it, is shared under the same license.
+
+- Shape each share-alike dataset into a table of its own, and never put data under two different share-alike
+  licenses (CC BY-SA and ODbL) in one table. Joining them in the model at query time is fine.
+- The README's sources table names the license of each shaped table, and the About view says which tables are
+  shared under which license.
+- Only the data falls under it, never the app's code, the model or the other datasets.
 
 ## Traps
 

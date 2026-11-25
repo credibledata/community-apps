@@ -33,8 +33,27 @@ that key (`SKILL.md`). Each one's license still has to be read per dataset, as i
 | City portals (NYC, Chicago, San Francisco, and others) | local services, safety, transport | Socrata: `https://<portal>/resource/<id>.csv?$limit=50000`; license per dataset |
 | Our World in Data | long-run global series | `https://ourworldindata.org/grapher/<chart>.csv`; their own work is CC BY 4.0, but check each series' original source |
 
+## Money, work and companies
+
+Public records that agencies publish carry subjects people argue about: pay, prices, companies, complaints.
+
+| Source | Good for | Notes |
+|---|---|---|
+| SEC EDGAR | company filings, financial statements, insider trades | `https://data.sec.gov/api/xbrl/frames/...` and `https://www.sec.gov/cgi-bin/browse-edgar`; public domain. SEC asks every request to send a `User-Agent` naming the app, and allows 10 requests a second. |
+| US Department of Labor, foreign labor certification (H-1B and other visa filings) | wages employers file by job, employer and city | `https://www.dol.gov/agencies/eta/foreign-labor/performance`, yearly and quarterly spreadsheets; public domain |
+| CFPB Consumer Complaint Database | complaints about banks, lenders and card issuers, by company and product, updated daily | `https://www.consumerfinance.gov/data-research/consumer-complaints/`; public domain |
+| FEC | campaign money by candidate, committee and donor's employer | `https://www.fec.gov/data/browse-data/` bulk files; public domain. The data names individual donors: keep employers and places, never a person's name. |
+| FDIC BankFind | every US bank's deposits, branches and failures | `https://banks.data.fdic.gov/api/institutions?limit=10`; public domain |
+
+## Wikimedia
+
+| Source | Good for | Notes |
+|---|---|---|
+| Wikipedia tables | lists and results the field keeps there (elections, sports, launches) | Text and tables are CC BY-SA 4.0: share-alike, see `licenses.md`. Read each table's own citations: the original source may carry other terms. |
+| Wikidata | facts about people's offices, companies, places, works | `https://query.wikidata.org/sparql`; CC0 |
+| Wikipedia page views | how much people read about a subject, by day | `https://wikimedia.org/api/rest_v1/metrics/pageviews/...`; CC0 |
+
 ## Not usable
 
 Kaggle (needs a login), anything behind a sign-up form or terms to accept, a key the environment does not hold,
-paywalled reports, scraped tables from
-news sites, and Wikipedia (share-alike, see `licenses.md`).
+paywalled reports, and scraped tables from news sites.

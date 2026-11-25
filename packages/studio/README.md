@@ -27,7 +27,8 @@ this package, since its agent computer mounts it.
 ## Its three tasks
 
 - **Propose topics** (`agents/app-builder/tasks/propose-topics.md`) refreshes `topics.md` here: three to five
-  topics in the news with open data behind them, ranked, each with the package name it would get. It runs only on
+  topics people are talking about this week, each with a claim to check or something a reader can look up, and
+  the open data that settles it, ranked, each with the package name it would get. It runs only on
   a schedule: on the agent's page in Credible, Add schedule on the task's row. Each run opens a pull request on
   this package; reorder or edit the list there, add your own with `Added by:`, and merge. While that pull request
   is open, later runs stop.

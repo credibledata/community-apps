@@ -124,6 +124,23 @@ select, .btn { font: 500 var(--fs-sm)/1.2 var(--font-ui); padding: 7px 12px; bor
 .view > .grid-2, .view > .grid-3, .view > .card, .view > .rt-wrap { margin-top: var(--sp-6); }
 .answer { font: 400 var(--fs-xl)/1.35 var(--font-serif); color: var(--text-strong); max-width: 48ch; margin: var(--sp-4) 0 0; }
 
+/* The Overview's first screen: the headline finding, what the data is and what changed, the lead chart, and the box
+   that finds the reader's own entity, all before any scrolling on a phone. */
+.first { display: grid; gap: var(--sp-3); }
+.headline { font: 400 var(--fs-3xl)/1.1 var(--font-display); letter-spacing: -0.02em; color: var(--text-strong); max-width: 24ch; }
+.headline strong { color: var(--accent); font-weight: inherit; }
+.dek { font: 400 var(--fs-lg)/1.4 var(--font-serif); color: var(--text); max-width: 56ch; margin: 0; }
+.changed { font: 500 var(--fs-sm)/1.4 var(--font-ui); color: var(--text-muted); margin: 0; }
+.changed strong { color: var(--text-strong); }
+.first > .card { margin-top: var(--sp-2); }
+.find { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.find label { font: 600 var(--fs-sm)/1.3 var(--font-ui); color: var(--text-strong); }
+.find input { flex: 1 1 220px; max-width: 360px; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text-strong); font: inherit; }
+.find ul { position: absolute; left: 0; top: calc(100% + 4px); z-index: 20; min-width: 260px; margin: 0; padding: var(--sp-1); list-style: none; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 10px 30px rgb(0 0 0 / 0.14); }
+.find li { padding: var(--sp-2) var(--sp-3); border-radius: 6px; cursor: pointer; }
+.find li[aria-selected="true"], .find li:hover { background: var(--accent-soft); }
+.more { margin-top: var(--sp-6); font: 600 var(--fs-md)/1.3 var(--font-ui); }
+
 /* Headline numbers: the one tinted panel */
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-5); margin: var(--sp-6) 0; padding: var(--sp-5); background: var(--panel); border-top: 3px solid var(--accent); }
 .kpi { min-width: 0; }
@@ -260,6 +277,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .scope__end { margin-left: 0; }
   .view { padding: var(--sp-6) var(--sp-4) var(--sp-8); }
   .view-title { font-size: var(--fs-3xl); }
+  .headline { font-size: var(--fs-2xl); }
+  .view:has(> .first) { padding-top: var(--sp-5); }
+  .find input { max-width: none; }
   .kpi__value { font-size: var(--fs-2xl); }
   .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
   .span-2 { grid-column: auto; }

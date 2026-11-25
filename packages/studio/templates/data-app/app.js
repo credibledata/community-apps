@@ -504,11 +504,9 @@ function renderScope() {
 const range = (lo, hi) => Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
 const parse = (spec, v) => (v === '' ? null : spec.type === 'pick' ? v : Number(v))
 
-// ---- Search: find an entity by name or id, open its page ----
+// ---- Search: find an entity by name or id, open its page. The header's box, and the first screen's "find yours". ----
 
-function wireSearch() {
-  const input = $('#search')
-  const list = $('#search-list')
+function wireSearch(input = $('#search'), list = $('#search-list')) {
   let hits = []
   let active = -1
   const close = () => {
@@ -518,10 +516,10 @@ function wireSearch() {
   }
   const show = () => {
     list.replaceChildren(...hits.map((id, i) =>
-      h('li', { role: 'option', id: `opt-${i}`, 'aria-selected': String(i === active), text: S.ENTITY.label(id), onmousedown: (e) => (e.preventDefault(), pick(id)) })))
+      h('li', { role: 'option', id: `${list.id}-${i}`, 'aria-selected': String(i === active), text: S.ENTITY.label(id), onmousedown: (e) => (e.preventDefault(), pick(id)) })))
     list.hidden = !hits.length
     input.setAttribute('aria-expanded', String(!list.hidden))
-    input.setAttribute('aria-activedescendant', active >= 0 ? `opt-${active}` : '')
+    input.setAttribute('aria-activedescendant', active >= 0 ? `${list.id}-${active}` : '')
   }
   const pick = (id) => {
     input.value = ''
@@ -643,12 +641,13 @@ function paint(toTop, same) {
 
 async function selfCheck() {
   const card = await new Promise((done) => {
-    const look = () => { const c = $('#main .card'); if (c?.dataset.loaded) done(c); else setTimeout(look, 200) }
+    const look = () => { const c = $('#main .card'); if (c?.dataset.loaded && !$('#main .headline:empty')) done(c); else setTimeout(look, 200) }
     look()
   })
   const fails = []
-  const qs = card.__spec.queries()
-  for (const q of qs) if (!/^run: \w+ -> \w+$/.test(q)) fails.push(`The headline card adds to a view: ${q}`)
+  // The lead card's queries, and those the first screen's sentences name in data-query.
+  const qs = [...new Set([...card.__spec.queries(), ...[...document.querySelectorAll('#main [data-query]')].map((n) => n.dataset.query)])]
+  for (const q of qs) if (!/^run: \w+ -> \w+$/.test(q)) fails.push(`The headline adds to a view: ${q}`)
   const values = (await Promise.all(qs.map(query))).flat().flatMap((r) => Object.values(r)).filter((v) => typeof v === 'number')
   // A number shown agrees with a model value when the value, or its percentage, rounds to it at the shown decimals.
   const agrees = (t) => {
@@ -658,13 +657,19 @@ async function selfCheck() {
     const near = (v) => Math.abs(v - n) <= 0.5 * 10 ** -d + 1e-9 || Math.abs(Math.abs(v) - Math.abs(n)) <= 0.5 * 10 ** -d + 1e-9
     return values.some((v) => near(v) || near(v * 100))
   }
-  const shown = [...document.querySelectorAll('.answer strong, .answer b')].concat([...card.querySelectorAll('.kpi__value, .kpi__sub strong')]).map((n) => n.textContent).filter((t) => /\d/.test(t))
+  const shown = [...document.querySelectorAll('#main :is(.headline, .changed, .answer) :is(strong, b)')].concat([...card.querySelectorAll('.kpi__value, .kpi__sub strong')]).map((n) => n.textContent).filter((t) => /\d/.test(t))
   for (const t of shown) if (!agrees(t)) fails.push(`"${t}" is not a value the headline queries return`)
   const text = document.body.innerText
   for (const bad of [/\bundefined\b/, /\bNaN\b/, /\bTODO\b/, /placeholder/i, /returned no text/i]) if (bad.test(text)) fails.push(`The page says ${bad}`)
   if (!qs.length || !shown.length) fails.push('The headline card shows no queries or no numbers to check')
+  // The first screen: the headline, the lead chart and the find control are all in view before any scrolling.
+  if (!$('#main .headline')) fails.push('The Overview has no .headline')
+  for (const [sel, what] of [['#main .headline', 'the headline'], ['#main .lead .chart', 'the lead chart'], ['#main .find', 'the find control']]) {
+    const n = $(sel)
+    if (n && n.getBoundingClientRect().bottom + scrollY > innerHeight) fails.push(`${what} ends ${Math.round(n.getBoundingClientRect().bottom + scrollY)} px down, below the first screen (${innerHeight} px)`)
+  }
   document.body.dataset.check = fails.length ? 'fail' : 'ok'
-  document.body.prepend(h('pre', { class: 'self-check', text: fails.length ? `Headline check failed:\n${fails.join('\n')}` : `Headline check passed: ${shown.length} numbers from ${qs.length} bare views of the model.` }))
+  document.body.prepend(h('pre', { class: 'self-check', text: fails.length ? `Headline check failed:\n${fails.join('\n')}` : `Headline check passed: ${shown.length} numbers from ${qs.length} bare views of the model, and the first screen fits ${innerWidth} x ${innerHeight}.` }))
 }
 
 async function boot() {
@@ -704,22 +709,39 @@ function viewHead(title, lede, crumbs) {
 }
 
 function overview() {
-  // The headline runs bare views of the source that carries the question's scope, and every word of the answer comes
-  // from their rows: so the page, the Credible agent and an analyst get the same numbers.
+  // The first screen: what a stranger who opens the app from a post sees before scrolling, on a phone as on a
+  // desktop. The headline is the strongest true finding, a sentence with its number and what it is compared with;
+  // under it, what the data is and what changed in its latest period; the one chart that shows the headline; and the
+  // box that finds the reader's own entity. Every word comes from the rows of bare views of the headline source, which
+  // each sentence names in data-query, so the headline check (?check=1) can test each number and that all of it fits.
   const qK = `run: ${S.HEADLINE} -> kpis`
-  const answer = h('p', { class: 'answer' })
-  query(qK).then(([k]) => answer.replaceChildren(...prose([`Complaints ${k.change < 0 ? 'fell' : 'rose'} by `, { b: C.pct(Math.abs(k.change), 0) }, ` from ${k.prior_year} to ${k.latest_year}.`])))
-  const [kicker, title, lede] = viewHead('Did the drop in rat complaints reach every neighborhood?', 'The city counts every rodent complaint to 311. Here is where they fell, and whether it is holding.').filter(Boolean)
+  const headline = h('h1', { class: 'headline', 'data-query': qK })
+  const dek = h('p', { class: 'dek' })
+  const changed = h('p', { class: 'changed', 'data-query': qK })
+  query(qK).then(([k]) => {
+    // ADAPT: the headline the plan picked, the dek, and the latest period against the one before.
+    headline.replaceChildren(...prose(['Rat complaints ', k.change < 0 ? 'fell ' : 'rose ', { b: C.pct(Math.abs(k.change), 0) }, ` from ${k.prior_year} to ${k.latest_year}.`]))
+    dek.replaceChildren(...prose(`Every rodent complaint New Yorkers made to 311, through ${k.latest_month}.`))
+    changed.replaceChildren(...prose([`${k.latest_month}: `, { b: C.fmt(k.latest_month_count) }, ' complaints, ', { b: C.fmt(Math.abs(k.latest_month_change)) }, ` ${k.latest_month_change < 0 ? 'fewer' : 'more'} than the month before.`]))
+  })
+  const find = h('div', { class: 'find', role: 'search' },
+    h('label', { for: 'find', text: 'Find your ZIP code' }), // ADAPT: the entity, as a reader names their own
+    h('input', { id: 'find', type: 'search', placeholder: 'Type a ZIP code', autocomplete: 'off', role: 'combobox', 'aria-expanded': 'false', 'aria-controls': 'find-list', 'aria-autocomplete': 'list' }),
+    h('ul', { id: 'find-list', role: 'listbox', hidden: true }))
+  wireSearch($('input', find), $('ul', find))
   return h('div', { class: 'view wrap' },
-    kicker, title, answer, lede,
-    h('div', { class: 'grid-2' },
+    h('div', { class: 'first' }, headline, dek, changed,
       tile({
-        title: 'Complaints per month', sub: 'All rodent complaints to 311.', cls: 'span-2',
+        title: 'Complaints per month', sub: 'All rodent complaints to 311.', cls: 'lead',
         queries: () => [S.viewQuery('by_month', S.DEFAULT_SCOPE, known)],
         explain: ['Complaints per month, all of them, closed as duplicates left out.'],
-        draw: ([rows], body) => C.lines(chartBox(body), rows.map((r) => r.m.slice(0, 7)), [{ name: 'Complaints', values: rows.map((r) => r.complaint_count), color: '--accent' }]),
+        draw: ([rows], body) => C.lines(chartBox(body), rows.map((r) => r.m.slice(0, 7)), [{ name: 'Complaints', values: rows.map((r) => r.complaint_count), color: '--accent' }], { height: innerWidth < 640 ? 200 : 260 }),
         method: 'Duplicates closed as "already reported" are left out.',
-      })))
+      }),
+      find),
+    // ADAPT: below the first screen, each question from "The questions" in a line with its answer, the headline
+    // numbers, and two or three cards that lead into the app.
+    h('p', { class: 'more' }, h('a', { href: linkTo('explore'), text: 'Explore the data →' })))
 }
 
 function explore() {

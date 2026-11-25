@@ -62,7 +62,12 @@ Then write the plan into that turn's `**Progress:**` note, so the person sees it
 
 - **Each question from "The questions"**: its answer in one sentence with its number, the view it comes from, the
   sources it combines, and its baseline. A question the data cannot answer says so.
-- **The lead finding** the Overview opens on: one sentence, its number, the view it comes from.
+- **The headline.** From what stands out, write three candidate headlines, each one sentence with its number and
+  what it is compared with, from rows you queried: a record, a gap, a claim the data breaks or bears out, a place
+  far from the rest, a turn in a trend. Pick the one a stranger would most want to repost that is still exactly
+  true at its comparison; the others lead sections of the Overview or Explore. Write all three, the pick and why,
+  and the view each comes from. When the brief names a claim in circulation, one candidate says what the data
+  says about it.
 - **Each Explore card**: the question, the finding the rows show in one line with its number, two or three forms
   that could show it, the one you pick and why it beats the others, and the view that feeds it.
 - **The native chart** and why the field draws it that way.
@@ -89,10 +94,11 @@ entity; a scope bar; one view at a time at its own address; a footer. The views 
 answers at least one, and a question that needs more room than a section gets a view of its own (its name in
 `VIEWS` in `scope.js`, a function, an entry in `paint()`'s `views`, and a nav link). Its views:
 
-- **Overview** (`#/`): the lead question, the answer in a sentence or two, then the lede, and each other question
-  in a line with its answer, linking to where the app shows it; headline numbers with
-  sparklines from bare views of the headline source, no filter added in the app; the chart the plan chose to show
-  the lead finding; the ranked table of the entity when a ranking is part of the answer; two or three cards that
+- **Overview** (`#/`): first the first screen `data-app-page` describes, as the template's `overview()` lays it
+  out: the headline the plan picked, the line under it with what changed, the lead chart, and the find box. Then
+  the lead question with its answer in a sentence or two, and each other question in a line with its answer,
+  linking to where the app shows it; headline numbers with
+  sparklines from bare views of the headline source, no filter added in the app; the ranked table of the entity when a ranking is part of the answer; two or three cards that
   lead into the app ("Biggest falls: ZIP 10035 →"), and, when the brief has articles, the articles. No scope bar: it shows the brief's own
   comparison.
 - **Explore** (`#/explore`): the scope bar, then a section per question, named for its answer ("Texas pulls
@@ -173,7 +179,8 @@ Each phase is one turn, and each turn ends with a `**Progress:**` note until the
 
 ## States to shoot
 
-Every view: Overview, Explore, one entity's page, each view of a question's own, Records and Compare if built,
+The first screen: the Overview at `--viewport 390x844` and `--viewport 1280x800` without `--full`, named
+`final-first-phone.jpg` and `final-first-desktop.jpg`. Every view: Overview, Explore, one entity's page, each view of a question's own, Records and Compare if built,
 About. Then Explore with each scope
 control set to one value, Explore after one card is clicked, and one entity's page with a scope. Shoot each at both
 widths, as `data-app-page` says, named for the view and state, such as `final-explore-borough-brooklyn-desktop.jpg`
@@ -185,8 +192,10 @@ view (`--viewport 1280x6000` and `--viewport 390x12000`) and `--wait '[data-load
 On top of the checks in `data-app-page`:
 
 - Every view loads from its address alone, with no console errors.
-- `index.html?check=1#/` shows a banner that says the headline check passed: every number the answer and the headline
-  card show is a value bare views of the model return, and no placeholder is on the page. Shoot it.
+- `index.html?check=1#/` shows a banner that says the headline check passed: every number the headline, the line
+  under it, the answer and the headline card show is a value bare views of the model return, no placeholder is on
+  the page, and the headline, the lead chart and the find box end within the first screen. Shoot it at both widths
+  without `--full` (`--viewport 390x844` and `--viewport 1280x800`), so the shot is the first screen.
 - The fonts load: `[...document.fonts].some((f) => f.family === 'Source Serif 4 Variable' && f.status === 'loaded')`
   is true in the page (`document.fonts.check` is true even when the face is missing), and the shots show the serif
   in ledes and descriptions.
@@ -203,6 +212,6 @@ On top of the checks in `data-app-page`:
 - Search finds an entity by part of its name and opens its page; Back returns to where the reader was.
 - Clearing every chip returns Explore to how it loads.
 
-Add to your hand-over: the views, the scope keys, the entity, the native chart and why, the theme you chose and why, and
+Add to your hand-over: the three candidate headlines and the one you picked, the views, the scope keys, the entity, the native chart and why, the theme you chose and why, and
 what each category colour means, any card that ignores a key, each chart's form and the form it beat, and how the app differs from
 the plan.
