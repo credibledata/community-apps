@@ -45,14 +45,36 @@ table counted before download answers only the questions it was counted for.
   than the ratio, so the model can recompute it at any grain.
 - **Normalize values once.** One spelling per place, ISO dates (`YYYY-MM-DD`), numbers without thousands
   separators, and explicit blanks rather than sentinels such as `-1`, `NA` or `---`.
-- **Join keys:** when two datasets will be joined, give them the same key column with the same values, and
-  check how many rows fail to match.
+- **Join keys:** see "Shared place and time", below.
 
 Use Python. For anything beyond a small CSV, pandas or DuckDB through `uv` is easiest:
 `uv run --with pandas python -I pipeline/shape_<name>.py /tmp/raw /tmp/shaped`.
 
 Every reshaping is written down: what was dropped, what was aggregated, what was renamed or recoded, and how
 many rows went in and came out. That record goes in the README's sources table.
+
+## Shared place and time
+
+The app's datasets are read together, so they share their keys:
+
+- **One place code** across every dataset, the most standard the data allows: FIPS for US states and counties,
+  ISO 3166 for countries, the publisher's own station or zone id when nothing standard covers it. Keep the name
+  beside it, never instead of it. Write the codes and names once, in a places table every source joins to.
+- **One period** at the finest grain the datasets share: the same week (and the same day it ends on), month or
+  year. A dataset at a finer grain keeps its own rows and gains the shared period as a column; one at a coarser
+  grain is never spread down.
+- **The same units and definitions**, or a column that converts them: per 100,000 against per 100,000, the
+  population for the period's own year, the same meaning of "case" or "admission".
+
+Then check the join before you load, and write what you found:
+
+- for each supplemental dataset, the places and periods it shares with the core, and how many of its rows and the
+  core's fail to match, with the reason for each kind (a territory one source leaves out, a week before the core
+  begins);
+- each unit or definition that differed, and what you did about it.
+
+A join that loses more than a few rows the app needs is fixed in the shaping, or the dataset is left out and its
+question stays open.
 
 ## Keep the scripts
 
@@ -136,3 +158,9 @@ Add this to the package's `README.md`, one row per dataset:
 | Measles cases by state | US CDC | Public domain | link to the dataset page | 2026-10-26 | 2,184 of 18,412 | weekly to monthly; 2019 onward; columns `month`, `state`, `cases` |
 
 The page's sources block shows the same facts in short.
+
+Under it, the cross-source check, one row per supplemental dataset:
+
+| Dataset | Joins the core on | Shared span | Unmatched | Units and definitions |
+|---|---|---|---|---|
+| State population estimates | state FIPS, year | 2020 to 2025 | 4 territories with no estimate | per year; the week takes its own year's estimate |
