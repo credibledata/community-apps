@@ -35,14 +35,16 @@ that key (`SKILL.md`). Each one's license still has to be read per dataset, as i
 
 ## Money, work and companies
 
-Public records that agencies publish carry subjects people argue about: pay, prices, companies, complaints.
+Public records that agencies publish carry subjects people argue about: pay, prices, companies, complaints. Several
+name people (donors, filers' contacts): keep companies, places and amounts, never a person's name, as `SKILL.md`
+says of data about identifiable people.
 
 | Source | Good for | Notes |
 |---|---|---|
-| SEC EDGAR | company filings, financial statements, insider trades | `https://data.sec.gov/api/xbrl/frames/...` and `https://www.sec.gov/cgi-bin/browse-edgar`; public domain. SEC asks every request to send a `User-Agent` naming the app, and allows 10 requests a second. |
+| SEC EDGAR | company filings and financial statements | `https://data.sec.gov/api/xbrl/frames/...` and `https://www.sec.gov/cgi-bin/browse-edgar`; public domain. SEC refuses a request without a `User-Agent` naming the app and a contact address: use the project's public contact, never a person's. At most 10 requests a second. |
 | US Department of Labor, foreign labor certification (H-1B and other visa filings) | wages employers file by job, employer and city | `https://www.dol.gov/agencies/eta/foreign-labor/performance`, yearly and quarterly spreadsheets; public domain |
 | CFPB Consumer Complaint Database | complaints about banks, lenders and card issuers, by company and product, updated daily | `https://www.consumerfinance.gov/data-research/consumer-complaints/`; public domain |
-| FEC | campaign money by candidate, committee and donor's employer | `https://www.fec.gov/data/browse-data/` bulk files; public domain. The data names individual donors: keep employers and places, never a person's name. |
+| FEC | campaign money by candidate, committee and donor's employer | `https://www.fec.gov/data/browse-data/` bulk files; public domain |
 | FDIC BankFind | every US bank's deposits, branches and failures | `https://banks.data.fdic.gov/api/institutions?limit=10`; public domain |
 
 ## Wikimedia
@@ -50,7 +52,7 @@ Public records that agencies publish carry subjects people argue about: pay, pri
 | Source | Good for | Notes |
 |---|---|---|
 | Wikipedia tables | lists and results the field keeps there (elections, sports, launches) | Text and tables are CC BY-SA 4.0: share-alike, see `licenses.md`. Read each table's own citations: the original source may carry other terms. |
-| Wikidata | facts about people's offices, companies, places, works | `https://query.wikidata.org/sparql`; CC0 |
+| Wikidata | facts about companies, places and works | `https://query.wikidata.org/sparql`; CC0 |
 | Wikipedia page views | how much people read about a subject, by day | `https://wikimedia.org/api/rest_v1/metrics/pageviews/...`; CC0 |
 
 ## Not usable

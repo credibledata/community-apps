@@ -33,8 +33,9 @@ conversation first, then hunt for the open data that settles it.
   accepts, that a script can fetch (see `data-fetch`). No login or terms to accept. A source that needs a free API
   key is allowed when the key goes in a request header, as `dataset-scout` says: name the key (below), and say
   whether the app can open without it. A subject can be about companies or pay and still rest on public records:
-  filings, disclosures and complaints that agencies publish. Record-level data makes a deeper app, but size is not
-  the test: a claim one table settles is a good topic. Large data goes into managed tables, which Credible stores
+  filings, disclosures and complaints that agencies publish. Size is not the test: a claim one summary table
+  settles is a good topic when record-level or supplemental data lets a reader go past it to their own place or
+  company, as the app builder needs. Large data goes into managed tables, which Credible stores
   and summarises so the app stays fast.
 - **A domain, not a dataset.** Among topics that pass the tests above, one with supplemental datasets that join
   the core by place or time and answer what it cannot (prices beside incomes, cases beside population, an early
@@ -50,14 +51,13 @@ conversation first, then hunt for the open data that settles it.
 2. **Keep what a person wrote.** A topic in `topics.md` with `Added by:` a person stays, in the order they put it,
    unless step 1 dropped it. Never rewrite their words.
 3. **Hear what people are talking about.** Before looking for any data, read what is being discussed this week.
-   Fetch each once and read titles and descriptions only; one that refuses or times out is named in the pull
+   Fetch each feed once and read titles and descriptions only; one that refuses or times out is named in the pull
    request description, and you go on:
    - The news: https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en, and its search feed
      `https://news.google.com/rss/search?q=<terms>&hl=en-US&gl=US&ceid=US:en` to see how widely a story runs.
    - What people search and post: Google's daily trending searches, https://trends.google.com/trending/rss?geo=US;
      Bluesky's trending topics, https://public.api.bsky.app/xrpc/app.bsky.unspecced.getTrendingTopics; the Hacker
-     News front page, https://hnrss.org/frontpage; and the week's top posts in r/dataisbeautiful,
-     r/economics and r/personalfinance, `https://old.reddit.com/r/<name>/top/.rss?t=week` (it often refuses).
+     News front page, https://hnrss.org/frontpage.
    - Claims with numbers in them: the fact checks at https://www.factcheck.org/feed/ and
      https://www.politifact.com/rss/factchecks/.
    - What is coming: the releases and events of the next two weeks, from https://www.census.gov/economic-indicators/calendar-listview.html,
@@ -70,8 +70,9 @@ conversation first, then hunt for the open data that settles it.
 4. **Then hunt for its data.** For the best candidates first, use `dataset-scout` far enough to name the core
    dataset that settles the claim or answers the lookup, and the supplemental ones, each with its license confirmed
    on the publisher's own page and the question it answers. Judge the size and fields from that page or the first
-   rows; never download a whole dataset here. A candidate with no open data that settles it is dropped, and named
-   in the pull request description with the reason.
+   rows; never download a whole dataset here. A dataset whose license page you could not read is not a topic's
+   core. A candidate with no open data that settles it is dropped, and named in the pull request description with
+   the reason.
 5. **Rank and write.** Put the person's topics first, then yours, best first by the tests above, the conversation
    before the data. Write `topics.md` in the shape below.
 6. **Publish it** with `publish_package`, which opens the pull request on `studio`: summary "propose topics for

@@ -140,6 +140,13 @@ select, .btn { font: 500 var(--fs-sm)/1.2 var(--font-ui); padding: 7px 12px; bor
 .find li { padding: var(--sp-2) var(--sp-3); border-radius: 6px; cursor: pointer; }
 .find li[aria-selected="true"], .find li:hover { background: var(--accent-soft); }
 .more { margin-top: var(--sp-6); font: 600 var(--fs-md)/1.3 var(--font-ui); }
+@media (max-width: 640px) {
+  .headline { font-size: var(--fs-2xl); }
+  .view:has(> .first) { padding-top: var(--sp-5); }
+  .find input { max-width: none; }
+  /* On a phone the Overview's find box stands in for the header's, which would sit just above it. */
+  body:has(#main .find) .app-header .search { display: none; }
+}
 
 /* Headline numbers: the one tinted panel */
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-5); margin: var(--sp-6) 0; padding: var(--sp-5); background: var(--panel); border-top: 3px solid var(--accent); }
@@ -277,11 +284,6 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .scope__end { margin-left: 0; }
   .view { padding: var(--sp-6) var(--sp-4) var(--sp-8); }
   .view-title { font-size: var(--fs-3xl); }
-  .headline { font-size: var(--fs-2xl); }
-  .view:has(> .first) { padding-top: var(--sp-5); }
-  .find input { max-width: none; }
-  /* On a phone the Overview's find box stands in for the header's, which would sit just above it. */
-  body:has(#main .find) .app-header .search { display: none; }
   .kpi__value { font-size: var(--fs-2xl); }
   .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
   .span-2 { grid-column: auto; }
@@ -311,7 +313,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @keyframes view-in { from { opacity: 0; transform: translateY(8px); } }
 .data-through { display: block; margin-top: 4px; font: 500 var(--fs-xs)/1.3 var(--font-ui); letter-spacing: var(--tr-caps); text-transform: uppercase; opacity: .75; }
 .btn--small { padding: 3px 10px; font-size: var(--fs-xs); margin-left: var(--sp-2); }
-.self-check { margin: 0; padding: var(--sp-3) var(--sp-4); background: var(--text-strong); color: var(--bg); font: 500 var(--fs-sm)/1.5 var(--font-ui); white-space: pre-wrap; }
+/* The headline check's banner lies over the header, so the first screen it measured is the one a shot shows. */
+.self-check { position: absolute; top: 0; left: 0; right: 0; z-index: 50; margin: 0; padding: var(--sp-3) var(--sp-4); background: var(--text-strong); color: var(--bg); font: 500 var(--fs-sm)/1.5 var(--font-ui); white-space: pre-wrap; }
 [data-check="fail"] .self-check { background: var(--up); }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }

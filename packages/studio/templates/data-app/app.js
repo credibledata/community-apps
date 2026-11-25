@@ -512,6 +512,7 @@ function wireSearch(input = $('#search'), list = $('#search-list')) {
   const close = () => {
     list.hidden = true
     input.setAttribute('aria-expanded', 'false')
+    input.setAttribute('aria-activedescendant', '')
     active = -1
   }
   const show = () => {
@@ -536,11 +537,11 @@ function wireSearch(input = $('#search'), list = $('#search-list')) {
     show()
   })
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && hits.length) {
       e.preventDefault()
       active = (active + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % Math.max(1, hits.length)
       show()
-    } else if (e.key === 'Enter' && active >= 0) pick(hits[active])
+    } else if (e.key === 'Enter' && hits[active] !== undefined) pick(hits[active])
     else if (e.key === 'Escape') close()
   })
   input.addEventListener('blur', close)
@@ -640,15 +641,26 @@ function paint(toTop, same) {
 // ---- The headline check: open the app at ?check=1#/ and the page says whether its headline is the model's ----
 
 async function selfCheck() {
-  const card = await new Promise((done) => {
-    const look = () => { const c = $('#main .card'); if (c?.dataset.loaded && !$('#main .headline:empty')) done(c); else setTimeout(look, 200) }
+  // The cards it checks: the lead chart (.lead) and the headline numbers (.numbers), loaded even when below the
+  // screen. A card or sentence that has not loaded in 20 s fails the check rather than leaving it waiting.
+  const checked = () => [...document.querySelectorAll('#main article.card')].filter((c, i) => i === 0 || c.matches('.lead, .numbers'))
+  for (const c of checked()) if (c.__load && !c.__loaded) { io.unobserve(c); c.__load() }
+  const cards = await new Promise((done) => {
+    const t0 = Date.now()
+    const look = () => {
+      const cs = checked()
+      if (cs.every((c) => c.dataset.loaded) && !$('#main .headline:empty')) done(cs)
+      else if (Date.now() - t0 > 20000) done(null)
+      else setTimeout(look, 200)
+    }
     look()
   })
   const fails = []
-  // The lead card's queries, and those the first screen's sentences name in data-query.
-  const qs = [...new Set([...card.__spec.queries(), ...[...document.querySelectorAll('#main [data-query]')].map((n) => n.dataset.query)])]
+  if (!cards) fails.push('The headline, the lead chart or the headline numbers did not load within 20 s: a query failed or never ran')
+  // Their queries, and those the first screen's sentences name in data-query.
+  const qs = [...new Set([...(cards || []).flatMap((c) => c.__spec.queries()), ...[...document.querySelectorAll('#main [data-query]')].map((n) => n.dataset.query)])]
   for (const q of qs) if (!/^run: \w+ -> \w+$/.test(q)) fails.push(`The headline adds to a view: ${q}`)
-  const values = (await Promise.all(qs.map(query))).flat().flatMap((r) => Object.values(r)).filter((v) => typeof v === 'number')
+  const values = (await Promise.all(qs.map((q) => query(q).catch(() => (fails.push(`A headline query failed: ${q}`), []))))).flat().flatMap((r) => Object.values(r)).filter((v) => typeof v === 'number')
   // A number shown agrees with a model value when the value, or its percentage, rounds to it at the shown decimals.
   const agrees = (t) => {
     const m = /([−-]?)([\d,]*\.?\d+)/.exec(t)
@@ -657,13 +669,14 @@ async function selfCheck() {
     const near = (v) => Math.abs(v - n) <= 0.5 * 10 ** -d + 1e-9 || Math.abs(Math.abs(v) - Math.abs(n)) <= 0.5 * 10 ** -d + 1e-9
     return values.some((v) => near(v) || near(v * 100))
   }
-  const shown = [...document.querySelectorAll('#main :is(.headline, .changed, .answer) :is(strong, b)')].concat([...card.querySelectorAll('.kpi__value, .kpi__sub strong')]).map((n) => n.textContent).filter((t) => /\d/.test(t))
+  const shown = [...document.querySelectorAll('#main :is(.headline, .dek, .changed, .answer) :is(strong, b)')].concat((cards || []).flatMap((c) => [...c.querySelectorAll('.kpi__value, .kpi__sub strong')])).map((n) => n.textContent).filter((t) => /\d/.test(t))
   for (const t of shown) if (!agrees(t)) fails.push(`"${t}" is not a value the headline queries return`)
   const text = document.body.innerText
   for (const bad of [/\bundefined\b/, /\bNaN\b/, /\bTODO\b/, /placeholder/i, /returned no text/i]) if (bad.test(text)) fails.push(`The page says ${bad}`)
   if (!qs.length || !shown.length) fails.push('The headline card shows no queries or no numbers to check')
   // The first screen: the headline, the lead chart and the find control are all in view before any scrolling.
   if (!$('#main .headline')) fails.push('The Overview has no .headline')
+  else if (![...document.querySelectorAll('#main .headline :is(strong, b)')].some((n) => /\d/.test(n.textContent))) fails.push('The headline has no number from the model in bold')
   if (!$('#main .lead .chart')) fails.push('The Overview has no lead chart (a .lead card with a chart)')
   for (const [sel, what] of [['#main .headline', 'the headline'], ['#main .lead .chart', 'the lead chart'], ['#main .find', 'the find control']]) {
     const n = $(sel)
@@ -717,7 +730,7 @@ function overview() {
   // each sentence names in data-query, so the headline check (?check=1) can test each number and that all of it fits.
   const qK = `run: ${S.HEADLINE} -> kpis`
   const headline = h('h1', { class: 'headline', 'data-query': qK })
-  const dek = h('p', { class: 'dek' })
+  const dek = h('p', { class: 'dek', 'data-query': qK })
   const changed = h('p', { class: 'changed', 'data-query': qK })
   query(qK).then(([k]) => {
     // ADAPT: the headline the plan picked, the dek, and the latest period against the one before.
@@ -741,7 +754,8 @@ function overview() {
       }),
       find),
     // ADAPT: below the first screen, each question from "The questions" in a line with its answer, the headline
-    // numbers, and two or three cards that lead into the app.
+    // numbers in a tile with cls: 'numbers' (the headline check reads them), and two or three cards that lead into
+    // the app.
     h('p', { class: 'more' }, h('a', { href: linkTo('explore'), text: 'Explore the data →' })))
 }
 

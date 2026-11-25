@@ -39,7 +39,7 @@ this package, since its agent computer mounts it.
   request.
 - **Revisit an app** (`agents/app-builder/tasks/revisit-app.md`) picks the app this agent built that has gone longest
   without a change (its README ends with `Built by Credible's app-builder.`), or the one named in a Run now note,
-  and stages a revisit in its package: fresh data, the card's info mark and the theme, and one more source. It ends with a
+  and stages a revisit in its package: fresh data, the card's info mark, the theme, the first screen, and one more source. It ends with a
   pull request on the app, like a build. Meant to run monthly.
 
 The builder opens its pull request with `publish_package`. Credible holds that publish until the pull request can

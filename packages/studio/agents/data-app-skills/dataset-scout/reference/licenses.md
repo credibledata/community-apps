@@ -31,13 +31,13 @@ license, is used.
 
 ## Share-alike
 
-A share-alike license lets the app use the data on one condition: what the app makes from it, the shaped table and
-the files in `pipeline/` that build it, is shared under the same license.
+A share-alike license lets the app use the data on one condition: the data the app makes from it, the shaped
+table, is shared under the same license.
 
 - Shape each share-alike dataset into a table of its own, and never put data under two different share-alike
-  licenses (CC BY-SA and ODbL) in one table. Joining them in the model at query time is fine.
-- The README's sources table names the license of each shaped table, and the About view says which tables are
-  shared under which license.
+  licenses (CC BY-SA and ODbL) in one table. Joining them in the model at query time is fine; persisting a source
+  that joins them (`#@ persist`) would store one such table, so never persist it.
+- The README's sources table names the license of each shaped table, and so do the app's sources.
 - Only the data falls under it, never the app's code, the model or the other datasets.
 
 ## Traps

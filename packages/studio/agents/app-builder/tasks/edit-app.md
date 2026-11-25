@@ -54,13 +54,13 @@ Then for the app as a whole:
 
 Then read it as a stranger who opens it from a post, knowing nothing but the post:
 
-9. **Is the headline the best true finding?** Read every card's finding and the plan's three candidate headlines.
+9. **Is the headline the best true finding?** Read every card's finding.
    When a card holds a sharper finding than the headline (a record, a bigger gap, a claim it breaks, a place far
    from the rest), that finding becomes the headline and its chart the lead chart. The headline names its number
    and what it is compared with, and says nothing more than its rows do: "highest since" needs the years, "most"
    needs the whole ranking.
-10. **Does the first screen stand on its own?** Shoot the Overview at `?check=1#/` with `--viewport 390x844` and
-    `--viewport 1280x800`, without `--full`, and look at both. The check passes, and someone who has never heard of
+10. **Does the first screen stand on its own?** Shoot it with `--viewport 390x844` and `--viewport 1280x800`,
+    without `--full` (at high effort the Overview at `?check=1#/`, and the check passes), and look at both. Someone who has never heard of
     the subject knows from that screen alone what the number means, why it matters this week, and what to do next,
     without opening an info mark.
 11. **Would they repost it?** Write the post: what a person posts on LinkedIn or X to share the app, two or three
@@ -69,8 +69,8 @@ Then read it as a stranger who opens it from a post, knowing nothing but the pos
     (`final-first-phone.jpg` or `final-first-desktop.jpg`). Every number in it is one the first screen shows. No
     hashtags, no emoji. It goes in the hand-over and the pull request's description. When you cannot write two
     sentences a stranger would repost, from findings the app shows, the app has no headline worth sharing: say so
-    first in the hand-over, as your instructions say, and leave the decision to the reviewer rather than polishing
-    the rest.
+    first in the hand-over, as your instructions say, put that reason where the post would go, and leave the
+    decision to the reviewer rather than polishing the rest.
 
 ## Fix, then hand over
 

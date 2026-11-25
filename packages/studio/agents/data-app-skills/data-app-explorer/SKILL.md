@@ -98,7 +98,7 @@ answers at least one, and a question that needs more room than a section gets a 
   out: the headline the plan picked, the line under it with what changed, the lead chart, and the find box. Then
   the lead question with its answer in a sentence or two, and each other question in a line with its answer,
   linking to where the app shows it; headline numbers with
-  sparklines from bare views of the headline source, no filter added in the app; the ranked table of the entity when a ranking is part of the answer; two or three cards that
+  sparklines from bare views of the headline source, no filter added in the app, in a tile with `cls: 'numbers'`; the ranked table of the entity when a ranking is part of the answer; two or three cards that
   lead into the app ("Biggest falls: ZIP 10035 →"), and, when the brief has articles, the articles. No scope bar: it shows the brief's own
   comparison.
 - **Explore** (`#/explore`): the scope bar, then a section per question, named for its answer ("Texas pulls
@@ -193,8 +193,9 @@ On top of the checks in `data-app-page`:
 
 - Every view loads from its address alone, with no console errors.
 - `index.html?check=1#/` shows a banner that says the headline check passed: every number the headline, the line
-  under it, the answer and the headline card show is a value bare views of the model return, no placeholder is on
-  the page, and the headline, the lead chart and the find box end within the first screen. Shoot it at both widths
+  under it, the answer, the lead chart's card and the headline numbers (`cls: 'numbers'`) show is a value bare
+  views of the model return, the headline has one in bold, no placeholder is on the page, and the headline, the
+  lead chart and the find box end within the first screen. Shoot it at both widths
   without `--full` (`--viewport 390x844` and `--viewport 1280x800`), so the shot is the first screen.
 - The fonts load: `[...document.fonts].some((f) => f.family === 'Source Serif 4 Variable' && f.status === 'loaded')`
   is true in the page (`document.fonts.check` is true even when the face is missing), and the shots show the serif

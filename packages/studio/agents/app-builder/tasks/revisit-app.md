@@ -2,7 +2,7 @@
 
 This task runs once a month, in a copy of `studio` on the agent computer, and changes nothing here. It picks one
 published community app, the one gone longest without a change, and starts a revisit of it in that app's own
-package: fresh data, the card's info mark and the theme, and one source that takes it deeper. The revisit ends, like a build, with a
+package: fresh data, the card's info mark, the theme and the first screen, and one source that takes it deeper. The revisit ends, like a build, with a
 pull request on credibledata/community-apps for a person to review.
 
 A person can also start it with Run now and a package name as the note, to revisit that app now.

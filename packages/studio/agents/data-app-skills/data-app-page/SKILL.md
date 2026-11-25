@@ -24,13 +24,14 @@ This is the whole page at low effort. At high effort, the page below the answer 
    - **The headline**: the strongest true finding in the data, one sentence with its number and what it is compared
      with. "Thanksgiving gas ranks 11th of the last 37 years, in today's dollars", not "Gas prices at Thanksgiving".
      When the brief names a claim in circulation, the headline says whether the data bears it out. It is written
-     from the rows of a view, like every sentence, and chosen as `data-app-explorer`'s "Plan the app" says.
+     from the rows of a view, like every sentence, with each number in bold, and chosen as `data-app-explorer`'s
+     "Plan the app" says.
    - **One line under it**: what the data is and how recent, in plain words, then what changed in its latest period
      against the one before ("Week ending Nov 22: 412 more admissions than the week before"), from a view.
    - **The lead chart**: one chart that shows the headline, short enough that all of this fits.
    - **The find box**, labelled the way a reader names their own place or thing ("Find your state", "Find your
-     employer"), that opens its page. Every app with an entity has one; when the brief names a lookup, it is the
-     entity.
+     employer"), that opens its page, or at low effort narrows the page to it. Every app with an entity has one;
+     when the brief names a lookup, it is the entity.
 
    At high effort the template's `overview()` lays this out, and its headline check measures it.
 2. **The answer.** Below the first screen, two to four numbers that answer the lead question, each with its unit, period and a
@@ -127,6 +128,8 @@ after `packages/`. Never look for the address in the box's configuration files.
    }
    await b.close()
    ```
-3. Fix and shoot again until every shot is right. Then copy each final shot to
+3. Shoot the first screen too, without `--full`: `--viewport 390x844` and `--viewport 1280x800`, kept as
+   `final-first-phone.jpg` and `final-first-desktop.jpg`, the shot a post attaches.
+4. Fix and shoot again until every shot is right. Then copy each final shot to
    `.credible/shots/final-<state>-<desktop|phone>.jpg` (`<state>` is `default` for the page as it loads) and name
    them in your hand-over. Only the `final-` shots are kept.
