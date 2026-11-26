@@ -61,8 +61,12 @@ skill holds what the page says and the rules every app follows.
   finding and the boundaries ship with the package. No pie charts with more than three
   slices. Label units on axes. The module reads its colours and type from the page's tokens, so copy `styles.css` and `themes.css` from
   the templates as that skill's `reference/app-frame.md` says, link `themes.css` before `styles.css`, choose a theme on
-  `<html>` as its `reference/design.md` "Colour" says, and pin it light with `data-mode="light"` unless the page
-  carries the frame's theme and mode block, which redraws its charts when the mode changes, and write `fonts.css` as its `reference/fonts.md` says, linked before `styles.css`.
+  `<html>` as its `reference/design.md` "Colour" says, and write `fonts.css` as its `reference/fonts.md` says, linked before `styles.css`.
+- **Light or dark, as the reader's system or Credible says.** Every app carries the frame's theme and mode block
+  (`app.js`, from `---- Theme and mode` through the `MutationObserver` line), which follows the reader's mode,
+  answers Credible's message, and redraws the charts when the mode changes. Never set `data-mode` on `<html>`. A page
+  not built on the frame copies that block. Check `?mode=dark` and a dark system, and the interaction check fails an
+  app that stays light.
 - **Every state has an address.** Keep the page's state (a toggle, a tab, a filter) in the URL hash, for example
   `#fuel=diesel&area=states`, and read it on load. A visitor can share a view, and you can screenshot it.
 - **Phone first.** One column under 640 px wide, with charts at full width and readable at 390 px. No `100vh`;

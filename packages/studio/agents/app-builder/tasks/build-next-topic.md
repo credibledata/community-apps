@@ -18,7 +18,7 @@ computer reads the topic from the list and builds the app.
    "Build the app for the topic whose package is `<name>`. Read its entry in `topics.md` in the studio package
    mounted beside this one (`/workspace/siblings/studio/topics.md`). It is the brief: where it is being talked about, the claim it
    turns on or the lookup a reader wants, its date, the dataset to start from and the supplemental ones, to check
-   with `dataset-scout` like any other, the key it needs if any, the first screen, the pages and the risk. An older
+   with `dataset-scout` like any other, the key it needs if any, its type, the first screen, the pages and the risk. An older
    entry's `Why now` reads as `Talked about` and its `Lead view` as `First screen`. If no entry has that
    package, or a pull request at https://github.com/credibledata/community-apps/pulls already adds it, stop.
    This build was started with Run now on `build-next-topic`, which asks for the app's data in

@@ -74,6 +74,12 @@ Then read it as a stranger who opens it from a post, knowing nothing but the pos
     first in the hand-over, as your instructions say, put that reason where the post would go, and leave the
     decision to the reviewer rather than polishing the rest.
 
+12. **Can a stranger read every card?** Read each card's title and first sentence aloud, as to someone who has
+    never seen the subject: do they know what is being compared, by name, and what it shows? Rewrite any that leads
+    with method (a threshold, a split, a median, a proxy) in plain words, and fold the method under it.
+13. **Is it its own app, in both modes?** Its theme and look follow `data-app-explorer`'s `reference/design.md`
+    rule against the apps it lists, and the interaction check's light and dark test passes.
+
 ## Fix, then hand over
 
 Fix what you found in the model and the app: a missing answer, an unfair baseline, a supplemental source left
