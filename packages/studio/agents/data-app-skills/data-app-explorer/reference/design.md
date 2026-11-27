@@ -49,14 +49,48 @@ news. Set the app's on `<html>` in `index.html`: `<html lang="en" data-theme="la
 | `lagoon` | cool grey | teal | climate, coasts, public health, ecology |
 | `graphite` | cool grey | electric blue | technology, finance, markets, infrastructure |
 
-- **Choose from the subject, then make the gallery varied.** Of the themes that suit the subject, prefer one no other
-  community app uses; list theirs first:
+- **Choose from the subject, then make the gallery varied.** List the theme and look of every community app, on
+  `main` and in open pull requests:
 
   ```sh
-  for p in $(curl -s https://api.github.com/repos/credibledata/community-apps/contents/packages | python3 -I -c "import json,sys; print(' '.join(x['name'] for x in json.load(sys.stdin) if x['type'] == 'dir' and x['name'] != 'studio'))"); do printf '%s ' "$p"; curl -s "https://raw.githubusercontent.com/credibledata/community-apps/main/packages/$p/public/index.html" | grep -o 'data-theme="[a-z]*"' | head -1; echo; done
+  python3 -I - <<'PY'
+  import json, re, urllib.request
+  api = 'https://api.github.com/repos/credibledata/community-apps'
+  get = lambda u: urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': 'community-apps-studio'}), timeout=20).read().decode()
+  def listed(u):
+      try:
+          return json.loads(get(u))
+      except Exception as e:
+          print('listing incomplete:', u, e)
+          return []
+  seen = {}
+  for d in listed(f'{api}/contents/packages'):
+      if d['type'] == 'dir' and d['name'] != 'studio':
+          seen[d['name']] = f"https://raw.githubusercontent.com/credibledata/community-apps/main/packages/{d['name']}/public/index.html"
+  for pr in listed(f'{api}/pulls?state=open&per_page=50'):
+      for f in listed(f"{api}/pulls/{pr['number']}/files?per_page=100"):
+          m = re.match(r'packages/([^/]+)/public/index\.html$', f['filename'])
+          if m:
+              seen[m.group(1)] = f['raw_url']
+  for name, url in sorted(seen.items()):
+      try:
+          html = get(url)
+      except Exception:
+          continue
+      theme = re.search(r'data-theme="([a-z]+)"', html)
+      body = re.search(r'<body([^>]*)>', html)
+      print(name, theme.group(1) if theme else '-', ' '.join(re.findall(r'data-[a-z]+="[a-z]+"', body.group(1))) if body else '')
+  PY
   ```
 
-  An app with no `data-theme` predates the themes. Say in the hand-over which theme you chose and why.
+  List the three themes that fit the subject best. A subject always fits more than one: energy is `ember`'s heat
+  and `graphite`'s infrastructure, prices are `ember`'s cost of living and `graphite`'s markets, a disease is
+  `lagoon`'s public health and `meadow`'s health. Order the three by how many other listed apps use each (a revisit leaves its own app out; when the listing
+  prints `listing incomplete`, say so in the hand-over and count what it printed), fewest first,
+  ties in order of fit, and keep the first two. Pick the one at position (characters in the package's name, hyphens
+  included) mod 2, counting from zero: two apps built at once cannot see each other, and this splits them whenever their
+  names differ in length by an odd number. An app with no `data-theme` predates the themes. Say in the hand-over
+  which theme you chose, the two you kept, and why.
 - **Light and dark.** With no `data-mode` the reader's system setting decides; `?mode=dark` in the address shows the
   dark page, and `?theme=` another theme. The frame draws every chart again when either changes. Shoot both modes.
 - **Meanings are the app's; colours are the theme's.** Write what each category means in a comment at the top of
@@ -100,5 +134,7 @@ Three starting looks:
 Choose from the data and its reader, never from how the brief arrived: a story in the news is only how the subject
 was found, and the app is about the data. Start from the look whose character fits the subject:
 numbers a reader scans and compares (prices, output, jobs, counts) suit Ledger or Band; a subject read slowly, with
-many caveats or a long history, suits Masthead. Then change one or two choices so the app is its own, and say in the hand-over which look you started from and what you changed. Whatever the
+many caveats or a long history, suits Masthead. Keep the two looks that fit best, in the order
+Band, Masthead, Ledger, and pick between them by the same position as the theme. A look shows in the listing under "Colour" as its `data-masthead` (Masthead's
+is `light`, Ledger's is `bar`, Band has none). Then change one or two choices so the app is its own, and say in the hand-over which look you started from and what you changed. Whatever the
 look, check the header and the scope bar at 390 px and the focus ring on each.

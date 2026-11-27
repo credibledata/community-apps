@@ -97,6 +97,7 @@ add a topic with `Added by:` your name.
 - Talked about: <one sentence>, <link to a recent article>, <link to where people discuss or search it: a trending topic, a thread, a fact check>
 - Claim: <the claim in circulation, attributed ("Posts say ...", "The White House said ..."), with a link>, or none
 - Look up: <what a reader finds about themselves: their state, city, employer, car>, or none
+- Type: `explorer`, `guess` (five numbers people misjudge, each with a monthly or yearly history of three years or more) or `case` (a change people argue the cause of, with three to six explanations each testable by place, at 30 places or more)
 - Date: <the event or release it is timed to, and its date, or "this week" and why>
 - Data: <dataset> from <publisher>, <link>, <license as the page names it>, <rough size in rows>
 - More data: <each supplemental dataset, from <publisher>, <link>, <license>, the place and period it joins on, and the question it answers>, one per line, or the questions that stay open

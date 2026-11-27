@@ -13,8 +13,8 @@ the post. In five seconds, without scrolling, the page should give them its stro
 them find their own place in it and dig one level deeper. A visitor who wants to go further should find it natural to sign in and
 ask Credible's agent.
 
-This is the whole page at low effort. At high effort, the page below the answer is an explorer: read
-`data-app-explorer`, which replaces the limits in items 3 and 4 and adds its own checks.
+Every app is an explorer below its first screen: `data-app-explorer` sets its views, filters and checks. This
+skill holds what the page says and the rules every app follows.
 
 ## The page, top to bottom
 
@@ -30,29 +30,24 @@ This is the whole page at low effort. At high effort, the page below the answer 
      against the one before ("Week ending Nov 22: 412 more admissions than the week before"), from a view.
    - **The lead chart**: one chart that shows the headline, short enough that all of this fits.
    - **The find box**, labelled the way a reader names their own place or thing ("Find your state", "Find your
-     employer"), that opens its page, or at low effort narrows the page to it. Every app with an entity has one;
+     employer"), that opens its page. Every app with an entity has one;
      when the brief names a lookup, it is the entity.
 
-   At high effort the template's `overview()` lays this out, and its headline check measures it.
+   The template's `overview()` lays this out, and its headline check measures it.
 2. **The answer.** Below the first screen, two to four numbers that answer the lead question, each with its unit, period and a
    comparison: this year against a baseline, or one place against the rest. Each number is one query result, from a
    bare view of the source that carries the question's scope (`data-app-explorer`, "The model comes first"), and
    every sentence about them is written from the rows, never typed.
-3. **Three to five views.** Each answers one of the questions you wrote down while reading the brief, in
-   the order a reader would ask them. A view's title says what it shows, plainly: "Cases per month, 2019 to
-   2026". A title may state a finding only when the number in it comes from the query. Before writing the page,
-   query the model for what stands out and choose the views by what the rows show, as `data-app-explorer`'s "Plan
-   the app" says; drop a view whose finding is weak, and name it in the hand-over.
-4. **One or two filters**, at most: usually place and period. Every view on the page responds to them, or
-   the page says which ones do not.
-5. **In the news**, when the brief is a story. The example articles: headline, outlet and date, each linked. No quoted text beyond the
+3. **The views**, as `data-app-explorer` lays them out. A view's title says what it shows, plainly: "Cases per
+   month, 2019 to 2026". A title may state a finding only when the number in it comes from the query.
+4. **In the news**, when the brief is a story. The example articles: headline, outlet and date, each linked. No quoted text beyond the
    headline.
-6. **Sources and caveats.** Each dataset with its publisher, license, link and fetch date, the attribution
+5. **Sources and caveats.** Each dataset with its publisher, license, link and fetch date, the attribution
    wording `dataset-scout` requires, and a note that the data was reshaped. Then a line or two on what the
    data cannot tell you: reporting lags, changes in how it was counted, places with no data. When a number
    on the page differs from one the articles quote, say why in one line: a different source, survey day or
    benchmark.
-7. **As of.** The latest date in the data, read from a query, not typed in.
+6. **As of.** The latest date in the data, read from a query, not typed in.
 
 ## Rules
 
@@ -66,8 +61,12 @@ This is the whole page at low effort. At high effort, the page below the answer 
   finding and the boundaries ship with the package. No pie charts with more than three
   slices. Label units on axes. The module reads its colours and type from the page's tokens, so copy `styles.css` and `themes.css` from
   the templates as that skill's `reference/app-frame.md` says, link `themes.css` before `styles.css`, choose a theme on
-  `<html>` as its `reference/design.md` "Colour" says, and pin it light with `data-mode="light"` unless the page
-  carries the frame's theme and mode block, which redraws its charts when the mode changes, and write `fonts.css` as its `reference/fonts.md` says, linked before `styles.css`.
+  `<html>` as its `reference/design.md` "Colour" says, and write `fonts.css` as its `reference/fonts.md` says, linked before `styles.css`.
+- **Light or dark, as the reader's system or Credible says.** Every app carries the frame's theme and mode block
+  (`app.js`, from `---- Theme and mode` through the `MutationObserver` line), which follows the reader's mode,
+  answers Credible's message, and redraws the charts when the mode changes. Never set `data-mode` on `<html>`. A page
+  not built on the frame copies that block. Check `?mode=dark` and a dark system, and the interaction check fails an
+  app that stays light.
 - **Every state has an address.** Keep the page's state (a toggle, a tab, a filter) in the URL hash, for example
   `#fuel=diesel&area=states`, and read it on load. A visitor can share a view, and you can screenshot it.
 - **Phone first.** One column under 640 px wide, with charts at full width and readable at 390 px. No `100vh`;

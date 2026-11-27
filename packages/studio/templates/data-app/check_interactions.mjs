@@ -2,7 +2,8 @@
 // Check that a data app's charts act when a reader uses them, the way a reader would: on every view in the app's
 // nav, every chart has something to click and a tooltip on hover; clicking a mark changes the address and redraws
 // the other cards (or opens a page), and clicking it again clears it; every scope control redraws cards; a link to an
-// entity opens its page. Works on apps built from the community template and from Publisher's data app kit.
+// entity opens its page; and the page follows the reader's light or dark mode. Works on apps built from the community
+// template and from Publisher's data app kit.
 //
 //   node check_interactions.mjs <package>/<path under public/ | http(s)://...> [--viewport 1280x900] [--views a,b]
 //
@@ -105,7 +106,7 @@ async function checkView(page, view) {
   await open(page, view)
   const label = view || 'overview'
   const cardNames = await names(page)
-  if (!cardNames.length) return notes.push(`${label}: no cards`)
+  if (!cardNames.length) return only ? find(label, 'view', 'no cards after 30 s') : notes.push(`${label}: no cards`)
   // A view with scope controls is one a reader filters: there, a chart that takes no click or drag is a finding.
   const filterable = (await page.locator('select:visible').count()) > 0
   let clickable = 0
@@ -245,14 +246,42 @@ async function checkView(page, view) {
   }
 }
 
+// The page follows the reader's light or dark mode: opened in a light system and in a dark one, its colour differs.
+async function checkMode() {
+  const colour = async (scheme) => {
+    const p = await browser.newPage({ viewport: { width, height }, colorScheme: scheme })
+    try {
+      await p.goto(base, { waitUntil: 'load' })
+      await p.waitForTimeout(1500)
+      return await p.evaluate(() => {
+        const bg = (el) => getComputedStyle(el).backgroundColor
+        return bg(document.body) === 'rgba(0, 0, 0, 0)' ? bg(document.documentElement) : bg(document.body)
+      })
+    } finally {
+      await p.close()
+    }
+  }
+  const light = await colour('light')
+  const dark = await colour('dark')
+  if (light === dark) find('page', 'light and dark', `the page is ${light} in both a light and a dark system: it does not follow the reader's mode`)
+  else notes.push(`page | light and dark | follows the reader's mode (${light}, ${dark})`)
+}
+
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/usr/bin/chromium', args: ['--disable-gpu'] })
 try {
+  await checkMode()
   const page = await browser.newPage({ viewport: { width, height } })
   page.setDefaultTimeout(15000)
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`.slice(0, 200)))
   page.on('console', (m) => m.type() === 'error' && errors.push(`console: ${m.text()}`.slice(0, 200)))
   await page.goto(base, { waitUntil: 'load' })
-  await page.waitForSelector(CARDS, { timeout: 30000 })
+  // A first view with no cards is a broken app, unless --views names the views to check (a guess's deck has none);
+  // then an error while the first view loads is the finding.
+  if (!only) await page.waitForSelector(CARDS, { timeout: 30000 }).catch(() => find('page', 'first view', 'no cards after 30 s: the app drew nothing (a first view with no cards, such as a guess\'s deck, is checked with --views and the views that have cards)'))
+  else {
+    await page.waitForTimeout(3000)
+    if (errors.length) find('page', 'first view', `an error while it loads: ${errors[0]}`)
+  }
   const list = only || (await views(page))
   for (const view of list.length ? list : ['']) await checkView(page, view)
 } finally {

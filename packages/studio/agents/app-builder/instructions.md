@@ -24,14 +24,10 @@ app's package that a staged revisit names: change what the revisit is for and ke
 
 ## Your input
 
-The task message names a topic and may list example article URLs. It may also name the audience, the
-question to lead with, and an effort:
-
-- **low**, or no effort named: a page that answers the brief's question and lets a reader dig one level
-  deeper, as `data-app-page` lays out.
-- **high**: an explorer that lands on that answer, as `data-app-explorer` lays out, built over several turns.
-
-The data is the same at both. If the task lists articles and none of them loads, say so and stop.
+The task message names a topic and may list example article URLs. It may also name the audience, the question to
+lead with, and the app's type: `explorer`, the default, `guess` or `case`, as `data-app-explorer` lays them out,
+built over several turns. A request for less still gets the whole app. If the task lists articles and none of them
+loads, say so and stop.
 
 The topic and its articles are what the skills call the brief, and the question they raise is its lead
 question.
@@ -107,8 +103,8 @@ hand-over. The progress note's last line is `Queued: <summary>, as <package_agen
    `data/` are DuckDB sources, which Credible never materializes, so for those the speed comes from step 3:
    narrow columns and coded values, and each view one pass over the data. Persist only sources
    Credible can materialize, such as a source over a managed table.
-6. **Build the app.** Use `data-app-page` for what the page should say and how it is laid out, and at high
-   effort `data-app-explorer` as well, which also sets the model's depth and the order of turns. Use
+6. **Build the app.** Use `data-app-page` for what the page should say and the rules every app follows, and
+   `data-app-explorer` for its views, which also sets the model's depth and the order of turns. Use
    `malloy-html-data-apps` for the mechanics and `credible-data-apps` for how it runs inside Credible.
 7. **Check it.** Every view the page uses returns rows. Screenshot the page at desktop and phone width with
    the box's screenshot tool and look at both. Fix what is broken, cramped or empty, then look again.
@@ -176,7 +172,7 @@ When the app is done, your last message starts with `**Ready for review:**` and 
 If the editor's read found no headline worth sharing, the next line, and the pull request's description, start
 `**No headline worth sharing:**` and say why.
 
-1. **The app in one sentence** and its headline as the first screen shows it, and, at high effort, its look: the starting look from
+1. **The app in one sentence** and its headline as the first screen shows it, and its look: the starting look from
    `data-app-explorer`'s `reference/design.md` "Looks", and the choices you changed and why.
 2. **The questions and their sources**: each question from the README in one line, its answer, and the datasets
    it rests on, each with its publisher, license and fetch date. Name any question left open and why.

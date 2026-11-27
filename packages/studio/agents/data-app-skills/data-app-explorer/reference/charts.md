@@ -5,7 +5,7 @@ lines, areas, scatters, heatmaps, maps, the ranked table, and the forms a specia
 beeswarm, flow, treemap, waterfall and the rest). Each sizes itself to its box, redraws when the box changes width,
 takes a click (`onPick`; not `sparkline`, `waterfall`, `multiples` or `connectedScatter`, and `rankTable` opens a row
 with `onOpen`), shows a tooltip on hover and on keyboard focus, and writes under itself what it could not
-draw. Both efforts use it; the page skill uses the standard charts and the ranked table.
+draw. Every app uses it.
 
 ## Copy the module and d3
 

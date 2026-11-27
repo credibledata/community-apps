@@ -14,6 +14,9 @@ name what is left under "What is next".
 
 ## The read
 
+A guess or a case (the brief's `Type`, or the README's `Type:` line) has its own file in `data-app-explorer`'s
+`reference/`: read it first; where it differs from a check below, it wins, and its own checks run as well.
+
 For each question under "The questions":
 
 1. **Is it answered?** A reader finds the answer in a sentence on the Overview or on the view for that question,
@@ -41,8 +44,8 @@ Then for the app as a whole:
    ```
 
    It takes three or four minutes; `--views explore` checks one view. Each `FIND` line is a chart with nothing to
-   click, a click that redraws no other card, a filter that does not clear, a tooltip missing, or a control that
-   changes nothing. Fix each (pass `onPick` and `selected`, or `onBrush`, as `data-app-explorer` says), or name it
+   click, a click that redraws no other card, a filter that does not clear, a tooltip missing, a control that
+   changes nothing, a view with no cards, or a page that does not follow the reader's light or dark mode. Fix each (pass `onPick` and `selected`, or `onBrush`, as `data-app-explorer` says), or name it
    under "The editor's read" with its reason, such as a card that is meant to ignore a filter and says so in its
    method note. Run it again after the fixes.
 6. **What would a reader ask next** that the app cannot answer? When a dataset already in the package answers it,
@@ -62,7 +65,7 @@ Then read it as a stranger who opens it from a post, knowing nothing but the pos
    needs the whole ranking.
 10. **Does the first screen stand on its own?** Shoot it with `--viewport 390x844` and `--viewport 1280x800`,
     without `--full` and without `?check=1`, as `final-first-phone.jpg` and `final-first-desktop.jpg`, and look at
-    both; at high effort `?check=1#/` passes too. Someone who has never heard of
+    both; `?check=1#/` passes too. Someone who has never heard of
     the subject knows from that screen alone what the number means, why it matters this week, and what to do next,
     without opening an info mark.
 11. **Would they repost it?** Write the post: what a person posts on LinkedIn or X to share the app, two or three
@@ -73,6 +76,13 @@ Then read it as a stranger who opens it from a post, knowing nothing but the pos
     sentences a stranger would repost, from findings the app shows, the app has no headline worth sharing: say so
     first in the hand-over, as your instructions say, put that reason where the post would go, and leave the
     decision to the reviewer rather than polishing the rest.
+
+12. **Can a stranger read every card?** Read each card's title and first sentence aloud, as to someone who has
+    never seen the subject: do they know what is being compared, by name, and what it shows? Rewrite any that leads
+    with method (a threshold, a split, a median, a proxy) in plain words, and fold the method under it.
+13. **Is it its own app, in both modes?** The hand-over names its theme and look and the two kept for each, by
+    `data-app-explorer`'s `reference/design.md` rule; check the reasoning, but never pick again, since `card.svg` and
+    a published app's look rest on the pick. The interaction check's light and dark test passes.
 
 ## Fix, then hand over
 

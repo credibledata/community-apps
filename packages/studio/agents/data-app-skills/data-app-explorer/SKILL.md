@@ -1,18 +1,23 @@
 ---
 name: data-app-explorer
-description: The high-effort data app - an app with views at their own addresses (an overview that answers the brief's questions, an explorer whose cards filter each other, a page per entity, records and compare when a question needs them, about the data), over a model that joins the core dataset with its supplemental ones, a header with search, labelled d3 charts chosen for what the data shows and that filter on click, in an editorial design with real type, over a model deep enough to carry it. Use when the task asks for effort high. Sources, caveats, the hand-off to Credible's agent and the screenshot rules come from data-app-page.
+description: The data app - an app with views at their own addresses (an overview that answers the brief's questions, an explorer whose cards filter each other, a page per entity, records and compare when a question needs them, about the data), over a model that joins the core dataset with its supplemental ones, a header with search, labelled d3 charts chosen for what the data shows and that filter on click, in an editorial design with real type, over a model deep enough to carry it. Use for every community app. Sources, caveats, the hand-off to Credible's agent and the screenshot rules come from data-app-page.
 ---
 
 # Data app explorer
 
 **Only in a data app's own package** (a root `publisher.json` with no `agents`); anywhere else, do nothing and say so.
 
-At high effort the brief is the way in, and the app is the product. A visitor lands on the answer to the brief's
+The brief is the way in, and the app is the product. A visitor lands on the answer to the brief's
 question, then uses the app: narrows to a place or a period, clicks a bar to filter everything else, searches for
 an entity and opens its page, compares two, reads the rows behind a number. It should feel like a product someone
 designed, like the avalanche explorer in this repository (`packages/avalanche`) or the FeederWatch explorer (`packages/feederwatch`), not like an article
 with charts. Everything `data-app-page` says about sources, caveats, the hand-off to Credible's agent and
-screenshots still holds; its limits of three to five views and one or two filters do not.
+screenshots still holds.
+
+**The app's type.** The brief's `Type` names it, and in a published app the README's `Type:` line: `explorer`, this skill as it stands and the default; `guess`, where
+the reader commits a number before seeing it (`reference/type-guess.md`); or `case`, where rival explanations for a
+change are each tested against the data (`reference/type-case.md`). For a guess or a case, read its file before
+planning: it sets the first screen and the views, and the explorer below becomes the app's "all the data".
 
 ## The model comes first
 
@@ -130,10 +135,13 @@ curve, a curve of days until closed. Pick from the data's shape, and say in the 
 **Each finding its own form**, as the plan chose it. Two cards share a form only when they show different kinds of
 finding. Label marks directly rather than with legends, keeping a key only where `reference/charts.md` allows one.
 
-**The words carry the method.** The lede of each view and each card's finding are sentences built from the data,
-with the entity they name in bold ("**Idaho** grew fastest, +6.1%"). Every card has a method note saying what it
-leaves out and why: a threshold, a missing period, rows without a place, "associations, not causes". A reader who
-checks a number should find the rule that made it on the same card. **No sentence is typed:** a verdict ("Yes."), a
+**The words carry the meaning, then the method.** The lede of each view and each card's finding are plain
+sentences built from the data, with the entity they name in bold ("**Idaho** grew fastest, +6.1%"): what the reader
+is looking at, what it shows, and, for a comparison, which places or groups are being compared, by name. Someone who
+has never seen the subject should get each card from its title and finding alone. Every card has a method note, one
+plain line on what it leaves out and why: a missing period, rows without a place, "associations, not causes". The
+rule that made a number (a threshold, a split, a median, a proxy, a baseline) goes on the info mark's back or in a
+folded "How we tested", never as the card's first words; a reader who checks a number finds it on the same card. **No sentence is typed:** a verdict ("Yes."), a
 count of months, a period, a superlative ("the most of any month") comes from the rows, and a claim the rows do not
 support is left out; no number goes in a static caption, sub-line or legend, where a refresh would leave it wrong. A
 change between small groups shows only where the model's threshold says there is enough, and the card says how many
@@ -208,7 +216,7 @@ On top of the checks in `data-app-page`:
 - The interaction check prints no `FIND` line, or each one is named in the hand-over with its reason:
   `node "$T/check_interactions.mjs" <package>/index.html`, with `$T` the templates folder from `reference/app-frame.md`.
   It clicks a mark in every chart, drags across a chart that takes a span, hovers for the tooltip and tries every
-  control, on every view.
+  control, on every view. A guess adds `--views` with its explorer's views, since its deck has no cards.
 - A link opened from low on a view lands at the top of the next view.
 - Search finds an entity by part of its name and opens its page; Back returns to where the reader was.
 - Clearing every chip returns Explore to how it loads.
