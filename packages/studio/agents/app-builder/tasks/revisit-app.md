@@ -48,7 +48,7 @@ instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rat
    `styles.css` as an override of that theme, and the palette check in `reference/palette-check.md` passes in both
    modes. Keep every view the app has. Load every view in the box and check that each
    card's info mark opens and closes and Credible's logo shows, at both widths, in light and dark. If the Overview has
-   no first screen (no `.headline`), give it one as `data-app-page` 'The page' says, from the template's `overview()`,
+   no first screen (no `.headline`) and the app is not a guess, give it one as `data-app-page` 'The page' says, from the template's `overview()`,
    with its `wireSearch()`, `selfCheck()`, `checkBanner()` and the `checkBanner` line in `boot()`'s `catch`, the
    first screen's rules in `styles.css` (from the comment `/* The Overview's first screen` up to the comment
    `/* Headline numbers`) and its `.self-check` rules, add `numbers` to the headline numbers card's `cls`, and

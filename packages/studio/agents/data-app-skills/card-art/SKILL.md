@@ -11,7 +11,8 @@ site; if it fails the check, the card is drawn from the app's name and colour in
 
 ## What to draw
 
-The card should look like the app a visitor is about to open, at a glance and at half size on a phone.
+The card should look like the app a visitor is about to open, at a glance and at half size on a phone. A guess's
+card shows the history up to the hidden band, never the months it hides.
 
 - **The app's lead view, in miniature.** The chart a visitor sees first, and the one nothing else in the catalogue
   looks like: a hex map of where the fires started, a county map shaded by share, an aspect rose, a chamber's odds

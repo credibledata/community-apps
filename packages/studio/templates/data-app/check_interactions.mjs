@@ -106,7 +106,7 @@ async function checkView(page, view) {
   await open(page, view)
   const label = view || 'overview'
   const cardNames = await names(page)
-  if (!cardNames.length) return notes.push(`${label}: no cards`)
+  if (!cardNames.length) return only ? find(label, 'view', 'no cards after 30 s') : notes.push(`${label}: no cards`)
   // A view with scope controls is one a reader filters: there, a chart that takes no click or drag is a finding.
   const filterable = (await page.locator('select:visible').count()) > 0
   let clickable = 0
@@ -263,7 +263,7 @@ async function checkMode() {
   }
   const light = await colour('light')
   const dark = await colour('dark')
-  if (light === dark) find('page', 'light and dark', `the page stays ${light} in a dark system: it does not follow the reader's mode`)
+  if (light === dark) find('page', 'light and dark', `the page is ${light} in both a light and a dark system: it does not follow the reader's mode`)
   else notes.push(`page | light and dark | follows the reader's mode (${light}, ${dark})`)
 }
 
@@ -275,7 +275,8 @@ try {
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`.slice(0, 200)))
   page.on('console', (m) => m.type() === 'error' && errors.push(`console: ${m.text()}`.slice(0, 200)))
   await page.goto(base, { waitUntil: 'load' })
-  await page.waitForSelector(CARDS, { timeout: 30000 }).catch(() => notes.push('page | no cards on the first view after 30 s'))
+  // A first view with no cards is a broken app, unless --views names the views to check (a guess's deck has none).
+  if (!only) await page.waitForSelector(CARDS, { timeout: 30000 }).catch(() => find('page', 'first view', 'no cards after 30 s: the app drew nothing'))
   const list = only || (await views(page))
   for (const view of list.length ? list : ['']) await checkView(page, view)
 } finally {

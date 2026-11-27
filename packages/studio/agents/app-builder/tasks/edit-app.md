@@ -14,6 +14,9 @@ name what is left under "What is next".
 
 ## The read
 
+A guess or a case (the brief's `Type`) has its own file in `data-app-explorer`'s `reference/`: read it first;
+where it differs from a check below on the headline, the first screen or the post, it wins.
+
 For each question under "The questions":
 
 1. **Is it answered?** A reader finds the answer in a sentence on the Overview or on the view for that question,

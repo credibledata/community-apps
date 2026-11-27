@@ -77,13 +77,14 @@ news. Set the app's on `<html>` in `index.html`: `<html lang="en" data-theme="la
   PY
   ```
 
-  Shortlist the two or three themes that fit the subject best. A subject always fits more than one: energy is
-  `ember`'s heat and `graphite`'s infrastructure, prices are `ember`'s cost of living and `graphite`'s markets, a
-  disease is `lagoon`'s public health and `meadow`'s health. Drop any the listed apps use more than the others on
-  the shortlist. Then take the shortlist in the table's order and pick the one at position (characters in the
-  package's name) mod (how many are on it), counting from zero: two apps built at once cannot see each other, and
-  this spreads them. An app with no
-  `data-theme` predates the themes. Say in the hand-over which theme you chose and why.
+  List the three themes that fit the subject best. A subject always fits more than one: energy is `ember`'s heat
+  and `graphite`'s infrastructure, prices are `ember`'s cost of living and `graphite`'s markets, a disease is
+  `lagoon`'s public health and `meadow`'s health. Order the three by how many other listed apps use each (a revisit leaves its own app out; when the listing
+  fails, every count is zero), fewest first,
+  ties in the table's order, and keep the first two. Pick the one at position (characters in the package's name)
+  mod 2, counting from zero: two apps built at once cannot see each other, and this splits them whenever their
+  names differ in length by an odd number. An app with no `data-theme` predates the themes. Say in the hand-over
+  which theme you chose, the two you kept, and why.
 - **Light and dark.** With no `data-mode` the reader's system setting decides; `?mode=dark` in the address shows the
   dark page, and `?theme=` another theme. The frame draws every chart again when either changes. Shoot both modes.
 - **Meanings are the app's; colours are the theme's.** Write what each category means in a comment at the top of
@@ -127,7 +128,7 @@ Three starting looks:
 Choose from the data and its reader, never from how the brief arrived: a story in the news is only how the subject
 was found, and the app is about the data. Start from the look whose character fits the subject:
 numbers a reader scans and compares (prices, output, jobs, counts) suit Ledger or Band; a subject read slowly, with
-many caveats or a long history, suits Masthead. Shortlist the two looks that fit best, drop one the apps listed
-under "Colour" use more (Band has no `data-masthead`, Masthead's is `light`, Ledger's is `bar`), and pick between
-the two left by the same position as the theme. Then change one or two choices so the app is its own, and say in the hand-over which look you started from and what you changed. Whatever the
+many caveats or a long history, suits Masthead. Keep the two looks that fit best and pick between
+them by the same position as the theme. A look shows in the listing under "Colour" as its `data-masthead` (Masthead's
+is `light`, Ledger's is `bar`, Band has none). Then change one or two choices so the app is its own, and say in the hand-over which look you started from and what you changed. Whatever the
 look, check the header and the scope bar at 390 px and the focus ring on each.

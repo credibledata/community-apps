@@ -1,8 +1,9 @@
 # The case
 
 An app type, chosen when the brief's `Type` is `case`. Read it before planning the app: where it differs from
-`SKILL.md` on the app's shape, it wins. Every other rule holds: every number from a Malloy view, open licenses, the
-first-screen check, the editor's read, and the page reading as plain sentences.
+`SKILL.md`, `data-app-page`, the editor's read or a revisit on the app's shape, it wins: the headline is the change
+as a question, and the post asks it rather than giving a verdict. Every other rule holds: every number from a Malloy
+view, open licenses, the headline check, the editor's read, and the page reading as plain sentences.
 
 **The promise to the reader:** "Something changed. Here are the explanations people give. See how each one holds up
 against the data, then test your own." The reader does not get a verdict; they get the suspects, a fair test for
@@ -12,7 +13,7 @@ each, and an open row for theirs, which is a question to Credible's agent.
 
 A change people argue about the cause of, with rival explanations in the news, and data at a place grain (states,
 counties, countries; at least 30 places) for the change and for each explanation. A topic with fewer than three
-suspects testable by place is not a case.
+suspects testable by place is not a case; a board holds three to six.
 
 ## The board
 
@@ -25,11 +26,11 @@ Build it on the frame in `reference/app-frame.md`, with the board as the Overvie
 4. **How to read the board**, in two sentences, before the suspects: "Below are the reasons people give. For each, we
    compared the states where it should matter most with the rest: if it drove the rise, those states should have
    risen more."
-5. **The suspects**, four to six chips, "Tap the one you believe". Each takes its stamp once opened.
+5. **The suspects**, three to six chips, "Tap the one you believe". Each takes its stamp once opened.
 6. **Your suspect**: an open row that sends the reader's own explanation to Credible's agent, and three ready
    questions for suspects not tested.
-7. **Find your state**: the find box, opening the state's page, which shows its change and where it falls on every
-   test.
+7. **Find your state**: the header's search, opening the state's page, which shows its change and where it falls on
+   every test. The board has no find box of its own, so its first screen is items 1 to 4.
 
 ## A test card
 

@@ -1,8 +1,9 @@
 # The guess
 
 An app type, chosen when the brief's `Type` is `guess`. Read it before planning the app: where it differs from
-`SKILL.md` on the app's shape, it wins. Every other rule holds: every number from a Malloy view, open licenses, the
-first-screen check, the editor's read, and the page reading as plain sentences.
+`SKILL.md`, `data-app-page`, the editor's read, `card-art` or a revisit on the app's shape, it wins: a guess has no
+headline, and nothing it ships (the post, `card.svg`, the share image) shows the months it hides. Every other rule
+holds: every number from a Malloy view, open licenses, the editor's read, and the page reading as plain sentences.
 
 **The promise to the reader:** "Mark where you think the number is. Then see where it really is, and how far off you
 were." The reader commits a belief before the app shows the answer. In every other type the page speaks first.
@@ -54,8 +55,10 @@ values, so it spoils nothing).
   on the hidden answer, and never so tall that the visible line sits in the bottom third.
 - **One cut date for every round in a deck.** Move it a year each way while planning: when that changes a round's
   story, say so on About.
-- **No answer before lock-in:** not in the title, the question, the post, the share image or any query the page runs.
-  Only `round_visible` runs before lock-in.
+- **No answer before lock-in:** not in the title, the question, the post, the card art, the share image or any query
+  the page runs. Before lock-in the page runs only `round_info` and `round_visible`, never `grade` and never a frame
+  query that reaches past the cut date. The frame's nav, search and entity pages show the hidden months, so the deck
+  hides them, and the explorer opens only from the score card.
 
 ## The model
 
@@ -78,6 +81,8 @@ On top of `SKILL.md`'s:
 - Play the deck yourself at phone width, locking in a guess well above and well below each answer, and read each
   grade aloud: does it say what happened while hidden, and is every sentence true for that guess?
 - A scripted play-through shows only `round_info` and `round_visible` run before lock-in, in every round.
+- The interaction check runs with `--views` set to the explorer's views: the deck has no cards. Its light and dark
+  test applies to the deck.
 - The first screen at 390 x 844 holds the question, the whole chart with its hidden band, the guess value and the
   button.
 - The frame's headline check is built for a headline, which this type's first screen has none of; in its place,

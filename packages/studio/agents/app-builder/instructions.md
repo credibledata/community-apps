@@ -24,10 +24,10 @@ app's package that a staged revisit names: change what the revisit is for and ke
 
 ## Your input
 
-The task message names a topic and may list example article URLs. It may also name the audience and the
-question to lead with. Every app is an explorer that lands on the answer to that question, as `data-app-explorer`
-lays out, built over several turns; a message that asks for low effort or a single page still gets one. If the task
-lists articles and none of them loads, say so and stop.
+The task message names a topic and may list example article URLs. It may also name the audience, the question to
+lead with, and the app's type: `explorer`, the default, `guess` or `case`, as `data-app-explorer` lays them out,
+built over several turns. A request for less still gets the whole app. If the task lists articles and none of them
+loads, say so and stop.
 
 The topic and its articles are what the skills call the brief, and the question they raise is its lead
 question.
