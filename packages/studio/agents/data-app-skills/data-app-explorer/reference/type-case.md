@@ -1,8 +1,10 @@
 # The case
 
-An app type, chosen when the brief's `Type` is `case`. Read it before planning the app: where it differs from
-`SKILL.md`, `data-app-page`, the editor's read or a revisit on the app's shape, it wins: the headline is the change
-as a question, and the post asks it rather than giving a verdict. Every other rule holds: every number from a Malloy
+An app type, chosen when the brief's `Type` is `case`. Read it before planning the app: where it differs from your
+instructions, a task or another skill on the app's shape, it wins: the headline is the change as a question, and the
+post and the card's blurb ask it rather than giving a verdict. The README's first line under its title is
+`Type: case`, which a revisit reads. When fewer than three suspects can be tested by place, build an explorer and say
+why in the hand-over. Every other rule holds: every number from a Malloy
 view, open licenses, the headline check, the editor's read, and the page reading as plain sentences.
 
 **The promise to the reader:** "Something changed. Here are the explanations people give. See how each one holds up
@@ -69,7 +71,8 @@ Tapping a suspect opens its card in place. Top to bottom:
 
 - `outcome`: the change, national and by place. One source per suspect's exposure, keyed on the same places.
 - One view per suspect, `test_<name>`: the split by the documented rule, each group's change, size and members, the
-  gap, and `verdict` as a `pick` on the two documented thresholds. `board`: one row per suspect with its verdict, and
+  gap on the documented split and on the second split, and `verdict` as a `pick` on the two documented thresholds
+  over both: "cannot tell" when the two splits disagree. `board`: one row per suspect with its verdict, and
   the counts for the summary sentence.
 
 ## Checks before hand-over

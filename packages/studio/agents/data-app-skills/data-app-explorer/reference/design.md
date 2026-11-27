@@ -128,7 +128,7 @@ Three starting looks:
 Choose from the data and its reader, never from how the brief arrived: a story in the news is only how the subject
 was found, and the app is about the data. Start from the look whose character fits the subject:
 numbers a reader scans and compares (prices, output, jobs, counts) suit Ledger or Band; a subject read slowly, with
-many caveats or a long history, suits Masthead. Keep the two looks that fit best and pick between
-them by the same position as the theme. A look shows in the listing under "Colour" as its `data-masthead` (Masthead's
+many caveats or a long history, suits Masthead. Keep the two looks that fit best, in the order
+Band, Masthead, Ledger, and pick between them by the same position as the theme. A look shows in the listing under "Colour" as its `data-masthead` (Masthead's
 is `light`, Ledger's is `bar`, Band has none). Then change one or two choices so the app is its own, and say in the hand-over which look you started from and what you changed. Whatever the
 look, check the header and the scope bar at 390 px and the focus ring on each.

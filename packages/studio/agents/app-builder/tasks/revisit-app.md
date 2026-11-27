@@ -22,7 +22,7 @@ instructions keep to `publish_package`. If GitHub refuses a read (a 403 or a rat
    any app an open pull request at https://github.com/credibledata/community-apps/pulls already changes. Pick the
    one whose last change is oldest. If every app changed in the last 30 days, stop and say so: nothing is due.
 2. **Look before you stage.** Read its `README.md`, `publisher.json` and `public/app.js` on GitHub. Note, for the
-   instruction: the date its data runs to (the README's sources table), what its frame lacks against the studio's
+   instruction, its `Type:` line (a guess or a case follows its file in `data-app-explorer`'s `reference/`), the date its data runs to (the README's sources table), what its frame lacks against the studio's
    template (an info mark on each card, a theme on `<html>`, a first screen with a headline), and the "What is next" its README or pull request
    named.
 3. **Stage the revisit.** If `stage_work` is not offered to you, stop and say the revisit needs someone who can

@@ -14,7 +14,7 @@ designed, like the avalanche explorer in this repository (`packages/avalanche`) 
 with charts. Everything `data-app-page` says about sources, caveats, the hand-off to Credible's agent and
 screenshots still holds.
 
-**The app's type.** The brief's `Type` names it: `explorer`, this skill as it stands and the default; `guess`, where
+**The app's type.** The brief's `Type` names it, and in a published app the README's `Type:` line: `explorer`, this skill as it stands and the default; `guess`, where
 the reader commits a number before seeing it (`reference/type-guess.md`); or `case`, where rival explanations for a
 change are each tested against the data (`reference/type-case.md`). For a guess or a case, read its file before
 planning: it sets the first screen and the views, and the explorer below becomes the app's "all the data".

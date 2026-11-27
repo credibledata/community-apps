@@ -14,8 +14,8 @@ name what is left under "What is next".
 
 ## The read
 
-A guess or a case (the brief's `Type`) has its own file in `data-app-explorer`'s `reference/`: read it first;
-where it differs from a check below on the headline, the first screen or the post, it wins.
+A guess or a case (the brief's `Type`, or the README's `Type:` line) has its own file in `data-app-explorer`'s
+`reference/`: read it first; where it differs from a check below, it wins, and its own checks run as well.
 
 For each question under "The questions":
 

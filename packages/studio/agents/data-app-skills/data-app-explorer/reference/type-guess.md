@@ -1,9 +1,13 @@
 # The guess
 
-An app type, chosen when the brief's `Type` is `guess`. Read it before planning the app: where it differs from
-`SKILL.md`, `data-app-page`, the editor's read, `card-art` or a revisit on the app's shape, it wins: a guess has no
-headline, and nothing it ships (the post, `card.svg`, the share image) shows the months it hides. Every other rule
-holds: every number from a Malloy view, open licenses, the editor's read, and the page reading as plain sentences.
+An app type, chosen when the brief's `Type` is `guess`. Read it before planning the app: where it differs from your
+instructions, a task or another skill on the app's shape, it wins. A guess has no headline: its headline line in the
+hand-over, and its post, ask the first round's question and link the deck. Nothing it ships shows the months it
+hides: not the post, `card.svg`, the card's blurb in `community-card.json`, the description in `publisher.json`, the
+README (its "The questions" says what each round asks, never the answer) or About. The README's first line under its
+title is `Type: guess`, which a revisit reads. When the data cannot fill five rounds by the rules below, build an
+explorer and say why in the hand-over. Every other rule holds: every number from a Malloy view, open licenses, the
+editor's read, and the page reading as plain sentences.
 
 **The promise to the reader:** "Mark where you think the number is. Then see where it really is, and how far off you
 were." The reader commits a belief before the app shows the answer. In every other type the page speaks first.
@@ -49,16 +53,19 @@ values, so it spoils nothing).
   a reader feel foolish. A round most people would get right comes out. At most one round where the answer is "it
   barely moved".
 - **The window shows enough history to guess from, and leaves enough hidden to see.** Start the chart so the hidden
-  span is at least a quarter of its width: with a year or two hidden, show about six to eight years, not twenty.
+  span is at least a quarter of its width: with a year hidden, show three or four years; with two, six to eight.
 - **The scale is fixed before the answer is looked at, and fits the history.** From zero to the larger of 1.5 times
   the highest visible value and the visible value rounded up to a clean step; for a share, 0 to 100. Never centred
-  on the hidden answer, and never so tall that the visible line sits in the bottom third.
+  on the hidden answer, and never so tall that the visible line sits in the bottom third. When a hidden value would
+  sit above the top, raise the top to the next clean step above it: a dot that cannot reach the answer is worse than
+  a tall scale.
 - **One cut date for every round in a deck.** Move it a year each way while planning: when that changes a round's
   story, say so on About.
 - **No answer before lock-in:** not in the title, the question, the post, the card art, the share image or any query
   the page runs. Before lock-in the page runs only `round_info` and `round_visible`, never `grade` and never a frame
   query that reaches past the cut date. The frame's nav, search and entity pages show the hidden months, so the deck
-  hides them, and the explorer opens only from the score card.
+  hides them and links the explorer only from the score card. Their addresses still open, for a shared link and the
+  interaction check, under a line that says they show the deck's answers.
 
 ## The model
 
