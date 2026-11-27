@@ -81,8 +81,8 @@ news. Set the app's on `<html>` in `index.html`: `<html lang="en" data-theme="la
   and `graphite`'s infrastructure, prices are `ember`'s cost of living and `graphite`'s markets, a disease is
   `lagoon`'s public health and `meadow`'s health. Order the three by how many other listed apps use each (a revisit leaves its own app out; when the listing
   fails, every count is zero), fewest first,
-  ties in the table's order, and keep the first two. Pick the one at position (characters in the package's name)
-  mod 2, counting from zero: two apps built at once cannot see each other, and this splits them whenever their
+  ties in order of fit, and keep the first two. Pick the one at position (characters in the package's name, hyphens
+  included) mod 2, counting from zero: two apps built at once cannot see each other, and this splits them whenever their
   names differ in length by an odd number. An app with no `data-theme` predates the themes. Say in the hand-over
   which theme you chose, the two you kept, and why.
 - **Light and dark.** With no `data-mode` the reader's system setting decides; `?mode=dark` in the address shows the

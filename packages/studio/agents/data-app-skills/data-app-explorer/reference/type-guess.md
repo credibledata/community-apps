@@ -61,7 +61,7 @@ values, so it spoils nothing).
   a tall scale.
 - **One cut date for every round in a deck.** Move it a year each way while planning: when that changes a round's
   story, say so on About.
-- **No answer before lock-in:** not in the title, the question, the post, the card art, the share image or any query
+- **No answer before lock-in:** not in the title, the question, the post, the card art or any query
   the page runs. Before lock-in the page runs only `round_info` and `round_visible`, never `grade` and never a frame
   query that reaches past the cut date. The frame's nav, search and entity pages show the hidden months, so the deck
   hides them and links the explorer only from the score card. Their addresses still open, for a shared link and the

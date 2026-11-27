@@ -216,7 +216,7 @@ On top of the checks in `data-app-page`:
 - The interaction check prints no `FIND` line, or each one is named in the hand-over with its reason:
   `node "$T/check_interactions.mjs" <package>/index.html`, with `$T` the templates folder from `reference/app-frame.md`.
   It clicks a mark in every chart, drags across a chart that takes a span, hovers for the tooltip and tries every
-  control, on every view.
+  control, on every view. A guess adds `--views` with its explorer's views, since its deck has no cards.
 - A link opened from low on a view lands at the top of the next view.
 - Search finds an entity by part of its name and opens its page; Back returns to where the reader was.
 - Clearing every chip returns Explore to how it loads.

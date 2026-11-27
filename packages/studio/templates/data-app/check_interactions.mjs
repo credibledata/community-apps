@@ -275,8 +275,13 @@ try {
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`.slice(0, 200)))
   page.on('console', (m) => m.type() === 'error' && errors.push(`console: ${m.text()}`.slice(0, 200)))
   await page.goto(base, { waitUntil: 'load' })
-  // A first view with no cards is a broken app, unless --views names the views to check (a guess's deck has none).
-  if (!only) await page.waitForSelector(CARDS, { timeout: 30000 }).catch(() => find('page', 'first view', 'no cards after 30 s: the app drew nothing'))
+  // A first view with no cards is a broken app, unless --views names the views to check (a guess's deck has none);
+  // then an error while the first view loads is the finding.
+  if (!only) await page.waitForSelector(CARDS, { timeout: 30000 }).catch(() => find('page', 'first view', 'no cards after 30 s: the app drew nothing (a first view with no cards, such as a guess\'s deck, is checked with --views and the views that have cards)'))
+  else {
+    await page.waitForTimeout(3000)
+    if (errors.length) find('page', 'first view', `an error while it loads: ${errors[0]}`)
+  }
   const list = only || (await views(page))
   for (const view of list.length ? list : ['']) await checkView(page, view)
 } finally {
