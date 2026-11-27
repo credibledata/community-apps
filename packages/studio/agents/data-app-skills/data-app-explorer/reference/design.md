@@ -57,12 +57,18 @@ news. Set the app's on `<html>` in `index.html`: `<html lang="en" data-theme="la
   import json, re, urllib.request
   api = 'https://api.github.com/repos/credibledata/community-apps'
   get = lambda u: urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': 'community-apps-studio'}), timeout=20).read().decode()
+  def listed(u):
+      try:
+          return json.loads(get(u))
+      except Exception as e:
+          print('listing incomplete:', u, e)
+          return []
   seen = {}
-  for d in json.loads(get(f'{api}/contents/packages')):
+  for d in listed(f'{api}/contents/packages'):
       if d['type'] == 'dir' and d['name'] != 'studio':
           seen[d['name']] = f"https://raw.githubusercontent.com/credibledata/community-apps/main/packages/{d['name']}/public/index.html"
-  for pr in json.loads(get(f'{api}/pulls?state=open&per_page=50')):
-      for f in json.loads(get(f"{api}/pulls/{pr['number']}/files?per_page=100")):
+  for pr in listed(f'{api}/pulls?state=open&per_page=50'):
+      for f in listed(f"{api}/pulls/{pr['number']}/files?per_page=100"):
           m = re.match(r'packages/([^/]+)/public/index\.html$', f['filename'])
           if m:
               seen[m.group(1)] = f['raw_url']
@@ -80,7 +86,7 @@ news. Set the app's on `<html>` in `index.html`: `<html lang="en" data-theme="la
   List the three themes that fit the subject best. A subject always fits more than one: energy is `ember`'s heat
   and `graphite`'s infrastructure, prices are `ember`'s cost of living and `graphite`'s markets, a disease is
   `lagoon`'s public health and `meadow`'s health. Order the three by how many other listed apps use each (a revisit leaves its own app out; when the listing
-  fails, every count is zero), fewest first,
+  prints `listing incomplete`, say so in the hand-over and count what it printed), fewest first,
   ties in order of fit, and keep the first two. Pick the one at position (characters in the package's name, hyphens
   included) mod 2, counting from zero: two apps built at once cannot see each other, and this splits them whenever their
   names differ in length by an odd number. An app with no `data-theme` predates the themes. Say in the hand-over

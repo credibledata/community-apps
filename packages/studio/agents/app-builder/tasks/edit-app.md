@@ -44,8 +44,8 @@ Then for the app as a whole:
    ```
 
    It takes three or four minutes; `--views explore` checks one view. Each `FIND` line is a chart with nothing to
-   click, a click that redraws no other card, a filter that does not clear, a tooltip missing, or a control that
-   changes nothing. Fix each (pass `onPick` and `selected`, or `onBrush`, as `data-app-explorer` says), or name it
+   click, a click that redraws no other card, a filter that does not clear, a tooltip missing, a control that
+   changes nothing, a view with no cards, or a page that does not follow the reader's light or dark mode. Fix each (pass `onPick` and `selected`, or `onBrush`, as `data-app-explorer` says), or name it
    under "The editor's read" with its reason, such as a card that is meant to ignore a filter and says so in its
    method note. Run it again after the fixes.
 6. **What would a reader ask next** that the app cannot answer? When a dataset already in the package answers it,
@@ -80,8 +80,9 @@ Then read it as a stranger who opens it from a post, knowing nothing but the pos
 12. **Can a stranger read every card?** Read each card's title and first sentence aloud, as to someone who has
     never seen the subject: do they know what is being compared, by name, and what it shows? Rewrite any that leads
     with method (a threshold, a split, a median, a proxy) in plain words, and fold the method under it.
-13. **Is it its own app, in both modes?** Its theme and look follow `data-app-explorer`'s `reference/design.md`
-    rule against the apps it lists, and the interaction check's light and dark test passes.
+13. **Is it its own app, in both modes?** The hand-over names its theme and look and the two kept for each, by
+    `data-app-explorer`'s `reference/design.md` rule; check the reasoning, but never pick again, since `card.svg` and
+    a published app's look rest on the pick. The interaction check's light and dark test passes.
 
 ## Fix, then hand over
 

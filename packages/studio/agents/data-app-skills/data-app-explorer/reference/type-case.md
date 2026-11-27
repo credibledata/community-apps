@@ -19,7 +19,7 @@ suspects testable by place is not a case; a board holds three to six.
 
 ## The board
 
-Build it on the frame in `reference/app-frame.md`, with the board as the Overview view. Its first screen:
+Build it on the frame in `reference/app-frame.md`, with the board as the Overview view. Top to bottom:
 
 1. **The headline**: the change, with its number, as a question. "Home power prices are up **39%** since 2019. Why?"
 2. **One line** on what the number is: "The average US home price per kWh, **13.0¢** in 2019 and **18.1¢** in the

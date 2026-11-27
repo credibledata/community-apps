@@ -63,7 +63,9 @@ values, so it spoils nothing).
   story, say so on About.
 - **No answer before lock-in:** not in the title, the question, the post, the card art or any query
   the page runs. Before lock-in the page runs only `round_info` and `round_visible`, never `grade` and never a frame
-  query that reaches past the cut date. The frame's nav, search and entity pages show the hidden months, so the deck
+  query that reaches past the cut date. The frame's `boot()` lists run on load: limit each to the cut date, and set
+  its "Data through" line to the cut date ("Shown through December 2024") until the score card. The frame's nav,
+  search and entity pages show the hidden months, so the deck
   hides them and links the explorer only from the score card. Their addresses still open, for a shared link and the
   interaction check, under a line that says they show the deck's answers.
 
